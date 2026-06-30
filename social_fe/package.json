@@ -1,0 +1,65 @@
+{
+  "name": "social_fe",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@headlessui/react": "^2.2.4",
+    "@hookform/resolvers": "^5.1.1",
+    "@mui/material": "^7.2.0",
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@reduxjs/toolkit": "^2.8.2",
+    "axios": "^1.7.9",
+    "chart.js": "^4.5.0",
+    "chartjs-adapter-moment": "^1.0.1",
+    "clsx": "^2.1.1",
+    "js-cookie": "^3.0.5",
+    "lucide-react": "^0.563.0",
+    "moment": "^2.30.1",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^14.3.8",
+    "react-hook-form": "^7.58.1",
+    "react-icons": "^5.4.0",
+    "react-infinite-scroll-component": "^6.1.0",
+    "react-loading": "^2.0.3",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.1.1",
+    "react-scripts": "5.0.1",
+    "react-toastify": "^11.0.5",
+    "redux-thunk": "^3.1.0",
+    "socket.io-client": "^4.8.1",
+    "swiper": "^12.1.4",
+    "use-sound": "^5.0.0",
+    "yup": "^1.6.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

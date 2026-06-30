@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  backend:
+    env_file:
+      - ./social_be/.env
+    build:
+      context: ./social_be
+      dockerfile: Dockerfile
+    container_name: social_backend
+    ports:
+      - "5000:5000"
+      - "9229:9229"
+    volumes:
+      - ./social_be:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+    environment:
+      PORT: 5000
+      REDIS_URL: redis://redis:6379
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./social_fe
+      dockerfile: Dockerfile
+    container_name: social_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./social_fe:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://backend:5000
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: social_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  redis_data:

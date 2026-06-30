@@ -1,0 +1,482 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+@layer utilities {
+    .transition-50 {
+        transition: 0.5s;
+    }
+    .transition-100 {
+        transition: 1s;
+    }
+    .transition-20 {
+        transition: 0.2s;
+    }
+    a.active::after,
+    a:hover::before {
+        opacity: 1;
+    }
+    .dark a.active {
+        color: white;
+    }
+    .dark a.active::after {
+        background-color: white;
+    }
+    button.loading {
+        opacity: 0.6;
+    }
+    .content {
+        word-wrap: break-word;
+        max-width: 100%;
+    }
+    .box-comment {
+        max-width: calc(100% - 90px);
+    }
+    .css-11xur9t-MuiPaper-root-MuiTableContainer-root {
+        border-radius: 0px !important;
+    }
+    .dashboard {
+        @apply text-[#c96c88] hover:text-[#c24269] after:bg-[#c24269];
+    }
+    .messenger {
+        @apply text-[#26A69A] hover:text-[#00897B] after:bg-[#26A69A];
+    }
+    .admin {
+        @apply text-[#607D8B] hover:text-[#455A64] after:bg-[#607D8B];
+    }
+}
+
+@layer base {
+    body,
+    html {
+        font-family: 'Roboto', serif;
+        font-weight: 500;
+        @apply dark:bg-[#18191A] dark:text-[#e4e6eb] transition-50 bg-[#F0F2F5] text-[#050505];
+    }
+    .game {
+        font-family: PressStart2P, ui-serif, Georgia;
+        font-weight: 500;
+    }
+    .raleway {
+        font-family: Raleway, ui-serif, Georgia;
+        font-weight: 900;
+    }
+    .raleway-light {
+        font-family: Raleway-light, ui-serif, Georgia;
+        font-weight: 900;
+    }
+    .input-register {
+        @apply focus:ring-0 outline-none bg-white border-none w-full md:w-[400px] h-[30px] md:h-[40px] px-5 pr-10 md:px-5 rounded-[5px] text-sm md:text-[16px] text-black/80 dark:bg-[#242526] dark:text-white/80 font-medium dark:placeholder:text-white/40 placeholder:text-black/40;
+    }
+    .input-login {
+        @apply focus:ring-0 outline-none bg-white border-none w-full md:w-[400px] h-[30px] md:h-[40px] px-5 pr-10 md:px-5 rounded-[5px] text-sm md:text-[16px] text-black/80 dark:bg-[#242526] dark:text-white/80 font-medium dark:placeholder:text-white/40;
+    }
+    .icon-login {
+        @apply rounded-[40px] bg-white flex items-center justify-center w-full  h-[40px] md:h-[50px] transition-20 hover:bg-[#f4f6f8] dark:bg-[#9f9f9f] dark:hover:bg-white/80;
+    }
+    .modal-open {
+        @apply overflow-hidden;
+    }
+    .li-profile {
+        @apply py-4 dark:hover:bg-[#3A3B3C] rounded-lg cursor-pointer w-full text-center transition-20 relative font-semibold text-[15px] dark:text-[#b0b3b8] hover:bg-[#F2F2F2];
+    }
+    .li-profile.active::after {
+        @apply content-[''] absolute w-[80%] bottom-[-3px] left-[10%] h-[3px] bg-[#2e89ff];
+    }
+    .li-profile.active {
+        @apply text-[#2e89ff] hover:bg-inherit;
+    }
+
+    .btn-home {
+        @apply w-24 sm:w-28 md:w-32  md:py-0.5 font-bold relative bg-inherit hover:bg-gradient-to-r from-purple-500 to-pink-500 transition-50 hover:text-white text-base sm:text-xl;
+    }
+    .before-nav {
+        @apply before:absolute before:z-[100] before:top-[115%] before:text-white/80 before:bg-[#3A3B3C] before:text-[14px] before:px-2.5 before:py-1.5;
+    }
+    .chat-messages {
+        @apply flex flex-col h-[68vh] overflow-y-auto dark:bg-[#242526] dark:shadow-none rounded-md;
+        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    }
+}
+
+@layer components {
+    .layout-container {
+        max-width: 1280px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-top: 15px;
+        padding-bottom: 15px;
+    }
+    .container {
+        width: 80%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .style-3::-webkit-scrollbar-track {
+        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+        background-color: #f5f5f5;
+    }
+
+    .style-3::-webkit-scrollbar {
+        width: 8.5px;
+        background-color: #f5f5f5;
+        padding-right: 1px;
+    }
+
+    .style-3::-webkit-scrollbar-thumb {
+        background-color: #00897b;
+    }
+    .dark .style-3::-webkit-scrollbar-thumb {
+        background-color: #3fafcb;
+    }
+    .text-overflow-ellipsis {
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: calc(100% - 4px);
+    }
+    .box-shadow {
+        box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px;
+    }
+    .shadow-post {
+        box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
+    }
+    .shadow-rounded {
+        box-shadow: rgba(99, 99, 99, 0.2) 0 0 8px 1px;
+    }
+
+    .check-box {
+        @apply appearance-none w-[16px] h-[16px] rounded-md border border-gray-400 checked:bg-blue-600 checked:border-transparent checked:text-white focus:outline-none;
+    }
+
+    .weather-information {
+        @apply col-span-1 row-span-1 flex flex-col items-center justify-center w-full;
+    }
+    .weather-information h1 {
+        @apply text-base sm:text-[18px] font-bold;
+    }
+    .weather-information p {
+        @apply opacity-70;
+    }
+    .wave {
+        animation: animate 10s linear infinite;
+    }
+    .fly {
+        animation: fly 3s ease-in-out infinite;
+    }
+    .upToDown {
+        animation: up-to-down 10s linear infinite;
+    }
+    .bg-loading {
+        @apply dark:bg-[#8f9192] bg-[#d1d4d5] rounded-lg;
+    }
+    .boxed {
+        position: relative;
+        background-clip: padding-box;
+        border: 10px solid transparent;
+        background-color: black;
+        color: #fff;
+        border-radius: 6px;
+        z-index: 1;
+    }
+    .boxed::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        margin: -10px;
+        background-color: #0866ff;
+        border-radius: inherit;
+    }
+    .scroll-bar::-webkit-scrollbar-track {
+        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+        background-color: #f5f5f5;
+    }
+    .scroll-bar::-webkit-scrollbar-thumb {
+        background-color: #8eabb4;
+        border: 2px solid #8eabb4;
+    }
+    .scroll-bar::-webkit-scrollbar {
+        width: 5px;
+        background-color: #f5f5f5;
+    }
+    .sky.scroll-bar::-webkit-scrollbar-thumb {
+        background-color: #0284c7;
+        border: 2px solid #0284c7;
+    }
+    .green.scroll-bar::-webkit-scrollbar-thumb {
+        background-color: #009688;
+        border: 2px solid #009688;
+    }
+    .dark .scroll-bar::-webkit-scrollbar-thumb {
+        background-color: #242526;
+        border: 0.1px solid #242526;
+    }
+}
+
+.rounded-tl-lg {
+    border-top-left-radius: 0.5rem;
+}
+.rounded-tr-lg {
+    border-top-right-radius: 0.5rem;
+}
+.rounded-bl-lg {
+    border-bottom-left-radius: 0.5rem;
+}
+.rounded-br-lg {
+    border-bottom-right-radius: 0.5rem;
+}
+.css-11xur9t-MuiPaper-root-MuiTableContainer-root {
+    border-radius: 0px !important;
+}
+
+@keyframes animate {
+    0% {
+        background-position: 0;
+    }
+    100% {
+        background-position: 100vw;
+    }
+}
+@keyframes fly {
+    0% {
+        transform: translateY(-20px);
+    }
+    50% {
+        transform: translateY(20px);
+    }
+    100% {
+        transform: translateY(-20px);
+    }
+}
+
+@keyframes up-to-down {
+    0% {
+        background-position: 0;
+    }
+    100% {
+        background-position: 100vw;
+    }
+}
+
+/* scroll hide  */
+.custom-scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.custom-scrollbar-hide {
+    -ms-overflow-style: none; /* IE, Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+/* Overlay mờ dần */
+.modal-overlay {
+    animation: modalFadeIn 0.22s ease-out;
+}
+
+/* Form trượt từ trên xuống + fade */
+.modal-slide-down {
+    animation: modalSlideDown 0.28s ease-out;
+    transform-origin: top center;
+    will-change: transform, opacity;
+}
+
+/* Có thể tái sử dụng cho popup nhỏ hơn */
+.modal-slide-down-sm {
+    animation: modalSlideDownSm 0.22s ease-out;
+    transform-origin: top center;
+    will-change: transform, opacity;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes modalSlideDownSm {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ẩn scrollbar */
+.custom-scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.custom-scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.swiper-button-prev,
+.swiper-button-next {
+    width: 38px;
+    height: 38px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.45);
+    color: white;
+}
+
+.swiper-button-prev::after,
+.swiper-button-next::after {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.swiper-pagination-bullet {
+    background: rgba(255, 255, 255, 0.75);
+    opacity: 1;
+}
+
+.swiper-pagination-bullet-active {
+    background: white;
+}
+
+/* ─── Message bubble animations ─────────────────────────────────────── */
+@keyframes msgSlideRight {
+    from {
+        opacity: 0;
+        transform: translateX(18px) scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+@keyframes msgSlideLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-18px) scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+@keyframes msgFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes reactionPop {
+    0% {
+        transform: scale(0.4);
+        opacity: 0;
+    }
+    70% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+@keyframes typingDot {
+    0%,
+    80%,
+    100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.msg-me {
+    animation: msgSlideRight 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.msg-other {
+    animation: msgSlideLeft 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.msg-system {
+    animation: msgFadeUp 0.22s ease-out both;
+}
+.reaction-pop {
+    animation: reactionPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.typing-dot:nth-child(1) {
+    animation: typingDot 1.2s 0s infinite;
+}
+.typing-dot:nth-child(2) {
+    animation: typingDot 1.2s 0.2s infinite;
+}
+.typing-dot:nth-child(3) {
+    animation: typingDot 1.2s 0.4s infinite;
+}
+
+/* Image hover zoom */
+.msg-image {
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+.msg-image:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Scroll Modal in Dashboard  */
+.custom-modal-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.custom-modal-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-modal-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 12px 0;
+}
+
+.custom-modal-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.55), rgba(6, 182, 212, 0.55));
+    border-radius: 999px;
+}
+
+.custom-modal-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.8), rgba(8, 145, 178, 0.8));
+}
