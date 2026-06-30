@@ -1,6 +1,14 @@
 name: Backend CI
 
 on:
+  push:
+    branches:
+      - DEV
+      - UAT
+      - main
+    paths:
+      - "backend/**"
+
   pull_request:
     branches:
       - DEV
@@ -17,18 +25,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
         working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Check Python syntax
-        working-directory: backend
-        run: |
-          python -m compileall .
+        run: npm ci
