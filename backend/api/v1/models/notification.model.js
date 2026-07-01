@@ -24,6 +24,7 @@ const notificationSchema = new mongoose.Schema(
         "post_comment",
         "comment_reply",
         "mention",
+        "study_room_invite",
       ],
       required: true,
     },
@@ -45,7 +46,7 @@ const notificationSchema = new mongoose.Schema(
 
     refType: {
       type: String,
-      enum: ["user", "post", "comment", "roomChat", null],
+      enum: ["user", "post", "comment", "roomChat", "studyRoom", null],
       default: null,
     },
 

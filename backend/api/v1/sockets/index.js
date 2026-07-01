@@ -1,5 +1,6 @@
 const chatSocket = require("./chat.socket");
 const postCommentSocket = require("./postComment.socket");
+const studyRoomSocket = require("./studyRoom.socket");
 const socketMiddleware = require("../middlewares/socket.middleware");
 
 const { redisClient } = require("../../../config/redis");
@@ -45,6 +46,7 @@ module.exports = () => {
 
       chatSocket(socket);
       postCommentSocket(socket);
+      studyRoomSocket(socket);
 
       socket.on("disconnect", async (reason) => {
         console.log("client disconnected:", socket.id, reason);
@@ -60,6 +62,48 @@ module.exports = () => {
 
         if (remainingSockets === 0) {
           await redisClient.sRem("online_users", userId);
+
+          // Tự động rời khỏi bất kỳ phòng học nào đang tham gia
+          try {
+            const StudyRoom = require("../models/studyRoom.model");
+            const activeRoom = await StudyRoom.findOne({
+              status: "active",
+              "members.user": userId,
+            });
+
+            if (activeRoom) {
+              activeRoom.members = activeRoom.members.filter(
+                (m) => m.user.toString() !== userId,
+              );
+              activeRoom.membersCount = activeRoom.members.length;
+
+              if (activeRoom.membersCount === 0) {
+                activeRoom.emptyAt = new Date();
+              } else {
+                const hasHost = activeRoom.members.some((m) => m.role === "host");
+                if (!hasHost && activeRoom.members.length > 0) {
+                  activeRoom.members[0].role = "host";
+                }
+              }
+
+              await activeRoom.save();
+
+              // Báo cho những người còn lại trong phòng biết
+              global._io
+                .to(activeRoom._id.toString())
+                .emit("SERVER_STUDY_ROOM_MEMBER_LEFT", {
+                  roomId: activeRoom._id,
+                  userId: userId,
+                  membersCount: activeRoom.membersCount,
+                });
+
+              console.log(
+                `🧹 Cleaned up user ${userId} from study room ${activeRoom._id} on disconnect`,
+              );
+            }
+          } catch (err) {
+            console.error("Auto leave study room on disconnect error:", err);
+          }
 
           const lastActiveAt = new Date().toISOString();
 
