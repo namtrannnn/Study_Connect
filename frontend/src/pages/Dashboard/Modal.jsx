@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     X,
     ImagePlus,
@@ -23,6 +24,7 @@ import {
     MapPin,
     AtSign,
     UserCheck,
+    Pencil,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -117,7 +119,9 @@ const VISIBILITIES = [
     },
 ];
 
-function Modal({ setOpenModal, user, onCreated }) {
+function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated }) {
+    const isEdit = mode === 'edit';
+
     const [postType, setPostType] = useState('normal');
     const [category, setCategory] = useState('other');
     const [caption, setCaption] = useState('');
@@ -125,6 +129,8 @@ function Modal({ setOpenModal, user, onCreated }) {
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [location, setLocation] = useState('');
+    // Ảnh cũ đã có trên server (chỉ dùng ở mode edit)
+    const [existingMedia, setExistingMedia] = useState([]);
     const [selectedMentions, setSelectedMentions] = useState([]);
     const [mentionKeyword, setMentionKeyword] = useState('');
     const [mentionSuggestions, setMentionSuggestions] = useState([]);
@@ -165,6 +171,58 @@ function Modal({ setOpenModal, user, onCreated }) {
         description: '',
         isOpen: true,
     });
+
+    // Điền dữ liệu cũ khi ở mode edit
+    useEffect(() => {
+        if (!isEdit || !post) return;
+
+        setPostType(post.postType || 'normal');
+        setCategory(post.category || 'other');
+        setCaption(post.caption || post.content || '');
+        setVisibility(post.visibility || post.privacy || 'public');
+        setLocation(post.location || '');
+        setAllowComments(post.allowComments ?? true);
+        setHideLikeCount(post.hideLikeCount ?? false);
+        setHideShare(post.hideShare ?? false);
+        setImages([]);
+        // Load ảnh cũ đã có trên server
+        setExistingMedia(Array.isArray(post.media) ? post.media : []);
+
+        if (post.project) {
+            const githubLink = post.project.links?.find((l) => l.type === 'github');
+            const demoLink = post.project.links?.find((l) => l.type === 'demo');
+            setProject({
+                projectName: post.project.projectName || '',
+                summary: post.project.summary || '',
+                toolsText: (post.project.tools || []).join(', '),
+                progress: post.project.progress ?? 0,
+                status: post.project.status || 'in_progress',
+                githubUrl: githubLink?.url || '',
+                demoUrl: demoLink?.url || '',
+            });
+        }
+        if (post.question) {
+            setQuestion({ title: post.question.title || '', detail: post.question.detail || '' });
+        }
+        if (post.learning) {
+            const res = post.learning.resources?.[0];
+            setLearning({
+                title: post.learning.title || '',
+                goal: post.learning.goal || '',
+                progressText: post.learning.progressText || '',
+                resourceTitle: res?.title || '',
+                resourceUrl: res?.url || '',
+            });
+        }
+        if (post.collaboration) {
+            setCollaboration({
+                title: post.collaboration.title || '',
+                neededRolesText: (post.collaboration.neededRoles || []).join(', '),
+                description: post.collaboration.description || '',
+                isOpen: post.collaboration.isOpen ?? true,
+            });
+        }
+    }, [isEdit, post]);
     const selectedPostType = POST_TYPES.find((item) => item.value === postType);
     const SelectedPostIcon = selectedPostType?.icon || Sparkles;
     const selectedVisibility = VISIBILITIES.find((item) => item.value === visibility);
@@ -435,18 +493,19 @@ function Modal({ setOpenModal, user, onCreated }) {
             formData.append('hideLikeCount', String(hideLikeCount));
             formData.append('hideShare', String(hideShare));
 
-            const mentions = selectedMentions
-                .filter((item) => {
-                    const username = item.username || '';
-                    return username && caption.includes(`@${username}`);
-                })
-                .map((item) => item._id || item.id)
-                .filter(Boolean);
-            console.log('mentions:', mentions);
-            const allowedUsers = visibility === 'custom' ? parseIdList(allowedUsersText) : [];
+            if (!isEdit) {
+                const mentions = selectedMentions
+                    .filter((item) => {
+                        const username = item.username || '';
+                        return username && caption.includes(`@${username}`);
+                    })
+                    .map((item) => item._id || item.id)
+                    .filter(Boolean);
 
-            formData.append('mentions', JSON.stringify(mentions));
-            formData.append('allowedUsers', JSON.stringify(allowedUsers));
+                const allowedUsers = visibility === 'custom' ? parseIdList(allowedUsersText) : [];
+                formData.append('mentions', JSON.stringify(mentions));
+                formData.append('allowedUsers', JSON.stringify(allowedUsers));
+            }
 
             if (postType === 'project') {
                 formData.append('project', JSON.stringify(buildProjectPayload()));
@@ -454,50 +513,65 @@ function Modal({ setOpenModal, user, onCreated }) {
             if (postType === 'question') {
                 formData.append('question', JSON.stringify(buildQuestionPayload()));
             }
-
             if (postType === 'learning') {
                 formData.append('learning', JSON.stringify(buildLearningPayload()));
             }
-
             if (postType === 'collaboration') {
                 formData.append('collaboration', JSON.stringify(buildCollaborationPayload()));
             }
+
             images.forEach((image) => {
                 formData.append('images', image);
             });
 
-            const res = await PostServices.createPost(formData);
+            if (isEdit) {
+                // Chỉnh sửa bài viết
+                const postId = post?._id || post?.id;
+                const res = await PostServices.editPost(postId, formData);
 
-            if (res.code === 201) {
-                toast.success(res.message || 'Tạo bài viết thành công');
-
-                onCreated?.(res.data);
-
-                setCaption('');
-                setImages([]);
-                setPostType('normal');
-                setCategory('other');
-                setVisibility('public');
-                setLocation('');
-                setShowMentionSuggestions(false);
-                setAllowedUsersText('');
-                setAllowComments(true);
-                setHideLikeCount(false);
-                setHideShare(false);
-                setShowAdvancedOptions(false);
-                setOpenModal(false);
+                if (res.code === 200) {
+                    toast.success(res.message || 'Cập nhật bài viết thành công');
+                    onUpdated?.(res.data);
+                    setOpenModal(false);
+                } else {
+                    toast.error(res.message || 'Không thể cập nhật bài viết');
+                }
             } else {
-                toast.error(res.message || 'Tạo bài viết thất bại');
+                // Tạo bài viết mới
+                const res = await PostServices.createPost(formData);
+
+                if (res.code === 201) {
+                    toast.success(res.message || 'Tạo bài viết thành công');
+                    onCreated?.(res.data);
+
+                    // Reset form
+                    setCaption('');
+                    setImages([]);
+                    setPostType('normal');
+                    setCategory('other');
+                    setVisibility('public');
+                    setLocation('');
+                    setShowMentionSuggestions(false);
+                    setSelectedMentions([]);
+                    setAllowedUsersText('');
+                    setAllowComments(true);
+                    setHideLikeCount(false);
+                    setHideShare(false);
+                    setShowAdvancedOptions(false);
+                    setOpenModal(false);
+                } else {
+                    toast.error(res.message || 'Tạo bài viết thất bại');
+                }
             }
         } catch (error) {
-            console.log('Create post error:', error);
-            toast.error(error?.response?.data?.message || 'Tạo bài viết thất bại');
+            console.log('Submit post error:', error);
+            toast.error(error?.response?.data?.message || (isEdit ? 'Không thể cập nhật bài viết' : 'Tạo bài viết thất bại'));
         } finally {
             setLoading(false);
         }
     };
 
-    return (
+    return createPortal(
         <div
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 px-3 backdrop-blur-sm"
             onClick={handleClose}
@@ -513,15 +587,15 @@ function Modal({ setOpenModal, user, onCreated }) {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/25">
-                                        <SelectedPostIcon size={20} />
+                                        {isEdit ? <Pencil size={20} /> : <SelectedPostIcon size={20} />}
                                     </div>
 
                                     <div>
                                         <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                                            Tạo bài viết mới
+                                            {isEdit ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới'}
                                         </h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Chia sẻ ý tưởng, dự án hoặc câu hỏi của bạn
+                                            {isEdit ? 'Cập nhật nội dung, loại bài hoặc cài đặt hiển thị' : 'Chia sẻ ý tưởng, dự án hoặc câu hỏi của bạn'}
                                         </p>
                                     </div>
                                 </div>
@@ -1065,6 +1139,35 @@ function Modal({ setOpenModal, user, onCreated }) {
                                 />
                             </label>
 
+                            {/* Ảnh cũ (chỉ hiện ở mode edit) */}
+                            {isEdit && existingMedia.length > 0 && (
+                                <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+                                    {existingMedia.map((media, index) => (
+                                        <div
+                                            key={media.public_id || media.url || index}
+                                            className="group relative overflow-hidden rounded-2xl border border-white/70 bg-white shadow-sm dark:border-white/10 dark:bg-white/10"
+                                        >
+                                            <img
+                                                src={media.url || media}
+                                                alt={`existing-${index}`}
+                                                className="h-32 w-full object-cover transition group-hover:scale-105"
+                                            />
+                                            <div className="absolute bottom-1 left-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white">
+                                                Ảnh hiện tại
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setExistingMedia((prev) => prev.filter((_, i) => i !== index))}
+                                                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition hover:bg-red-600 group-hover:opacity-100"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Ảnh mới upload */}
                             {images.length > 0 && (
                                 <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
                                     {images.map((image, index) => (
@@ -1077,7 +1180,6 @@ function Modal({ setOpenModal, user, onCreated }) {
                                                 alt="preview"
                                                 className="h-32 w-full object-cover transition group-hover:scale-105"
                                             />
-
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveImage(index)}
@@ -1098,13 +1200,14 @@ function Modal({ setOpenModal, user, onCreated }) {
                                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3 font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {loading && <Loader2 size={18} className="animate-spin" />}
-                                {loading ? 'Đang đăng bài...' : 'Đăng bài'}
+                                {loading ? (isEdit ? 'Đang lưu...' : 'Đang đăng bài...') : (isEdit ? 'Lưu thay đổi' : 'Đăng bài')}
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 

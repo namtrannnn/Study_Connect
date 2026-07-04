@@ -114,6 +114,27 @@ function Dashboard({ user: propUser, theme }) {
         setOpenModal(false);
     };
 
+    const handleEditPost = (updatedPost) => {
+        if (!updatedPost) return;
+        const updatedId = updatedPost._id || updatedPost.id;
+        setPosts((prev) =>
+            prev.map((item) => {
+                const id = item._id || item.id;
+                return id === updatedId ? { ...item, ...updatedPost } : item;
+            }),
+        );
+    };
+
+    const handleDeletePost = (deletedPostId) => {
+        if (!deletedPostId) return;
+        setPosts((prev) =>
+            prev.filter((item) => {
+                const id = item._id || item.id;
+                return id !== deletedPostId;
+            }),
+        );
+    };
+
     const createNewPost = async (formData) => {
         if (!text.trim()) {
             toast.error('Không được để trống nội dung...');
@@ -249,7 +270,13 @@ function Dashboard({ user: propUser, theme }) {
                     scrollableTarget="dashboard-scroll-container"
                 >
                     {posts.map((post) => (
-                        <Post key={post._id || post.id} post={post} currentUser={user} />
+                        <Post
+                            key={post._id || post.id}
+                            post={post}
+                            currentUser={user}
+                            onEdit={handleEditPost}
+                            onDelete={handleDeletePost}
+                        />
                     ))}
                 </InfiniteScroll>
             )}

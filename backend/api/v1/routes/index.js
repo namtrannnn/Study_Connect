@@ -38,7 +38,7 @@ module.exports = (app) => {
   app.use(version + "/post/comment", PostComment);
   // app.use(version + "/post/save", PostSave);
   app.use(version + "/room-chat", RoomChat);
-  app.use(version + "/study-room", StudyRoom);
+  // app.use(version + "/study-room", StudyRoom);
   app.use(version + "/chat", Chat);
   app.use(version + "/profile", Profile);
   // app.use(version + "/notifications", notificationRoute);

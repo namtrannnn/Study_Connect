@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, MoreHorizontal, Heart, SendHorizontal, MessageCircle, Pencil, Trash2 } from 'lucide-react';
+import { X, MoreHorizontal, Heart, SendHorizontal, MessageCircle, Pencil, Trash2, Bookmark } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Keyboard } from 'swiper/modules';
 import { createPortal } from 'react-dom';
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Button } from '../../components/ui/button';
 import { toast } from 'react-toastify';
 import * as CommentServices from '../../services/comment.services';
+import * as PostServices from '../../services/posts.services';
 import { registerPostCommentSocketEvents, unregisterPostCommentSocketEvents } from '../../sockets/postComment.socket';
 
 export default function PostDetailModal({ open, onClose, post, currentUser, onSubmitComment }) {
@@ -21,14 +22,18 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
     const [loadingComments, setLoadingComments] = useState(false);
     const [deletedCommentInfo, setDeletedCommentInfo] = useState(null);
     const [replyingComment, setReplyingComment] = useState(null);
-    const [commentMeta, setCommentMeta] = useState({
-        page: 1,
-        limit: 10,
-        total: 0,
-        totalPages: 0,
-    });
+    const [commentMeta, setCommentMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
     const [submittingComment, setSubmittingComment] = useState(false);
     const [openCommentMenuId, setOpenCommentMenuId] = useState(null);
+    // Like comment
+    const [likedCommentIds, setLikedCommentIds] = useState(new Set());
+    const [commentLikeCounts, setCommentLikeCounts] = useState({});
+    // Replies
+    const [expandedReplies, setExpandedReplies] = useState(new Set());
+    const [loadingReplies, setLoadingReplies] = useState(new Set());
+    // Save post
+    const [isSaved, setIsSaved] = useState(false);
+    const [savingPost, setSavingPost] = useState(false);
     const postId = post?._id || post?.id;
     const inputRef = useRef(null);
 
@@ -293,7 +298,6 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
     const handleUndoDeleteComment = async (commentId) => {
         try {
             const res = await CommentServices.undoDeleteComment(commentId);
-
             if (res.code === 200) {
                 setDeletedCommentInfo(null);
             } else {
@@ -301,6 +305,80 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
             }
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Không thể hoàn tác');
+        }
+    };
+
+    // Like comment
+    const handleLikeComment = async (commentId) => {
+        const isLiked = likedCommentIds.has(commentId);
+        // Optimistic update
+        setLikedCommentIds((prev) => {
+            const next = new Set(prev);
+            isLiked ? next.delete(commentId) : next.add(commentId);
+            return next;
+        });
+        setCommentLikeCounts((prev) => ({
+            ...prev,
+            [commentId]: Math.max((prev[commentId] ?? 0) + (isLiked ? -1 : 1), 0),
+        }));
+        try {
+            await CommentServices.toggleLikeComment(commentId);
+        } catch {
+            // Rollback nếu lỗi
+            setLikedCommentIds((prev) => {
+                const next = new Set(prev);
+                isLiked ? next.add(commentId) : next.delete(commentId);
+                return next;
+            });
+            setCommentLikeCounts((prev) => ({
+                ...prev,
+                [commentId]: Math.max((prev[commentId] ?? 0) + (isLiked ? 1 : -1), 0),
+            }));
+        }
+    };
+
+    // Load replies
+    const handleToggleReplies = async (comment) => {
+        const commentId = comment._id;
+        if (expandedReplies.has(commentId)) {
+            setExpandedReplies((prev) => { const n = new Set(prev); n.delete(commentId); return n; });
+            return;
+        }
+        // Nếu đã có replies trong state thì chỉ cần expand
+        if (comment.replies?.length > 0) {
+            setExpandedReplies((prev) => new Set([...prev, commentId]));
+            return;
+        }
+        try {
+            setLoadingReplies((prev) => new Set([...prev, commentId]));
+            const res = await CommentServices.getRepliesByComment(commentId, { limit: 20 });
+            if (res.code === 200) {
+                setComments((prev) => prev.map((c) =>
+                    String(c._id) === String(commentId)
+                        ? { ...c, replies: res.data || [] }
+                        : c
+                ));
+                setExpandedReplies((prev) => new Set([...prev, commentId]));
+            }
+        } catch {
+            toast.error('Không thể tải phản hồi');
+        } finally {
+            setLoadingReplies((prev) => { const n = new Set(prev); n.delete(commentId); return n; });
+        }
+    };
+
+    // Save post
+    const handleSavePost = async () => {
+        if (savingPost) return;
+        try {
+            setSavingPost(true);
+            const res = await PostServices.toggleLikePost(postId); // tạm dùng, thay bằng savePost API khi có
+            setIsSaved((prev) => !prev);
+            toast(isSaved ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết');
+        } catch {
+            toast.error('Không thể lưu bài viết');
+        } finally {
+            setSavingPost(false);
         }
     };
     const handleSocketPendingDeleteComment = ({ postId: socketPostId, commentId, parentComment, canUndoUntil }) => {
@@ -584,7 +662,17 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                                     )}
 
                                                     {(comment?.repliesCount || 0) > 0 && (
-                                                        <button>Xem {comment.repliesCount} phản hồi</button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleReplies(comment)}
+                                                            className="text-blue-600 hover:underline"
+                                                        >
+                                                            {loadingReplies.has(comment._id)
+                                                                ? 'Đang tải...'
+                                                                : expandedReplies.has(comment._id)
+                                                                    ? 'Ẩn phản hồi'
+                                                                    : `Xem ${comment.repliesCount} phản hồi`}
+                                                        </button>
                                                     )}
 
                                                     <button
@@ -642,8 +730,8 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                                         </div>
                                                     )}
                                                 </div>
-                                                {/* REPLIES ĐẶT Ở ĐÂY */}
-                                                {comment?.replies?.length > 0 && (
+                                                {/* REPLIES */}
+                                                {expandedReplies.has(comment._id) && comment?.replies?.length > 0 && (
                                                     <div className="mt-3 space-y-3 border-l border-gray-200 pl-4">
                                                         {comment.replies.map((reply) => {
                                                             const replyAuthorName =
@@ -713,10 +801,16 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
 
                                             <button
                                                 type="button"
-                                                className="pt-1 text-gray-500 transition hover:text-red-500"
+                                                onClick={() => handleLikeComment(comment._id)}
+                                                className={`flex flex-col items-center gap-0.5 pt-1 transition ${likedCommentIds.has(comment._id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
                                                 aria-label="Thích bình luận"
                                             >
-                                                <Heart className="h-4 w-4" />
+                                                <Heart className={`h-4 w-4 ${likedCommentIds.has(comment._id) ? 'fill-current' : ''}`} />
+                                                {(commentLikeCounts[comment._id] ?? comment?.likesCount ?? 0) > 0 && (
+                                                    <span className="text-[10px] font-semibold leading-none">
+                                                        {commentLikeCounts[comment._id] ?? comment.likesCount}
+                                                    </span>
+                                                )}
                                             </button>
                                         </div>
                                     );
@@ -731,15 +825,22 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                 <button className="transition hover:text-red-500">
                                     <Heart className="h-6 w-6" />
                                 </button>
-
                                 <button className="transition hover:text-blue-600">
                                     <MessageCircle className="h-6 w-6" />
                                 </button>
-
                                 <button className="transition hover:text-blue-600">
                                     <SendHorizontal className="h-6 w-6" />
                                 </button>
                             </div>
+                            <button
+                                type="button"
+                                onClick={handleSavePost}
+                                disabled={savingPost}
+                                className={`transition disabled:opacity-50 ${isSaved ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                                aria-label="Lưu bài viết"
+                            >
+                                <Bookmark className={`h-6 w-6 ${isSaved ? 'fill-current' : ''}`} />
+                            </button>
                         </div>
                         {deletedCommentInfo && (
                             <div className="mx-4 mb-3 flex items-center justify-between rounded-2xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg">

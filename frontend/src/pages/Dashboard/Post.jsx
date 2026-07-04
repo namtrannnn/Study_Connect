@@ -42,6 +42,7 @@ import { joinPostCommentRoom, leavePostCommentRoom } from '../../sockets/postCom
 import PostDetailModal from './PostDetailModal';
 import LikesModal from './LikesModal';
 import ShareModal from './ShareModal';
+import Modal from './Modal';
 
 const postTypeLabels = {
     normal: 'Bài viết',
@@ -348,6 +349,9 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const [openLikes, setOpenLikes] = useState(false);
     const [openDetail, setOpenDetail] = useState(false);
     const [openShare, setOpenShare] = useState(false);
+    const [openEdit, setOpenEdit] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletingPost, setDeletingPost] = useState(false);
     const [isPinned, setIsPinned] = useState(!!post?.isPinned);
     const [privacy, setPrivacy] = useState(post?.visibility || post?.privacy || 'public');
     const [commentsEnabled, setCommentsEnabled] = useState(post?.allowComments ?? post?.commentsEnabled ?? true);
@@ -444,33 +448,67 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
         setOpenDetail(true);
     };
 
-    const handleTogglePin = () => {
-        setIsPinned((prev) => {
-            const next = !prev;
-            toast(next ? 'Đã ghim bài viết' : 'Đã bỏ ghim');
-            return next;
-        });
+    const handleTogglePin = async () => {
+        const next = !isPinned;
+        try {
+            setIsPinned(next);
+            if (next) {
+                await PostServices.pinPost(postId);
+                toast('Đã ghim bài viết');
+            } else {
+                await PostServices.unpinPost(postId);
+                toast('Đã bỏ ghim');
+            }
+        } catch {
+            setIsPinned(!next);
+            toast.error('Không thể thực hiện thao tác này');
+        }
     };
-    // console.log('POST CURRENT USER:', currentUser);
-    const handleToggleComments = () => {
-        setCommentsEnabled((prev) => {
-            const next = !prev;
+    const handleToggleComments = async () => {
+        const next = !commentsEnabled;
+        try {
+            setCommentsEnabled(next);
+            const formData = new FormData();
+            formData.append('allowComments', String(next));
+            await PostServices.editPost(postId, formData);
             toast(next ? 'Đã bật bình luận' : 'Đã tắt bình luận');
-            return next;
-        });
+        } catch {
+            setCommentsEnabled(!next);
+            toast.error('Không thể thực hiện thao tác này');
+        }
     };
 
-    const handleSetPrivacy = (value) => {
-        setPrivacy(value);
-        toast(
-            value === 'public'
-                ? 'Đã đặt: Công khai'
-                : value === 'friends'
-                  ? 'Đã đặt: Bạn bè'
-                  : value === 'private'
-                    ? 'Đã đặt: Chỉ mình tôi'
-                    : 'Đã cập nhật quyền riêng tư',
-        );
+    const handleSetPrivacy = async (value) => {
+        const prev = privacy;
+        try {
+            setPrivacy(value);
+            const formData = new FormData();
+            formData.append('visibility', value);
+            await PostServices.editPost(postId, formData);
+            const labels = { public: 'Công khai', friends: 'Bạn bè', private: 'Chỉ mình tôi', followers: 'Người theo dõi' };
+            toast(`Đã đặt: ${labels[value] || value}`);
+        } catch {
+            setPrivacy(prev);
+            toast.error('Không thể cập nhật quyền riêng tư');
+        }
+    };
+
+    const handleDeletePost = async () => {
+        try {
+            setDeletingPost(true);
+            const res = await PostServices.deletePost(postId);
+            if (res.code === 200) {
+                toast.success('Đã xóa bài viết');
+                setShowDeleteConfirm(false);
+                onDelete?.(postId);
+            } else {
+                toast.error(res.message || 'Không thể xóa bài viết');
+            }
+        } catch (error) {
+            toast.error(error?.response?.data?.message || 'Không thể xóa bài viết');
+        } finally {
+            setDeletingPost(false);
+        }
     };
 
     const handleSavePost = () => toast('Đã lưu bài viết');
@@ -586,68 +624,73 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                         <DropdownMenuContent align="end" className="z-[9999] w-56">
                             {isOwner ? (
                                 <>
-                                    <DropdownMenuItem onClick={onEdit}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Chỉnh sửa
+                                    <DropdownMenuItem
+                                        onClick={() => setOpenEdit(true)}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-blue-50 hover:text-blue-700 dark:text-gray-200 dark:hover:bg-blue-500/15 dark:hover:text-blue-300"
+                                    >
+                                        <Edit className="h-4 w-4" />
+                                        Chỉnh sửa bài viết
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={handleTogglePin}>
-                                        <Pin className="mr-2 h-4 w-4" />
-                                        {isPinned ? 'Bỏ ghim' : 'Ghim bài viết'}
+                                    <DropdownMenuItem
+                                        onClick={handleTogglePin}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                        <Pin className="h-4 w-4" />
+                                        {isPinned ? 'Bỏ ghim bài viết' : 'Ghim bài viết'}
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={() => handleSetPrivacy('public')}>
-                                        <span className="mr-2">🌍</span>
-                                        Công khai
-                                        {privacy === 'public' ? <span className="ml-auto">✓</span> : null}
+                                    <DropdownMenuItem
+                                        onClick={handleCopyLink}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                        <LinkIcon className="h-4 w-4" />
+                                        Sao chép liên kết
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={() => handleSetPrivacy('friends')}>
-                                        <span className="mr-2">👥</span>
-                                        Bạn bè
-                                        {privacy === 'friends' ? <span className="ml-auto">✓</span> : null}
-                                    </DropdownMenuItem>
+                                    <div className="my-1 h-px bg-gray-100 dark:bg-white/10" />
 
-                                    <DropdownMenuItem onClick={() => handleSetPrivacy('private')}>
-                                        <span className="mr-2">🔒</span>
-                                        Chỉ mình tôi
-                                        {privacy === 'private' ? <span className="ml-auto">✓</span> : null}
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={handleToggleComments}>
-                                        <MessageCircle className="mr-2 h-4 w-4" />
-                                        {commentsEnabled ? 'Tắt bình luận' : 'Bật bình luận'}
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={onDelete} className="text-red-600">
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Xóa
+                                    <DropdownMenuItem
+                                        onClick={() => setShowDeleteConfirm(true)}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/15"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Xóa bài viết
                                     </DropdownMenuItem>
                                 </>
                             ) : (
                                 <>
-                                    <DropdownMenuItem onClick={handleSavePost}>
-                                        <Bookmark className="mr-2 h-4 w-4" />
+                                    <DropdownMenuItem
+                                        onClick={handleSavePost}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                        <Bookmark className="h-4 w-4" />
                                         Lưu bài viết
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={handleCopyLink}>
-                                        <LinkIcon className="mr-2 h-4 w-4" />
+                                    <DropdownMenuItem
+                                        onClick={handleCopyLink}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                        <LinkIcon className="h-4 w-4" />
                                         Sao chép liên kết
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={handleHidePost}>
-                                        <EyeOff className="mr-2 h-4 w-4" />
+                                    <DropdownMenuItem
+                                        onClick={handleHidePost}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                        <EyeOff className="h-4 w-4" />
                                         Ẩn bài viết
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={handleUnfollow}>
-                                        <span className="mr-2">🚫</span>
-                                        Bỏ theo dõi
-                                    </DropdownMenuItem>
+                                    <div className="my-1 h-px bg-gray-100 dark:bg-white/10" />
 
-                                    <DropdownMenuItem onClick={handleReport} className="text-red-600">
-                                        <Flag className="mr-2 h-4 w-4" />
+                                    <DropdownMenuItem
+                                        onClick={handleReport}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/15"
+                                    >
+                                        <Flag className="h-4 w-4" />
                                         Báo cáo
                                     </DropdownMenuItem>
                                 </>
@@ -821,8 +864,65 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                 onClose={() => setOpenShare(false)}
                 post={post}
                 currentUser={currentUser}
-                // onShare={(payload) => console.log('share payload:', payload)}
             />
+
+            {/* Edit Modal — dùng chung Modal.jsx với mode="edit" */}
+            {openEdit && (
+                <Modal
+                    mode="edit"
+                    post={post}
+                    setOpenModal={setOpenEdit}
+                    user={currentUser}
+                    onUpdated={(updatedPost) => {
+                        if (updatedPost) {
+                            setPrivacy(updatedPost.visibility || privacy);
+                            setCommentsEnabled(updatedPost.allowComments ?? commentsEnabled);
+                        }
+                        onEdit?.(updatedPost);
+                    }}
+                />
+            )}
+
+            {/* Delete Confirm Dialog */}
+            {showDeleteConfirm && (
+                <div
+                    className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget && !deletingPost) setShowDeleteConfirm(false);
+                    }}
+                >
+                    <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-2xl dark:border-white/10 dark:bg-[#17191f]">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/15">
+                                <Trash2 size={24} className="text-red-600 dark:text-red-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Xóa bài viết?</h3>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                Bài viết sẽ bị xóa vĩnh viễn và không thể khôi phục.
+                            </p>
+                        </div>
+                        <div className="flex gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={deletingPost}
+                                className="flex-1 rounded-2xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeletePost}
+                                disabled={deletingPost}
+                                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                            >
+                                {deletingPost && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                                {deletingPost ? 'Đang xóa...' : 'Xóa'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </article>
     );
 }
