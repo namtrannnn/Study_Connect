@@ -72,7 +72,7 @@ function Messenger() {
     const typingTimerRef = useRef(null);
     const roomMenuRef = useRef(null);
     const selectedRoomId = selectedRoom?._id || selectedRoom?.roomId;
-    const roomTheme = selectedRoom?.themeConfig || {};
+    const roomTheme = useMemo(() => selectedRoom?.themeConfig || {}, [selectedRoom?.themeConfig]);
     // Apply theme khi không phải Default (cả preset lẫn AI)
     const hasTheme = Boolean(roomTheme?.name && roomTheme.name !== 'Default');
 

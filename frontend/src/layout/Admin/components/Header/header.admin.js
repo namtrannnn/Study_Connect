@@ -6,7 +6,6 @@ import { BsSun } from 'react-icons/bs';
 import { IoMoonOutline } from 'react-icons/io5';
 
 import { SiMessenger } from 'react-icons/si';
-import { MdAdminPanelSettings } from 'react-icons/md';
 
 import { TOGGLE_THEME } from '../../../../redux/themeSlice';
 import { useDispatch, useSelector } from 'react-redux';

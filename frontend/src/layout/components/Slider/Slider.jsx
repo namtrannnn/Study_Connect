@@ -69,6 +69,7 @@ export default function Slider({
     }, []);
 
     const isNotificationPanelOpen = panel === 'notifications';
+    // eslint-disable-next-line no-unused-vars
     const isSearchPanelOpen = activePanel === 'search';
     const collapsed = isMd && (externalCollapsed || isNotificationPanelOpen);
     const sidebarWidth = collapsed ? 88 : 280;

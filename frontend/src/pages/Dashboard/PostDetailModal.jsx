@@ -22,6 +22,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
     const [loadingComments, setLoadingComments] = useState(false);
     const [deletedCommentInfo, setDeletedCommentInfo] = useState(null);
     const [replyingComment, setReplyingComment] = useState(null);
+    // eslint-disable-next-line no-unused-vars
     const [commentMeta, setCommentMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
     const [submittingComment, setSubmittingComment] = useState(false);
     const [openCommentMenuId, setOpenCommentMenuId] = useState(null);

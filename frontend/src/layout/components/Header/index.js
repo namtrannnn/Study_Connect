@@ -52,9 +52,9 @@ function Header({ user }) {
     // when people stop typing(delay 500ms), then will call api
     //   const textDebounce = useDebounce(text, 500);
     // receive data from useEffect
-    const [listSearchResult, setListSearchResult] = useState([]);
+    const [listSearchResult, setListSearchResult] = useState([]); // eslint-disable-line no-unused-vars
     // list empty
-    const [isEmpty, setIsEmpty] = useState(false);
+    const [isEmpty, setIsEmpty] = useState(false); // eslint-disable-line no-unused-vars
     // loading
     const [loading] = useState(false);
 
