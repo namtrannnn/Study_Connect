@@ -57,6 +57,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
         if (!open || !postId) return;
 
         fetchComments(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, postId]);
     const mediaItems = useMemo(() => {
         if (Array.isArray(post?.media) && post.media.length > 0) {
@@ -96,6 +97,18 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
 
             if (res.code === 200) {
                 setComments(res.data || []);
+                // Khởi tạo liked state từ data trả về
+                const likedIds = new Set(
+                    (res.data || [])
+                        .filter((c) => c.isLiked)
+                        .map((c) => c._id.toString())
+                );
+                const likeCounts = {};
+                (res.data || []).forEach((c) => {
+                    likeCounts[c._id.toString()] = c.likesCount ?? 0;
+                });
+                setLikedCommentIds(likedIds);
+                setCommentLikeCounts(likeCounts);
                 setCommentMeta({
                     page: res.meta?.page || 1,
                     limit: res.meta?.limit || 10,
@@ -231,6 +244,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
         return () => {
             unregisterPostCommentSocketEvents();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, postId]);
 
     const handleStartEditComment = (comment) => {
@@ -353,11 +367,23 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
             setLoadingReplies((prev) => new Set([...prev, commentId]));
             const res = await CommentServices.getRepliesByComment(commentId, { limit: 20 });
             if (res.code === 200) {
+                const replies = res.data || [];
                 setComments((prev) => prev.map((c) =>
                     String(c._id) === String(commentId)
-                        ? { ...c, replies: res.data || [] }
+                        ? { ...c, replies }
                         : c
                 ));
+                // Thêm liked state cho replies
+                setLikedCommentIds((prev) => {
+                    const next = new Set(prev);
+                    replies.filter((r) => r.isLiked).forEach((r) => next.add(r._id.toString()));
+                    return next;
+                });
+                setCommentLikeCounts((prev) => {
+                    const next = { ...prev };
+                    replies.forEach((r) => { next[r._id.toString()] = r.likesCount ?? 0; });
+                    return next;
+                });
                 setExpandedReplies((prev) => new Set([...prev, commentId]));
             }
         } catch {
@@ -372,7 +398,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
         if (savingPost) return;
         try {
             setSavingPost(true);
-            const res = await PostServices.toggleLikePost(postId); // tạm dùng, thay bằng savePost API khi có
+            await PostServices.toggleLikePost(postId); // tạm dùng, thay bằng savePost API khi có
             setIsSaved((prev) => !prev);
             toast(isSaved ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết');
         } catch {
@@ -738,6 +764,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                                                 reply?.user?.fullName || 'Người dùng';
                                                             const replyUsername =
                                                                 reply?.user?.username || replyAuthorName;
+                                                            const replyId = reply._id?.toString();
 
                                                             return (
                                                                 <div key={reply._id} className="flex items-start gap-3">
@@ -792,6 +819,21 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                                                             </button>
                                                                         </div>
                                                                     </div>
+
+                                                                    {/* Nút like reply */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleLikeComment(replyId)}
+                                                                        className={`flex flex-col items-center gap-0.5 pt-1 transition ${likedCommentIds.has(replyId) ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                                                                        aria-label="Thích phản hồi"
+                                                                    >
+                                                                        <Heart className={`h-4 w-4 ${likedCommentIds.has(replyId) ? 'fill-current' : ''}`} />
+                                                                        {(commentLikeCounts[replyId] ?? reply?.likesCount ?? 0) > 0 && (
+                                                                            <span className="text-[10px] font-semibold leading-none">
+                                                                                {commentLikeCounts[replyId] ?? reply.likesCount}
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
                                                                 </div>
                                                             );
                                                         })}

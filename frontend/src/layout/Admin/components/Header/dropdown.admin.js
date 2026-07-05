@@ -4,11 +4,10 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { IoHomeOutline } from 'react-icons/io5';
 
 //icon
-import { AiOutlineUser, AiOutlineSetting, AiOutlineMenu, AiFillHome } from 'react-icons/ai';
+import { AiOutlineSetting, AiOutlineMenu } from 'react-icons/ai';
 import { IoIosLogOut } from 'react-icons/io';
 import { toast } from 'react-toastify';
 
-import { SiMessenger } from 'react-icons/si';
 import { MdAdminPanelSettings } from 'react-icons/md';
 // components
 import { useDispatch } from 'react-redux';

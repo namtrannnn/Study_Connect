@@ -1,8 +1,5 @@
 import { Drawer, List, IconButton, ListItem, Box } from "@mui/material";
 
-import { RxDashboard } from "react-icons/rx";
-import { CiUser } from "react-icons/ci";
-import { RiArticleLine } from "react-icons/ri";
 import { NavLink } from "react-router-dom";
 
 import { icAnalytics, icUser, icArticle } from "../../../utils/icons";

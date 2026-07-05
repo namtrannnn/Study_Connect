@@ -2,11 +2,10 @@ import { Menu, Transition, MenuButton, MenuItem, MenuItems } from '@headlessui/r
 import { Fragment } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 //icon
-import { AiOutlineUser, AiOutlineSetting, AiOutlineMenu, AiFillHome } from 'react-icons/ai';
+import { AiOutlineUser, AiOutlineSetting, AiOutlineMenu } from 'react-icons/ai';
 import { IoIosLogOut } from 'react-icons/io';
 import { toast } from 'react-toastify';
 
-import { SiMessenger } from 'react-icons/si';
 import { MdAdminPanelSettings } from 'react-icons/md';
 // import { LogoutIcon } from "@heroicons/react/outline";
 // components

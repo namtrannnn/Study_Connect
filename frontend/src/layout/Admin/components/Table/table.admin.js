@@ -59,7 +59,7 @@ export default function CustomizedTables({
           },
         };
       }),
-    [theme, bgHeadColor]
+    [bgHeadColor]
   );
 
   const contentTd = (row, v) => {

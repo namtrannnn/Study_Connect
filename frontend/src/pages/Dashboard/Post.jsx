@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Heart,
     MessageCircle,
@@ -464,35 +464,6 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
             toast.error('Không thể thực hiện thao tác này');
         }
     };
-    const handleToggleComments = async () => {
-        const next = !commentsEnabled;
-        try {
-            setCommentsEnabled(next);
-            const formData = new FormData();
-            formData.append('allowComments', String(next));
-            await PostServices.editPost(postId, formData);
-            toast(next ? 'Đã bật bình luận' : 'Đã tắt bình luận');
-        } catch {
-            setCommentsEnabled(!next);
-            toast.error('Không thể thực hiện thao tác này');
-        }
-    };
-
-    const handleSetPrivacy = async (value) => {
-        const prev = privacy;
-        try {
-            setPrivacy(value);
-            const formData = new FormData();
-            formData.append('visibility', value);
-            await PostServices.editPost(postId, formData);
-            const labels = { public: 'Công khai', friends: 'Bạn bè', private: 'Chỉ mình tôi', followers: 'Người theo dõi' };
-            toast(`Đã đặt: ${labels[value] || value}`);
-        } catch {
-            setPrivacy(prev);
-            toast.error('Không thể cập nhật quyền riêng tư');
-        }
-    };
-
     const handleDeletePost = async () => {
         try {
             setDeletingPost(true);
@@ -525,7 +496,6 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     };
 
     const handleHidePost = () => toast('Đã ẩn bài viết khỏi bảng tin');
-    const handleUnfollow = () => toast('Đã tắt theo dõi người này');
     const handleReport = () => toast('Đã gửi báo cáo');
 
     const displayedLikeCount = likeCount;

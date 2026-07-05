@@ -198,8 +198,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import LineChart from "./lineChart";
 
 const Chart = ({ convertDate }) => {
-  const [loadingPosts, setLoadingPosts] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingPosts] = useState(false);
+  const [loadingUsers] = useState(false);
 
   const [dataPosts, setDataPosts] = useState([]);
   const [dataUsers, setDataUsers] = useState([]);
@@ -234,7 +234,7 @@ const Chart = ({ convertDate }) => {
       }
     });
     return data;
-  }, [dataPosts]);
+  }, [dataPosts, convertDate]);
 
   const datasetUser = useMemo(() => {
     const data = [];
@@ -248,7 +248,7 @@ const Chart = ({ convertDate }) => {
       }
     });
     return data;
-  }, [dataUsers]);
+  }, [dataUsers, convertDate]);
 
   const datasets = [
     {

@@ -7,14 +7,9 @@ import {
   TableCell,
   TableBody,
   Avatar,
-  Typography,
-  IconButton,
-  Box,
-  Chip,
   tableCellClasses,
   styled,
 } from "@mui/material";
-import { useSelector } from "react-redux";
 import { MdOutlineFilterList } from "react-icons/md";
 import { useMemo } from "react";
 
@@ -26,8 +21,6 @@ export default function CustomTables({
   listCenterTd,
   typeTable = "",
 }) {
-  const { theme } = useSelector((state) => state.theme);
-
   const StyledTableCell = useMemo(
     () =>
       styled(TableCell)(({ theme }) => {

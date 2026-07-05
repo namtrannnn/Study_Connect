@@ -8,7 +8,6 @@ import {
     Smile,
     Plus,
     Loader2,
-    Sparkles,
     UserRound,
     Trash2,
 } from 'lucide-react';
@@ -43,7 +42,6 @@ import roomChatApi from './roomChatApi';
 import Avatar from './components/Avatar';
 import MessageBubble from './components/MessageBubble';
 import TypingIndicator from './components/TypingIndicator';
-import AIThemeBox from './components/AIThemeBox';
 import RoomInfoPanel from './components/RoomInfoPanel';
 import CreateGroupModal from './components/CreateGroupModal';
 import NewChatModal from './components/NewChatModal';
@@ -65,7 +63,6 @@ function Messenger() {
     const [hasAutoSelected, setHasAutoSelected] = useState(false);
     const [aiExplanation, setAiExplanation] = useState(null);
     const [explainingId, setExplainingId] = useState(null);
-    const [showThemeBox, setShowThemeBox] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
@@ -341,6 +338,7 @@ function Messenger() {
 
     useEffect(() => {
         loadRooms();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -412,47 +410,9 @@ function Messenger() {
                         const exists = prev.some((r) => getRoomId(r) === getRoomId(room));
 
                         if (exists) {
-                            return prev.map((r) => (getRoomId(r) === getRoomId(room) ? { ...r, ...room } : r));
-                        }
-
-                        return [room, ...prev];
-                    });
-                },
-
-                onLeftRoom: ({ roomId }) => {
-                    setRooms((prev) => prev.filter((r) => getRoomId(r) !== roomId));
-
-                    setSelectedRoom((prev) => {
-                        if (!prev) return prev;
-                        if (getRoomId(prev) !== roomId) return prev;
-                        return null;
-                    });
-                },
-
-                onKickedFromRoom: ({ roomId }) => {
-                    toast.warning('Bạn đã bị xóa khỏi nhóm');
-
-                    setRooms((prev) => prev.filter((r) => getRoomId(r) !== roomId));
-
-                    setSelectedRoom((prev) => {
-                        if (!prev) return prev;
-                        if (getRoomId(prev) !== roomId) return prev;
-                        return null;
-                    });
-                },
-                onAddedToRoom: ({ room }) => {
-                    if (!room) return;
-
-                    setRooms((prev) => {
-                        const exists = prev.some((r) => getRoomId(r) === getRoomId(room));
-
-                        if (exists) {
                             return prev.map((r) =>
                                 getRoomId(r) === getRoomId(room)
-                                    ? {
-                                          ...r,
-                                          ...room,
-                                      }
+                                    ? { ...r, ...room }
                                     : r,
                             );
                         }
@@ -493,26 +453,6 @@ function Messenger() {
                     setShowInfo(false);
                 },
 
-                onRoomStateUpdated: ({ roomId, currentUserRoomState }) => {
-                    updateRoomStateForMe({
-                        roomId,
-                        currentUserRoomState,
-                    });
-                },
-
-                onRoomDeletedForMe: ({ roomId }) => {
-                    if (!roomId) return;
-
-                    setRooms((prev) => prev.filter((room) => getRoomId(room) !== roomId));
-
-                    setSelectedRoom((prev) => {
-                        if (!prev) return prev;
-                        if (getRoomId(prev) !== roomId) return prev;
-                        return null;
-                    });
-
-                    setShowInfo(false);
-                },
                 onRoomStateUpdated: ({ roomId, currentUserRoomState }) => {
                     if (!roomId || !currentUserRoomState) return;
 
@@ -559,12 +499,14 @@ function Messenger() {
             clearTimeout(timer);
             unregisterChatSocketEvents();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRoomId, currentUser?._id]);
 
     useEffect(() => {
         if (!selectedRoomId) return;
         joinChatRoom(selectedRoomId);
         loadMessages(selectedRoomId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRoomId]);
 
     useEffect(() => {

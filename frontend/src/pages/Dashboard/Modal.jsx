@@ -22,7 +22,6 @@ import {
     EyeOff,
     Share2,
     MapPin,
-    AtSign,
     UserCheck,
     Pencil,
 } from 'lucide-react';

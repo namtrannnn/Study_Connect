@@ -5,7 +5,7 @@ import ReactLoading from "react-loading";
 import Table from "./Table/table.admin";
 
 const Users = ({ convertDate, countUsers }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [perPage, setPerPage] = useState(15);
 
   const [page, setPage] = useState(1);
@@ -67,7 +67,7 @@ const Users = ({ convertDate, countUsers }) => {
     setListUser(fakeUsers);
     setTotalUser(fakeUsers.length);
     countUsers(fakeUsers.length);
-  }, [page, perPage]);
+  }, [page, perPage, countUsers]);
 
   //   const getAllUsers = async () => {
   //     setLoading(true);
@@ -127,7 +127,7 @@ const Users = ({ convertDate, countUsers }) => {
         date: convertDate(v.createdAt),
       };
     });
-  }, [listUser, fields]);
+  }, [listUser, convertDate, page, perPage]);
 
   const listCenterTd = React.useMemo(
     () => ["postNumber", "no", "follower", "following"],

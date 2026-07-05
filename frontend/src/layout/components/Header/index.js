@@ -13,11 +13,8 @@ import logo from '../../../assets/logo-slime.png';
 
 import { IoSearchSharp } from 'react-icons/io5';
 import { SiMessenger } from 'react-icons/si';
-import { RiSpaceShipFill } from 'react-icons/ri';
 import { MdAdminPanelSettings } from 'react-icons/md';
-import { BsFillSunFill, BsMoon } from 'react-icons/bs';
-import { CiHeart, CiStar, CiRead, CiUnread } from 'react-icons/ci';
-import { FaHeart, FaStar, FaUserFriends } from 'react-icons/fa';
+import { FaUserFriends } from 'react-icons/fa';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -59,13 +56,7 @@ function Header({ user }) {
     // list empty
     const [isEmpty, setIsEmpty] = useState(false);
     // loading
-    const [loading, setLoading] = useState(false);
-
-    const clearListResult = () => {
-        setListSearchResult([]);
-        setText('');
-        setIsEmpty(false);
-    };
+    const [loading] = useState(false);
 
     const searchRef = useRef();
     //   useOnClickOutside(searchRef, () => clearListResult());
@@ -187,6 +178,7 @@ function Header({ user }) {
             });
         }
         return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
 
     const navMenuLogged = () => {

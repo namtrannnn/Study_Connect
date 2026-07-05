@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import {
     Home,
-    Clapperboard,
     MessageCircle,
     Search,
     Compass,
@@ -24,13 +23,10 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
-import SearchPanel from './panels/SearchPanel';
 import NotificationsPanel from './panels/NotificationsPanel';
-import { recentSearchesMock, suggestFollowsMock } from './mock';
-
-import config from '../../../config';
-import Dropdown from '../Header/dropdown';
+import { suggestFollowsMock } from './mock';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
+import config from '../../../config';
 
 export default function Slider({
     user,
@@ -74,8 +70,6 @@ export default function Slider({
 
     const isNotificationPanelOpen = panel === 'notifications';
     const isSearchPanelOpen = activePanel === 'search';
-
-    const isPanelOpen = isSearchPanelOpen || isNotificationPanelOpen;
     const collapsed = isMd && (externalCollapsed || isNotificationPanelOpen);
     const sidebarWidth = collapsed ? 88 : 280;
 
@@ -94,7 +88,6 @@ export default function Slider({
     const navItems = useMemo(
         () => [
             { id: 'home', label: 'Trang chủ', icon: Home, path: '/trang-chu' },
-            // { id: 'reels', label: 'Reels', icon: Clapperboard, path: '/reels' },
             { id: 'messages', label: 'Tin nhắn', icon: MessageCircle, path: config.routes.messenger },
             { id: 'friends', label: 'Bạn bè', icon: Users, path: config.routes.friends },
             { id: 'search', label: 'Tìm kiếm', icon: Search, action: () => togglePanel('search') },
@@ -109,6 +102,7 @@ export default function Slider({
                 isProfile: true,
             },
         ],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
 
@@ -156,7 +150,7 @@ export default function Slider({
         },
     ];
 
-    const panelTitle = panel === 'search' ? 'Tìm kiếm' : 'Thông báo';
+    const panelTitle = panel === 'search' ? 'Tìm kiếm' : 'Thông báo'; // eslint-disable-line no-unused-vars
 
     const renderItem = (item) => {
         const Icon = item.icon;

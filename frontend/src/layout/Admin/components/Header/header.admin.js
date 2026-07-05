@@ -1,24 +1,15 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 
 // icon
-import { AiFillHome } from 'react-icons/ai';
 import { BsSun } from 'react-icons/bs';
-import ReactLoading from 'react-loading';
 import { IoMoonOutline } from 'react-icons/io5';
 
-import { IoSearchSharp } from 'react-icons/io5';
 import { SiMessenger } from 'react-icons/si';
-import { RiSpaceShipFill } from 'react-icons/ri';
 import { MdAdminPanelSettings } from 'react-icons/md';
-import { BsFillSunFill, BsMoon } from 'react-icons/bs';
-import { CiHeart, CiStar, CiRead, CiUnread } from 'react-icons/ci';
-import { FaHeart, FaStar } from 'react-icons/fa';
 
 import { TOGGLE_THEME } from '../../../../redux/themeSlice';
 import { useDispatch, useSelector } from 'react-redux';
-
-import config from '../../../../config';
 
 import Dropdown from './dropdown.admin';
 
@@ -64,7 +55,7 @@ function Header({ user }) {
         ];
 
         return list;
-    }, [user?.role]);
+    }, []);
 
     const navMenuLogged = () => {
         return menuListLogged.map((v) => (

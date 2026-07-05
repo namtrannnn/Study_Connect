@@ -76,12 +76,14 @@ export default function ProfilePage() {
 
     useEffect(() => {
         loadProfile();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
     useEffect(() => {
         if (currentProfileUserId) {
             loadPostGrid({ reset: true, targetUserId: currentProfileUserId });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentProfileUserId]);
 
     const loadProfile = async () => {
