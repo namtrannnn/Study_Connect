@@ -1,18 +1,16 @@
-version: "3.8"
-
 services:
   backend:
     env_file:
-      - ./social_be/.env
+      - ./backend/.env
     build:
-      context: ./social_be
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: social_backend
+    container_name: backend
     ports:
       - "5000:5000"
       - "9229:9229"
     volumes:
-      - ./social_be:/app
+      - ./backend:/app
       - /app/node_modules
     depends_on:
       - redis
@@ -23,13 +21,13 @@ services:
 
   frontend:
     build:
-      context: ./social_fe
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: social_frontend
+    container_name: frontend
     ports:
       - "3000:3000"
     volumes:
-      - ./social_fe:/app
+      - ./frontend:/app
       - /app/node_modules
     depends_on:
       - backend
@@ -47,5 +45,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  mongo_data:
   redis_data:
