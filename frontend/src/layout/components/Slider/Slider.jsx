@@ -24,7 +24,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
 import NotificationsPanel from './panels/NotificationsPanel';
-import { suggestFollowsMock } from './mock';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
 import config from '../../../config';
 
@@ -33,6 +32,7 @@ export default function Slider({
     collapsed: externalCollapsed = false,
     activePanel,
     onOpenSearch,
+    onOpenNotifications,
     onClosePanel,
 }) {
     const [panel, setPanel] = useState(null);
@@ -79,6 +79,13 @@ export default function Slider({
             setMoreOpen(false);
             setPanel(null);
             onOpenSearch?.();
+            return;
+        }
+
+        if (panelName === 'notifications') {
+            setMoreOpen(false);
+            setPanel(null);
+            onOpenNotifications?.();
             return;
         }
 
@@ -403,7 +410,7 @@ export default function Slider({
                         </div>
 
                         <div className="flex-1 overflow-y-auto">
-                            {panel === 'notifications' && <NotificationsPanel suggestFollows={suggestFollowsMock} />}
+                            {panel === 'notifications' && <NotificationsPanel />}
                         </div>
                     </div>
                 </section>
@@ -433,7 +440,7 @@ export default function Slider({
                         </div>
 
                         <div className="flex-1 overflow-y-auto pb-16">
-                            {panel === 'notifications' && <NotificationsPanel suggestFollows={suggestFollowsMock} />}
+                            {panel === 'notifications' && <NotificationsPanel />}
                         </div>
                     </div>
                 </section>
