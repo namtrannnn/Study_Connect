@@ -3,6 +3,7 @@ const Like = require("../models/postLike.model");
 const Post = require("../models/post.model");
 const User = require("../models/user.model");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
+const { createNotification } = require("../services/notification.service");
 
 // [POST] /api/v1/post/toggle-like/:postId
 module.exports.toggleLike = async (req, res) => {
@@ -58,6 +59,19 @@ module.exports.toggleLike = async (req, res) => {
     });
 
     await Post.updateOne({ _id: postId }, { $inc: { likesCount: 1 } });
+
+    // Gửi notification cho chủ bài — không gửi nếu tự like bài của mình
+    if (post.author.toString() !== userId.toString()) {
+      const liker = req.user;
+      await createNotification({
+        receiver: post.author,
+        sender: userId,
+        type: "post_like",
+        message: `đã thích bài viết của bạn`,
+        refId: post._id,
+        refType: "post",
+      }).catch(() => {}); // không block response nếu notification lỗi
+    }
 
     return res.status(200).json({
       code: 200,

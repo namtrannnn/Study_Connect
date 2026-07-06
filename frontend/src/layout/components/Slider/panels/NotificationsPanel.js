@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Check, Trash2, Loader2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getSocket } from '../../../../config/socket';
 import * as NotificationServices from '../../../../services/notification.services';
+import { setUnreadCount, incrementUnread, decrementUnread, resetUnread } from '../../../../redux/slices/notificationSlice';
 
 const TYPE_ICONS = {
     friend_request: '👥',
@@ -27,8 +30,10 @@ function formatTime(dateStr) {
 }
 
 export default function NotificationsPanel({ onClose }) {
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
+    const [unreadCount, setUnreadCountLocal] = useState(0);
     const [loading, setLoading] = useState(false);
     const [markingAll, setMarkingAll] = useState(false);
 
@@ -38,7 +43,8 @@ export default function NotificationsPanel({ onClose }) {
             const res = await NotificationServices.getNotifications();
             if (res.code === 200) {
                 setNotifications(res.notifications || []);
-                setUnreadCount(res.unreadCount || 0);
+                setUnreadCountLocal(res.unreadCount || 0);
+                dispatch(setUnreadCount(res.unreadCount || 0));
             }
         } catch {
             toast.error('Không thể tải thông báo');
@@ -62,11 +68,13 @@ export default function NotificationsPanel({ onClose }) {
                 if (existed) return prev;
                 return [notification, ...prev];
             });
-            setUnreadCount((prev) => prev + 1);
+            setUnreadCountLocal((prev) => prev + 1);
+            dispatch(incrementUnread());
         };
 
         const handleReadAll = ({ unreadCount: count }) => {
-            setUnreadCount(count ?? 0);
+            setUnreadCountLocal(count ?? 0);
+            dispatch(setUnreadCount(count ?? 0));
             setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         };
 
@@ -91,7 +99,7 @@ export default function NotificationsPanel({ onClose }) {
             setNotifications((prev) =>
                 prev.map((n) => (String(n._id) === String(notificationId) ? { ...n, isRead: true } : n)),
             );
-            setUnreadCount((prev) => Math.max(prev - 1, 0));
+            setUnreadCountLocal((prev) => Math.max(prev - 1, 0));
         } catch {
             toast.error('Không thể đánh dấu đã đọc');
         }
@@ -102,12 +110,39 @@ export default function NotificationsPanel({ onClose }) {
             setMarkingAll(true);
             await NotificationServices.markAllAsRead();
             setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-            setUnreadCount(0);
+            setUnreadCountLocal(0);
         } catch {
             toast.error('Không thể đánh dấu tất cả đã đọc');
         } finally {
             setMarkingAll(false);
         }
+    };
+
+    const handleNotifClick = async (notif) => {
+        // Đánh dấu đã đọc nếu chưa
+        if (!notif.isRead) await handleMarkAsRead(notif._id);
+
+        const refId = notif.refId;
+        const senderId = notif.sender?._id;
+
+        switch (notif.type) {
+            case 'friend_request':
+            case 'friend_accept':
+                if (senderId) navigate(`/profile/${senderId}`);
+                break;
+            case 'post_like':
+            case 'post_comment':
+            case 'comment_reply':
+            case 'mention':
+                if (refId) navigate(`/post/${refId}`);
+                break;
+            case 'study_room_invite':
+                if (refId) navigate(`/study-room/${refId}`);
+                break;
+            default:
+                break;
+        }
+        onClose?.();
     };
 
     const handleDelete = async (e, notificationId) => {
@@ -189,7 +224,7 @@ export default function NotificationsPanel({ onClose }) {
                         {notifications.map((notif) => (
                             <div
                                 key={notif._id}
-                                onClick={() => !notif.isRead && handleMarkAsRead(notif._id)}
+                                onClick={() => handleNotifClick(notif)}
                                 className={`group relative flex cursor-pointer items-start gap-3 rounded-3xl border p-3 transition hover:-translate-y-0.5 hover:shadow-sm ${
                                     !notif.isRead
                                         ? 'border-blue-100 bg-blue-50/60 dark:border-white/10 dark:bg-blue-500/5'
@@ -241,3 +276,4 @@ export default function NotificationsPanel({ onClose }) {
         </div>
     );
 }
+

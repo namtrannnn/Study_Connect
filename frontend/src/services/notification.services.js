@@ -2,9 +2,14 @@ import httpRequest from '../config/axios';
 
 // GET /api/v1/notifications
 export const getNotifications = async () => {
-    const res = await httpRequest.get('/notifications');
-    console.log('notification', res.data);
-    return res.data;
+    try {
+        const res = await httpRequest.get('/notifications');
+        console.log('notification res:', res.data);
+        return res.data;
+    } catch (error) {
+        console.log('notification error:', error?.response?.status, error?.response?.data?.message);
+        throw error;
+    }
 };
 
 // PATCH /api/v1/notifications/read/:id
