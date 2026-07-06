@@ -3,6 +3,7 @@ const Comment = require("../models/postComment.model");
 const Post = require("../models/post.model");
 const CommentLike = require("../models/commentLike.model");
 
+const { createNotification } = require("../services/notification.service");
 const {
   getMentionUserIdsFromContent,
 } = require("../../../helpers/mention.helper");
@@ -190,6 +191,47 @@ module.exports.createComment = async (req, res) => {
           : null,
       },
     });
+
+    // Gửi notification
+    const senderId = userId.toString();
+
+    // 1. Notify chủ bài (post_comment) — không gửi nếu tự comment
+    if (post.author._id.toString() !== senderId) {
+      await createNotification({
+        receiver: post.author._id,
+        sender: userId,
+        type: "post_comment",
+        message: `đã bình luận bài viết của bạn`,
+        refId: post._id,
+        refType: "post",
+      }).catch(() => {});
+    }
+
+    // 2. Notify người được reply (comment_reply) — không gửi nếu tự reply
+    if (repliedComment && repliedComment.user.toString() !== senderId) {
+      await createNotification({
+        receiver: repliedComment.user,
+        sender: userId,
+        type: "comment_reply",
+        message: `đã trả lời bình luận của bạn`,
+        refId: post._id,
+        refType: "post",
+      }).catch(() => {});
+    }
+
+    // 3. Notify các user được @mention — không gửi cho chính mình
+    for (const mentionId of mentionIds) {
+      if (mentionId.toString() !== senderId) {
+        await createNotification({
+          receiver: mentionId,
+          sender: userId,
+          type: "mention",
+          message: `đã nhắc đến bạn trong một bình luận`,
+          refId: post._id,
+          refType: "post",
+        }).catch(() => {});
+      }
+    }
 
     return res.status(201).json({
       code: 201,

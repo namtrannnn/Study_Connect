@@ -45,12 +45,21 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
             inputRef.current?.focus();
         }, 100);
 
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
+        // Lock đúng scroll container, không lock body
+        const scrollContainer = document.getElementById('dashboard-scroll-container');
+        if (scrollContainer) {
+            scrollContainer.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'hidden';
+        }
 
         return () => {
             clearTimeout(timer);
-            document.body.style.overflow = previousOverflow;
+            if (scrollContainer) {
+                scrollContainer.style.overflow = '';
+            } else {
+                document.body.style.overflow = '';
+            }
         };
     }, [open]);
 
@@ -146,8 +155,34 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
 
             if (res.code === 201) {
                 setCommentText('');
+                setReplyingComment(null);
                 onSubmitComment?.(value);
                 setTimeout(() => inputRef.current?.focus(), 100);
+
+                // Add ngay vào UI không đợi socket
+                // Socket sẽ dedup nếu nhận lại
+                if (res.data) {
+                    const newComment = res.data;
+                    setComments((prev) => {
+                        const existed = prev.some((item) => String(item._id) === String(newComment._id));
+                        if (existed) return prev;
+
+                        if (newComment.parentComment) {
+                            return prev.map((item) => {
+                                if (String(item._id) !== String(newComment.parentComment)) return item;
+                                return {
+                                    ...item,
+                                    repliesCount: (item.repliesCount || 0) + 1,
+                                    replies: expandedReplies.has(String(item._id))
+                                        ? [...(item.replies || []), newComment]
+                                        : item.replies || [],
+                                };
+                            });
+                        }
+
+                        return [{ ...newComment, replies: [] }, ...prev];
+                    });
+                }
             } else {
                 toast.error(res.message || 'Không thể bình luận');
             }
@@ -613,6 +648,8 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                         comment?.user?._id || comment?.user?.id || comment?.user?.userId;
 
                                     const isMyComment = String(commentUserId) === String(currentUserId);
+                                    const isPostOwner = String(post?.author?._id || post?.author?.id) === String(currentUserId);
+                                    const canManage = isMyComment || isPostOwner;
 
                                     return (
                                         <div
@@ -712,7 +749,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                                         Trả lời
                                                     </button>
 
-                                                    {isMyComment && editingCommentId !== comment._id && (
+                                                    {canManage && editingCommentId !== comment._id && (
                                                         <div className="relative opacity-0 transition group-hover/comment:opacity-100">
                                                             <button
                                                                 type="button"
@@ -729,17 +766,19 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
 
                                                             {openCommentMenuId === comment._id && (
                                                                 <div className="absolute left-0 top-7 z-50 w-32 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-xl">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setOpenCommentMenuId(null);
-                                                                            handleStartEditComment(comment);
-                                                                        }}
-                                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-                                                                    >
-                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                        Sửa
-                                                                    </button>
+                                                                    {isMyComment && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setOpenCommentMenuId(null);
+                                                                                handleStartEditComment(comment);
+                                                                            }}
+                                                                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
+                                                                        >
+                                                                            <Pencil className="h-3.5 w-3.5" />
+                                                                            Sửa
+                                                                        </button>
+                                                                    )}
 
                                                                     <button
                                                                         type="button"

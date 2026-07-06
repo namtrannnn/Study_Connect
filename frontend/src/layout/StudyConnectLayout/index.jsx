@@ -5,6 +5,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Slider from '../components/Slider';
 import Suggest from '../components/Suggest/Suggest';
 import SearchPanel from '../components/search/SearchPanel';
+import NotificationsPanel from '../components/Slider/panels/NotificationsPanel';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -32,10 +33,15 @@ function StudyConnectLayout({
     }, [collapsed]);
 
     const isSearchOpen = openPanel === 'search';
+    const isNotifOpen = openPanel === 'notifications';
     const sidebarWidth = collapsed ? 88 : 285;
 
     const handleOpenSearch = () => {
         setOpenPanel((prev) => (prev === 'search' ? null : 'search'));
+    };
+
+    const handleOpenNotifications = () => {
+        setOpenPanel((prev) => (prev === 'notifications' ? null : 'notifications'));
     };
 
     const handleClosePanel = () => {
@@ -55,6 +61,7 @@ function StudyConnectLayout({
                         collapsed={collapsed}
                         activePanel={openPanel}
                         onOpenSearch={handleOpenSearch}
+                        onOpenNotifications={handleOpenNotifications}
                         onClosePanel={handleClosePanel}
                     />
 
@@ -76,13 +83,13 @@ function StudyConnectLayout({
                 <div className="flex min-w-0 flex-1 overflow-hidden">
                     <main
                         id={mainId}
-                        className="min-w-0 flex-1 overflow-y-auto overscroll-contain pb-24 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                        className="min-w-0 flex-1 overflow-y-auto overscroll-contain pb-24 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
                     >
                         <div className={`mx-auto w-full px-4 py-4 ${contentClassName}`}>{children}</div>
                     </main>
 
                     {showSuggest && (
-                        <aside className="hidden h-full w-[300px] shrink-0 overflow-y-auto overscroll-contain border-l border-blue-100 bg-white/80 p-3 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#181b22]/80 lg:block">
+                        <aside className="hidden h-full w-[300px] shrink-0 overflow-y-auto overscroll-contain border-l border-blue-100 bg-white/80 p-3 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#181b22]/80 lg:block [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                             <Suggest />
                         </aside>
                     )}
@@ -94,9 +101,9 @@ function StudyConnectLayout({
                 type="button"
                 onClick={handleClosePanel}
                 className={`fixed inset-0 z-30 hidden bg-black/10 backdrop-blur-[1px] transition-opacity duration-300 ease-out md:block ${
-                    isSearchOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                    isSearchOpen || isNotifOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
                 }`}
-                aria-label="Đóng tìm kiếm"
+                aria-label="Đóng panel"
             />
 
             {/* Search panel desktop */}
@@ -111,6 +118,18 @@ function StudyConnectLayout({
                 <SearchPanel onClose={handleClosePanel} />
             </div>
 
+            {/* Notification panel desktop */}
+            <div
+                className={`fixed bottom-4 top-4 z-40 hidden w-[420px] overflow-hidden rounded-[28px] border border-blue-100/80 bg-white/95 shadow-[0_24px_80px_rgba(15,23,42,0.22)] backdrop-blur-2xl transition-all duration-300 ease-out dark:border-white/10 dark:bg-[#181b22]/95 md:block ${
+                    isNotifOpen
+                        ? 'translate-x-0 scale-100 opacity-100'
+                        : 'pointer-events-none -translate-x-8 scale-[0.97] opacity-0'
+                }`}
+                style={{ left: sidebarWidth + 16 }}
+            >
+                <NotificationsPanel onClose={handleClosePanel} />
+            </div>
+
             {/* Search panel mobile */}
             <div
                 className={`fixed inset-0 z-50 bg-white transition-all duration-300 ease-out dark:bg-[#181b22] md:hidden ${
@@ -120,6 +139,17 @@ function StudyConnectLayout({
                 }`}
             >
                 <SearchPanel onClose={handleClosePanel} />
+            </div>
+
+            {/* Notification panel mobile */}
+            <div
+                className={`fixed inset-0 z-50 bg-white transition-all duration-300 ease-out dark:bg-[#181b22] md:hidden ${
+                    isNotifOpen
+                        ? 'translate-y-0 scale-100 opacity-100'
+                        : 'pointer-events-none translate-y-6 scale-[0.98] opacity-0'
+                }`}
+            >
+                <NotificationsPanel onClose={handleClosePanel} />
             </div>
         </div>
     );

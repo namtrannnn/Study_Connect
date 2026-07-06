@@ -24,7 +24,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
 import NotificationsPanel from './panels/NotificationsPanel';
-import { suggestFollowsMock } from './mock';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
 import config from '../../../config';
 
@@ -33,6 +32,7 @@ export default function Slider({
     collapsed: externalCollapsed = false,
     activePanel,
     onOpenSearch,
+    onOpenNotifications,
     onClosePanel,
 }) {
     const [panel, setPanel] = useState(null);
@@ -43,6 +43,7 @@ export default function Slider({
     const infoUser = useSelector((state) => state.user?.infoUser);
     const currentUser = user || infoUser;
     const theme = useSelector((state) => state.theme?.theme);
+    const unreadNotifCount = useSelector((state) => state.notification?.unreadCount || 0);
 
     useEffect(() => {
         if (theme === 'dark') {
@@ -79,6 +80,13 @@ export default function Slider({
             setMoreOpen(false);
             setPanel(null);
             onOpenSearch?.();
+            return;
+        }
+
+        if (panelName === 'notifications') {
+            setMoreOpen(false);
+            setPanel(null);
+            onOpenNotifications?.();
             return;
         }
 
@@ -189,8 +197,10 @@ export default function Slider({
                         <Icon className="h-5 w-5" />
                     )}
 
-                    {item.id === 'notifications' && !collapsed && (
-                        <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500" />
+                    {item.id === 'notifications' && unreadNotifCount > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[10px] font-bold text-white dark:border-surface-cardDark">
+                            {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                        </span>
                     )}
                 </div>
 
@@ -377,66 +387,6 @@ export default function Slider({
                         );
                     })}
                 </nav>
-            )}
-
-            {/* Panel desktop - chỉ giữ notification, search đã chuyển qua DashboardLayout */}
-            {isMd && (
-                <section
-                    className={`
-            absolute top-0 z-30 h-full overflow-hidden border-r border-border bg-background shadow-xl
-            transition-all duration-300
-            ${isNotificationPanelOpen ? 'w-[380px] opacity-100' : 'w-0 opacity-0'}
-        `}
-                    style={{ left: sidebarWidth }}
-                >
-                    <div className="flex h-full w-[380px] flex-col">
-                        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                            <h2 className="text-xl font-semibold">Thông báo</h2>
-                            <button
-                                type="button"
-                                onClick={() => setPanel(null)}
-                                className="rounded-xl p-2 transition hover:bg-muted"
-                                aria-label="Close panel"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto">
-                            {panel === 'notifications' && <NotificationsPanel suggestFollows={suggestFollowsMock} />}
-                        </div>
-                    </div>
-                </section>
-            )}
-
-            {/* Panel mobile */}
-            {/* Panel mobile - chỉ giữ notification, search đã chuyển qua DashboardLayout */}
-            {!isMd && (
-                <section
-                    className={`
-            absolute right-0 top-0 z-40 h-full w-[88%] max-w-[380px] border-l border-border bg-background shadow-2xl
-            transition-transform duration-300
-            ${isNotificationPanelOpen ? 'translate-x-0' : 'translate-x-full'}
-        `}
-                >
-                    <div className="flex h-full flex-col">
-                        <div className="flex items-center justify-between border-b border-border px-4 py-4">
-                            <h2 className="text-lg font-semibold">Thông báo</h2>
-                            <button
-                                type="button"
-                                onClick={() => setPanel(null)}
-                                className="rounded-xl p-2 transition hover:bg-muted"
-                                aria-label="Close panel"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto pb-16">
-                            {panel === 'notifications' && <NotificationsPanel suggestFollows={suggestFollowsMock} />}
-                        </div>
-                    </div>
-                </section>
             )}
         </div>
     );
