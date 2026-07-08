@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
+import { ArrowLeft } from 'lucide-react';
 
 import EditProfileModal from './EditProfileModal';
 import ArchivePage from './ArchivePage';
 import PostDetailModal from '../../Dashboard/PostDetailModal';
 import * as ProfileServices from '../../../services/ProfileServices';
+import * as FriendServices from '../../../services/friend.services';
 
 export default function ProfilePage() {
     const { userId } = useParams();
+    const navigate = useNavigate();
+    const currentUser = useSelector((state) => state.user?.infoUser);
 
     const [activeView, setActiveView] = useState('profile');
-
     const [profileData, setProfileData] = useState(null);
     const [posts, setPosts] = useState([]);
-
     const [loading, setLoading] = useState(true);
     const [postLoading, setPostLoading] = useState(false);
     const [error, setError] = useState('');
-
     const [nextCursor, setNextCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
-
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
@@ -30,48 +32,17 @@ export default function ProfilePage() {
         avatar: '',
         avatarFile: null,
     });
-
     const [activeTab, setActiveTab] = useState('posts');
     const [selectedPost, setSelectedPost] = useState(null);
     const [isPostDetailOpen, setIsPostDetailOpen] = useState(false);
-
-    const [recentFriends] = useState([
-        {
-            _id: '1',
-            fullName: 'Nguyễn Văn A',
-            username: 'nguyenvana',
-            avatar: 'https://api.dicebear.com/8.x/avataaars/svg?seed=friend1',
-        },
-        {
-            _id: '2',
-            fullName: 'Trần Thị B',
-            username: 'tranthib',
-            avatar: 'https://api.dicebear.com/8.x/avataaars/svg?seed=friend2',
-        },
-        {
-            _id: '3',
-            fullName: 'Lê Văn C',
-            username: 'levanc',
-            avatar: 'https://api.dicebear.com/8.x/avataaars/svg?seed=friend3',
-        },
-        {
-            _id: '4',
-            fullName: 'Phạm Thị D',
-            username: 'phamthid',
-            avatar: 'https://api.dicebear.com/8.x/avataaars/svg?seed=friend4',
-        },
-        {
-            _id: '5',
-            fullName: 'Hoàng Minh E',
-            username: 'hoangminhe',
-            avatar: 'https://api.dicebear.com/8.x/avataaars/svg?seed=friend5',
-        },
-    ]);
+    const [friendList, setFriendList] = useState([]);
+    const [relationStatus, setRelationStatus] = useState('none');
+    const [friendLoading, setFriendLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     const user = profileData?.user;
     const stats = profileData?.stats;
     const relation = profileData?.relation;
-
     const currentProfileUserId = user?._id;
 
     useEffect(() => {
@@ -82,9 +53,17 @@ export default function ProfilePage() {
     useEffect(() => {
         if (currentProfileUserId) {
             loadPostGrid({ reset: true, targetUserId: currentProfileUserId });
+            loadFriendList(currentProfileUserId);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentProfileUserId]);
+
+    // Sync relationStatus từ profileData
+    useEffect(() => {
+        if (profileData?.relation?.relationStatus) {
+            setRelationStatus(profileData.relation.relationStatus);
+        }
+    }, [profileData]);
 
     const loadProfile = async () => {
         try {
@@ -125,6 +104,70 @@ export default function ProfilePage() {
             console.log('Load profile post grid error:', error);
         } finally {
             setPostLoading(false);
+        }
+    };
+
+    const loadFriendList = async (targetUserId) => {
+        try {
+            const res = await FriendServices.getFriendList(targetUserId);
+            if (res.code === 200) {
+                setFriendList(res.data?.friends || []);
+            }
+        } catch {
+            // silent fail
+        }
+    };
+
+    const handleFriendAction = async () => {
+        if (!user?._id || friendLoading) return;
+        try {
+            setFriendLoading(true);
+            let res;
+            if (relationStatus === 'none') {
+                res = await FriendServices.sendFriendRequest(user._id);
+                toast.success('Đã gửi lời mời kết bạn');
+            } else if (relationStatus === 'pending_sent') {
+                res = await FriendServices.cancelFriendRequest(user._id);
+                toast('Đã hủy lời mời kết bạn');
+            } else if (relationStatus === 'pending_received') {
+                res = await FriendServices.acceptFriendRequest(user._id);
+                toast.success('Đã chấp nhận lời mời kết bạn');
+            } else if (relationStatus === 'friend') {
+                res = await FriendServices.cancelFriendRequest(user._id);
+                toast('Đã hủy kết bạn');
+            }
+            if (res?.data?.relationStatus) {
+                setRelationStatus(res.data.relationStatus);
+            }
+        } catch (error) {
+            toast.error(error?.response?.data?.message || 'Không thể thực hiện');
+        } finally {
+            setFriendLoading(false);
+        }
+    };
+
+    const handleRefuseRequest = async () => {
+        if (!user?._id || friendLoading) return;
+        try {
+            setFriendLoading(true);
+            await FriendServices.refuseFriendRequest(user._id);
+            setRelationStatus('none');
+            toast('Đã từ chối lời mời');
+        } catch {
+            toast.error('Không thể từ chối lời mời');
+        } finally {
+            setFriendLoading(false);
+        }
+    };
+
+    const handleOpenChat = () => {
+        const roomChatId = currentUser?.friendList?.find(
+            (f) => f.user_id === user?._id || f.user_id?.toString() === user?._id?.toString()
+        )?.room_chat_id;
+        if (roomChatId) {
+            navigate(`/messenger?roomId=${roomChatId}`);
+        } else {
+            navigate(`/messenger`);
         }
     };
 
@@ -186,19 +229,16 @@ export default function ProfilePage() {
 
     const handleSave = async () => {
         try {
+            setSaving(true);
             const data = new FormData();
-
             data.append('fullName', formData.fullName);
             data.append('username', formData.username);
             data.append('bio', formData.bio);
             data.append('isPrivate', formData.isPrivate);
-
             if (formData.avatarFile) {
                 data.append('avatar', formData.avatarFile);
             }
-
             const res = await ProfileServices.updateProfile(data);
-
             setProfileData((prev) => ({
                 ...prev,
                 user: res.data,
@@ -208,11 +248,12 @@ export default function ProfilePage() {
                     followingCount: res.data.followingCount || prev?.stats?.followingCount || 0,
                 },
             }));
-
+            toast.success('Cập nhật profile thành công');
             setIsEditOpen(false);
         } catch (error) {
-            console.log('Update profile error:', error);
-            alert(error?.response?.data?.message || 'Cập nhật profile thất bại');
+            toast.error(error?.response?.data?.message || 'Cập nhật profile thất bại');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -230,6 +271,7 @@ export default function ProfilePage() {
 
         return words.slice(0, maxWords).join(' ') + '...';
     };
+
     if (activeView === 'archive') {
         return <ArchivePage onBack={backToProfile} />;
     }
@@ -258,83 +300,73 @@ export default function ProfilePage() {
 
     return (
         <>
-            <div className="min-h-screen bg-surface-soft text-gray-900 dark:bg-surface-darker dark:text-white">
-                <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-8">
-                    <div className="overflow-hidden rounded-4xl border border-blue-100 bg-white shadow-brand-soft dark:border-white/10 dark:bg-surface-cardDark">
-                        <div className="h-32 bg-brand-gradient md:h-44" />
+            <div className="min-h-screen text-gray-900 dark:text-white">
+                <div className="mx-auto max-w-4xl px-4 pb-16 pt-4">
 
-                        <div className="px-5 pb-6 md:px-8 md:pb-8">
-                            <div className="-mt-16 flex flex-col gap-6 md:-mt-20 md:flex-row md:items-end md:justify-between">
-                                <div className="flex flex-col gap-5 md:flex-row md:items-end">
-                                    <div className="relative w-fit">
-                                        <div className="rounded-full bg-white p-1 shadow-brand dark:bg-surface-cardDark">
-                                            <img
-                                                src={user.avatar}
-                                                alt={user.fullName}
-                                                className="h-32 w-32 rounded-full border-4 border-white object-cover dark:border-surface-cardDark md:h-40 md:w-40"
-                                            />
-                                        </div>
+                    {/* Back button */}
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        className="mb-4 flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                    >
+                        <ArrowLeft size={16} />
+                        Quay lại
+                    </button>
 
-                                        <span className="absolute bottom-3 right-3 h-5 w-5 rounded-full border-4 border-white bg-emerald-500 dark:border-surface-cardDark" />
-                                    </div>
+                    {/* Profile Card */}
+                    <div className="overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#1f1f22]">
+                        {/* Cover — subtle pattern */}
+                        <div className="relative h-36 md:h-44 bg-slate-50 dark:bg-white/5 overflow-hidden">
+                            {/* dot pattern */}
+                            <div className="absolute inset-0 opacity-40"
+                                style={{ backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+                            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/60 dark:to-[#1f1f22]/60" />
+                        </div>
 
-                                    <div className="pb-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h1 className="text-2xl font-bold md:text-3xl">{user.fullName}</h1>
-
-                                            {user.isVerified && (
-                                                <span className="rounded-full bg-brand-100 px-2 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
-                                                    Đã xác minh
-                                                </span>
-                                            )}
-
-                                            {user.isPrivate && (
-                                                <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                                                    Riêng tư
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <p className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            @{user.username || 'chưa-có-username'}
-                                        </p>
-
-                                        <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600 dark:text-gray-300">
-                                            {user.bio || 'Người dùng này chưa thêm tiểu sử.'}
-                                        </p>
-                                    </div>
+                        <div className="px-6 pb-6 md:px-8 md:pb-8">
+                            {/* Avatar + Actions row */}
+                            <div className="flex items-end justify-between -mt-12 md:-mt-14">
+                                {/* Avatar */}
+                                <div className="relative">
+                                    <img
+                                        src={user.avatar}
+                                        alt={user.fullName}
+                                        className="h-24 w-24 rounded-[20px] object-cover ring-4 ring-white shadow-lg dark:ring-[#1f1f22] md:h-28 md:w-28"
+                                    />
+                                    <span className="absolute bottom-1.5 right-1.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1f1f22]" />
                                 </div>
 
-                                <div className="flex flex-wrap gap-3">
+                                {/* Actions */}
+                                <div className="flex flex-wrap gap-2 pb-1">
                                     {relation?.isMe ? (
                                         <>
-                                            <button
-                                                onClick={openEditModal}
-                                                className="rounded-2xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition hover:scale-[1.02]"
-                                            >
-                                                Chỉnh sửa trang cá nhân
+                                            <button onClick={openEditModal}
+                                                className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600">
+                                                Chỉnh sửa hồ sơ
                                             </button>
-
-                                            <button
-                                                onClick={openArchivePage}
-                                                className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-brand-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                                            >
+                                            <button onClick={openArchivePage}
+                                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
                                                 Kho lưu trữ
                                             </button>
                                         </>
                                     ) : (
                                         <>
-                                            <button className="rounded-2xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-brand transition hover:scale-[1.02]">
-                                                {relation?.relationStatus === 'friend'
-                                                    ? 'Bạn bè'
-                                                    : relation?.relationStatus === 'pending_sent'
-                                                      ? 'Đã gửi lời mời'
-                                                      : relation?.relationStatus === 'pending_received'
-                                                        ? 'Phản hồi lời mời'
-                                                        : 'Kết bạn'}
+                                            <button onClick={handleFriendAction} disabled={friendLoading}
+                                                className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 disabled:opacity-60">
+                                                {friendLoading ? 'Đang xử lý...'
+                                                    : relationStatus === 'friend' ? '✓ Bạn bè'
+                                                    : relationStatus === 'pending_sent' ? 'Đã gửi lời mời'
+                                                    : relationStatus === 'pending_received' ? 'Chấp nhận'
+                                                    : '+ Kết bạn'}
                                             </button>
-
-                                            <button className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-brand-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15">
+                                            {relationStatus === 'pending_received' && (
+                                                <button onClick={handleRefuseRequest} disabled={friendLoading}
+                                                    className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-500/30 dark:bg-white/5">
+                                                    Từ chối
+                                                </button>
+                                            )}
+                                            <button onClick={handleOpenChat}
+                                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
                                                 Nhắn tin
                                             </button>
                                         </>
@@ -342,226 +374,154 @@ export default function ProfilePage() {
                                 </div>
                             </div>
 
-                            <div className="mt-8 grid grid-cols-3 gap-3 rounded-3xl bg-brand-gradient-soft p-3 dark:bg-brand-gradient-dark md:max-w-xl">
-                                <div className="rounded-2xl bg-white/80 px-4 py-4 text-center shadow-sm dark:bg-white/10">
-                                    <div className="text-xl font-bold">{stats?.postsCount || 0}</div>
-                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-300">bài viết</div>
+                            {/* Name + bio */}
+                            <div className="mt-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h1 className="text-xl font-black text-gray-900 dark:text-white md:text-2xl">{user.fullName}</h1>
+                                    {user.isVerified && (
+                                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">✓</span>
+                                    )}
+                                    {user.isPrivate && (
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-300">🔒 Riêng tư</span>
+                                    )}
                                 </div>
-
-                                <div className="rounded-2xl bg-white/80 px-4 py-4 text-center shadow-sm dark:bg-white/10">
-                                    <div className="text-xl font-bold">{stats?.followersCount || 0}</div>
-                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-300">
-                                        người theo dõi
-                                    </div>
-                                </div>
-
-                                <div className="rounded-2xl bg-white/80 px-4 py-4 text-center shadow-sm dark:bg-white/10">
-                                    <div className="text-xl font-bold">{stats?.followingCount || 0}</div>
-                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-300">
-                                        đang theo dõi
-                                    </div>
-                                </div>
+                                <p className="text-sm font-medium text-gray-400">@{user.username || 'username'}</p>
+                                {user.bio && (
+                                    <p className="mt-2 max-w-lg text-sm leading-6 text-gray-600 dark:text-gray-300">{user.bio}</p>
+                                )}
                             </div>
 
-                            <div className="mt-8">
-                                <div className="mb-4 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                                            Bạn bè mới nhất
-                                        </h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Hiển thị tối đa 5 người bạn gần đây
-                                        </p>
+                            {/* Stats */}
+                            <div className="mt-5 flex gap-6 border-t border-gray-100 pt-4 dark:border-white/10">
+                                {[
+                                    { label: 'Bài viết', value: stats?.postsCount || 0 },
+                                    { label: 'Người theo dõi', value: stats?.followersCount || 0 },
+                                    { label: 'Đang theo dõi', value: stats?.followingCount || 0 },
+                                ].map((item, i) => (
+                                    <div key={item.label} className={`flex flex-col items-center ${i > 0 ? 'border-l border-gray-100 pl-6 dark:border-white/10' : ''}`}>
+                                        <span className="text-xl font-black text-gray-900 dark:text-white">{item.value}</span>
+                                        <span className="text-xs font-medium text-gray-400">{item.label}</span>
                                     </div>
+                                ))}
+                            </div>
 
-                                    <button className="text-sm font-semibold text-brand-600 hover:underline dark:text-brand-300">
-                                        Xem tất cả
-                                    </button>
-                                </div>
-
-                                {recentFriends.length === 0 ? (
-                                    <div className="rounded-3xl border border-dashed border-blue-100 bg-brand-50/60 px-5 py-6 text-center dark:border-white/10 dark:bg-white/5">
-                                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                                            Chưa có bạn bè để hiển thị.
-                                        </p>
+                            {/* Friends */}
+                            {friendList.length > 0 && (
+                                <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/10">
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                                            Bạn bè <span className="text-gray-400 font-normal">· {friendList.length}</span>
+                                        </span>
+                                        <button className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                                            Xem tất cả
+                                        </button>
                                     </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-                                        {recentFriends.slice(0, 5).map((friend) => (
-                                            <button
-                                                key={friend._id}
-                                                type="button"
-                                                className="group rounded-3xl border border-blue-100 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-brand-50 hover:shadow-brand-soft dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                                            >
-                                                <img
-                                                    src={friend.avatar}
-                                                    alt={friend.fullName}
-                                                    className="mx-auto h-16 w-16 rounded-full object-cover ring-4 ring-brand-50 dark:ring-white/10"
-                                                />
-
-                                                <div className="mt-3 text-center">
-                                                    <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
-                                                        {friend.fullName}
-                                                    </p>
-                                                    <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-                                                        @{friend.username}
-                                                    </p>
-                                                </div>
+                                    <div className="flex flex-wrap gap-4">
+                                        {friendList.slice(0, 7).map((friend) => (
+                                            <button key={friend._id} type="button"
+                                                onClick={() => navigate(`/profile/${friend._id}`)}
+                                                className="group flex flex-col items-center gap-1 w-14">
+                                                <img src={friend.avatar} alt={friend.fullName}
+                                                    className="h-12 w-12 rounded-2xl object-cover ring-2 ring-transparent transition group-hover:ring-blue-400 group-hover:scale-105 shadow-sm" />
+                                                <span className="w-full truncate text-center text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                                    {friend.fullName?.split(' ').pop()}
+                                                </span>
                                             </button>
                                         ))}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <div className="mt-8 rounded-4xl border border-blue-100 bg-white p-3 shadow-brand-soft dark:border-white/10 dark:bg-surface-cardDark md:p-4">
-                        <div className="mb-4 flex items-center justify-center gap-8 border-b border-blue-100 pb-3 text-sm font-semibold text-gray-500 dark:border-white/10 dark:text-gray-400">
-                            <button
-                                onClick={() => setActiveTab('posts')}
-                                className={`pb-2 transition hover:text-brand-600 ${
-                                    activeTab === 'posts'
-                                        ? 'border-b-2 border-brand-600 text-brand-600 dark:text-brand-300'
-                                        : ''
-                                }`}
-                            >
-                                Bài viết
-                            </button>
-
-                            <button
-                                onClick={() => setActiveTab('projects')}
-                                className={`pb-2 transition hover:text-brand-600 ${
-                                    activeTab === 'projects'
-                                        ? 'border-b-2 border-brand-600 text-brand-600 dark:text-brand-300'
-                                        : ''
-                                }`}
-                            >
-                                Dự án
-                            </button>
-
-                            <button
-                                onClick={() => setActiveTab('tagged')}
-                                className={`pb-2 transition hover:text-brand-600 ${
-                                    activeTab === 'tagged'
-                                        ? 'border-b-2 border-brand-600 text-brand-600 dark:text-brand-300'
-                                        : ''
-                                }`}
-                            >
-                                Được gắn thẻ
-                            </button>
+                    {/* Posts Grid */}
+                    <div className="mt-5 overflow-hidden rounded-[28px] border border-blue-100 bg-white shadow-sm dark:border-white/10 dark:bg-[#1f1f22]">
+                        {/* Tabs */}
+                        <div className="flex items-center gap-1 border-b border-gray-100 px-4 dark:border-white/10">
+                            {['posts', 'projects', 'tagged'].map((tab) => {
+                                const labels = { posts: 'Bài viết', projects: 'Dự án', tagged: 'Được gắn thẻ' };
+                                return (
+                                    <button key={tab} onClick={() => setActiveTab(tab)}
+                                        className={`px-4 py-3.5 text-sm font-semibold transition border-b-2 ${
+                                            activeTab === tab
+                                                ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                                        }`}>
+                                        {labels[tab]}
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        {activeTab === 'posts' && (
-                            <>
-                                {posts.length === 0 && !postLoading ? (
-                                    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-3xl bg-gray-50 text-center dark:bg-white/5">
-                                        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-2xl dark:bg-brand-500/20">
-                                            📚
+                        <div className="p-4">
+                            {activeTab === 'posts' && (
+                                <>
+                                    {posts.length === 0 && !postLoading ? (
+                                        <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+                                            <div className="mb-3 text-4xl">📚</div>
+                                            <h3 className="font-bold text-gray-700 dark:text-gray-200">Chưa có bài viết</h3>
+                                            <p className="mt-1 text-sm text-gray-500">Bài viết sẽ hiển thị ở đây.</p>
                                         </div>
-                                        <h3 className="text-lg font-bold">Chưa có bài viết</h3>
-                                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                            Khi người dùng đăng bài, bài viết sẽ hiển thị ở đây.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-                                        {posts.map((post) => {
-                                            const imageUrl = getImageUrl(post);
-
-                                            return (
-                                                <div
-                                                    key={post._id}
-                                                    onClick={() => openPostDetail(post)}
-                                                    className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-gray-100 shadow-sm dark:bg-white/5"
-                                                >
-                                                    {imageUrl ? (
-                                                        <img
-                                                            src={imageUrl}
-                                                            alt={post.caption || 'post'}
-                                                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex h-full w-full items-center justify-center p-4 text-center text-sm font-medium leading-6 text-gray-500 dark:text-gray-300">
-                                                            {limitWords(post.caption || 'Bài viết không có ảnh', 18)}
-                                                        </div>
-                                                    )}
-
-                                                    {post.mediaCount > 1 && (
-                                                        <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2 py-1 text-xs font-semibold text-white">
-                                                            {post.mediaCount} ảnh
-                                                        </div>
-                                                    )}
-
-                                                    <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/40" />
-
-                                                    <div className="absolute inset-0 flex items-center justify-center gap-6 opacity-0 transition group-hover:opacity-100">
-                                                        <div className="text-sm font-bold text-white">
-                                                            ❤ {post.likesCount || 0}
-                                                        </div>
-                                                        <div className="text-sm font-bold text-white">
-                                                            💬 {post.commentsCount || 0}
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
+                                            {posts.map((post) => {
+                                                const imageUrl = getImageUrl(post);
+                                                return (
+                                                    <div key={post._id} onClick={() => openPostDetail(post)}
+                                                        className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-gray-100 shadow-sm dark:bg-white/5">
+                                                        {imageUrl ? (
+                                                            <img src={imageUrl} alt={post.caption || 'post'}
+                                                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                                                        ) : (
+                                                            <div className="flex h-full w-full items-center justify-center p-3 text-center text-xs font-medium leading-5 text-gray-500 dark:text-gray-300">
+                                                                {limitWords(post.caption || 'Bài viết không có ảnh', 14)}
+                                                            </div>
+                                                        )}
+                                                        {post.mediaCount > 1 && (
+                                                            <div className="absolute right-2 top-2 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                                                {post.mediaCount}
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/40" />
+                                                        <div className="absolute inset-0 flex items-center justify-center gap-5 opacity-0 transition group-hover:opacity-100">
+                                                            <span className="text-sm font-bold text-white">❤ {post.likesCount || 0}</span>
+                                                            <span className="text-sm font-bold text-white">💬 {post.commentsCount || 0}</span>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {hasMore && (
+                                        <div className="mt-5 flex justify-center">
+                                            <button disabled={postLoading} onClick={() => loadPostGrid()}
+                                                className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15">
+                                                {postLoading ? 'Đang tải...' : 'Xem thêm'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
 
-                                {hasMore && (
-                                    <div className="mt-6 flex justify-center">
-                                        <button
-                                            disabled={postLoading}
-                                            onClick={() => loadPostGrid()}
-                                            className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-semibold text-brand-600 transition hover:bg-brand-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                                        >
-                                            {postLoading ? 'Đang tải...' : 'Xem thêm'}
-                                        </button>
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {activeTab === 'projects' && (
-                            <div className="flex min-h-[260px] flex-col items-center justify-center rounded-3xl bg-gray-50 text-center dark:bg-white/5">
-                                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-100 text-2xl dark:bg-cyan-500/20">
-                                    🚀
+                            {activeTab === 'projects' && (
+                                <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+                                    <div className="mb-3 text-4xl">🚀</div>
+                                    <h3 className="font-bold text-gray-700 dark:text-gray-200">Chưa có dự án</h3>
+                                    <p className="mt-1 text-sm text-gray-500">Các bài viết loại Dự án sẽ hiển thị ở đây.</p>
                                 </div>
-                                <h3 className="text-lg font-bold">Chưa có dự án</h3>
-                                <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
-                                    Tab này sẽ hiển thị các bài viết có loại dự án khi mình lọc theo postType = project.
-                                </p>
-                            </div>
-                        )}
+                            )}
 
-                        {activeTab === 'tagged' && (
-                            <div className="flex min-h-[260px] flex-col items-center justify-center rounded-3xl bg-gray-50 text-center dark:bg-white/5">
-                                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 text-2xl dark:bg-violet-500/20">
-                                    🏷️
+                            {activeTab === 'tagged' && (
+                                <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+                                    <div className="mb-3 text-4xl">🏷️</div>
+                                    <h3 className="font-bold text-gray-700 dark:text-gray-200">Chưa có bài được gắn thẻ</h3>
+                                    <p className="mt-1 text-sm text-gray-500">Bài viết có nhắc đến bạn sẽ hiển thị ở đây.</p>
                                 </div>
-                                <h3 className="text-lg font-bold">Chưa có bài viết được gắn thẻ</h3>
-                                <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
-                                    Tab này sẽ dùng sau khi có API lấy bài viết đã gắn thẻ hoặc nhắc đến người dùng.
-                                </p>
-                            </div>
-                        )}
-
-                        {hasMore && (
-                            <div className="mt-6 flex justify-center">
-                                <button
-                                    disabled={postLoading}
-                                    onClick={() => loadPostGrid()}
-                                    className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-semibold text-brand-600 transition hover:bg-brand-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                                >
-                                    {postLoading ? 'Đang tải...' : 'Xem thêm'}
-                                </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
-
-            {/* <CreateStoryModal isOpen={isCreateStoryOpen} onClose={closeCreateStoryModal} onSave={handleAddHighlight} /> */}
 
             <EditProfileModal
                 isOpen={isEditOpen}
@@ -569,6 +529,7 @@ export default function ProfilePage() {
                 formData={formData}
                 onChange={handleChange}
                 onSave={handleSave}
+                saving={saving}
             />
 
             {selectedPost && (
