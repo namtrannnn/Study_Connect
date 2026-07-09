@@ -3,7 +3,7 @@ const User = require("../models/user.model");
 const Post = require("../models/post.model");
 const Like = require("../models/postLike.model");
 const userSelect =
-  "_id fullName username avatar bio isVerified isPrivate postsCount followersCount followingCount followers following friendList requestFriends acceptFriends pinnedPosts";
+  "_id fullName username avatar bio headline fieldOfStudy skills interests portfolioLinks isVerified isPrivate postsCount followersCount followingCount followers following friendList requestFriends acceptFriends pinnedPosts";
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
 
@@ -206,7 +206,7 @@ module.exports.getUserPostGrid = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 3)
       .select(
-        "_id author caption media likesCount commentsCount visibility allowedUsers createdAt",
+        "_id author postType caption media likesCount commentsCount visibility allowedUsers project question learning collaboration study_session study_note challenge peer_review createdAt",
       );
 
     const visiblePosts = posts
@@ -216,6 +216,7 @@ module.exports.getUserPostGrid = async (req, res) => {
     const data = visiblePosts.map((post) => ({
       _id: post._id,
       author: post.author,
+      postType: post.postType,
       caption: post.caption || "",
       media: post.media || [],
       firstMedia: post.media?.[0] || null,
@@ -223,6 +224,14 @@ module.exports.getUserPostGrid = async (req, res) => {
       likesCount: post.likesCount,
       commentsCount: post.commentsCount,
       visibility: post.visibility,
+      project: post.project,
+      question: post.question,
+      learning: post.learning,
+      collaboration: post.collaboration,
+      study_session: post.study_session,
+      study_note: post.study_note,
+      challenge: post.challenge,
+      peer_review: post.peer_review,
       createdAt: post.createdAt,
     }));
 
@@ -338,12 +347,21 @@ module.exports.getUserPostFeed = async (req, res) => {
 // [PATCH] /api/v1/profile/update
 module.exports.updateProfile = async (req, res) => {
   try {
-    const allowFields = ["fullName", "username", "bio", "isPrivate"];
+    const allowFields = ["fullName", "username", "bio", "isPrivate", "headline", "fieldOfStudy", "skills", "interests", "portfolioLinks"];
     const updateData = {};
 
     allowFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
+        let value = req.body[field];
+        // Parse JSON strings for array/object fields if sent via FormData
+        if (["skills", "interests", "portfolioLinks"].includes(field) && typeof value === "string") {
+          try {
+            value = JSON.parse(value);
+          } catch (e) {
+            // Fail silent
+          }
+        }
+        updateData[field] = value;
       }
     });
 
