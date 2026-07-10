@@ -20,7 +20,7 @@ const createNotification = async ({
     refType,
   });
 
-  await redisClient.incr(`notification:${receiver}:unread_count`);
+  const newCount = await redisClient.incr(`notification:${receiver}:unread_count`);
 
   const populatedNotification = await Notification.findById(notification._id)
     .populate("sender", "_id fullName username avatar isVerified")
@@ -28,6 +28,7 @@ const createNotification = async ({
 
   global._io.to(receiver.toString()).emit("SERVER_NOTIFICATION_NEW", {
     notification: populatedNotification,
+    unreadCount: Number(newCount),
   });
 
   return populatedNotification;

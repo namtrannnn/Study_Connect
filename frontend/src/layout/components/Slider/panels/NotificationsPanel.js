@@ -61,15 +61,21 @@ export default function NotificationsPanel({ onClose }) {
         const socket = getSocket();
         if (!socket) return;
 
-        const handleNew = ({ notification }) => {
+        const handleNew = ({ notification, unreadCount: serverCount }) => {
             if (!notification) return;
             setNotifications((prev) => {
                 const existed = prev.some((n) => String(n._id) === String(notification._id));
                 if (existed) return prev;
                 return [notification, ...prev];
             });
-            setUnreadCountLocal((prev) => prev + 1);
-            dispatch(incrementUnread());
+            // Use authoritative count from server instead of blindly incrementing
+            if (typeof serverCount === 'number') {
+                setUnreadCountLocal(serverCount);
+                dispatch(setUnreadCount(serverCount));
+            } else {
+                setUnreadCountLocal((prev) => prev + 1);
+                dispatch(incrementUnread());
+            }
         };
 
         const handleReadAll = ({ unreadCount: count }) => {
