@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Heart,
     MessageCircle,
@@ -22,12 +22,6 @@ import {
     Users,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Keyboard } from 'swiper/modules';
-
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/pagination';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import {
@@ -274,11 +268,10 @@ function CollaborationShowcase({ collaboration }) {
                     </div>
 
                     <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                            collaboration.isOpen
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                                : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300'
-                        }`}
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${collaboration.isOpen
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300'
+                            }`}
                     >
                         {collaboration.isOpen ? 'Đang mở' : 'Đã đóng'}
                     </span>
@@ -343,6 +336,228 @@ function AchievementShowcase() {
         </div>
     );
 }
+function HorizontalDragScroll({ children, className = '' }) {
+    const scrollRef = useRef(null);
+    const isDown = useRef(false);
+    const isDragging = useRef(false);
+    const startX = useRef(0);
+    const scrollLeft = useRef(0);
+    const velocity = useRef(0);
+    const lastX = useRef(0);
+    const rafId = useRef(null);
+
+    const applyMomentum = () => {
+        if (!scrollRef.current || Math.abs(velocity.current) < 0.5) {
+            velocity.current = 0;
+            return;
+        }
+        scrollRef.current.scrollLeft -= velocity.current;
+        velocity.current *= 0.88; // friction deceleration
+        rafId.current = requestAnimationFrame(applyMomentum);
+    };
+
+    const onMouseDown = (e) => {
+        if (rafId.current) cancelAnimationFrame(rafId.current);
+        isDown.current = true;
+        isDragging.current = false;
+        startX.current = e.pageX - scrollRef.current.offsetLeft;
+        scrollLeft.current = scrollRef.current.scrollLeft;
+        lastX.current = e.pageX;
+        velocity.current = 0;
+    };
+
+    const onMouseLeave = () => {
+        if (isDown.current) {
+            isDown.current = false;
+            rafId.current = requestAnimationFrame(applyMomentum);
+        }
+    };
+
+    const onMouseUp = () => {
+        isDown.current = false;
+        rafId.current = requestAnimationFrame(applyMomentum);
+    };
+
+    const onMouseMove = (e) => {
+        if (!isDown.current) return;
+        const x = e.pageX - scrollRef.current.offsetLeft;
+        const walk = (x - startX.current) * 2;
+        if (Math.abs(walk) > 4) {
+            isDragging.current = true;
+        }
+        scrollRef.current.scrollLeft = scrollLeft.current - walk;
+        velocity.current = (e.pageX - lastX.current) * 2;
+        lastX.current = e.pageX;
+    };
+
+    const onClickCapture = (e) => {
+        if (isDragging.current) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    };
+
+    return (
+        <div
+            ref={scrollRef}
+            onMouseDown={onMouseDown}
+            onMouseLeave={onMouseLeave}
+            onMouseUp={onMouseUp}
+            onMouseMove={onMouseMove}
+            onClickCapture={onClickCapture}
+            className={`no-scrollbar flex flex-row flex-nowrap items-center gap-2 overflow-x-auto select-none cursor-grab active:cursor-grabbing ${className}`}
+            style={{ scrollBehavior: 'auto' }}
+        >
+            {children}
+        </div>
+    );
+}
+
+function MediaSlideItem({ media, index, total, onOpenDetail }) {
+    const [aspectRatio, setAspectRatio] = useState(null);
+    const mediaUrl = media?.url || media;
+    const mediaType = media?.type || 'image';
+
+    const itemStyle = useMemo(() => {
+        if (!aspectRatio) return { width: 'clamp(160px, 45vw, 260px)' };
+        // Baseline track height: ~250px on desktop, ~210px on mobile
+        const computedWidth = Math.round(250 * aspectRatio);
+        // Clamp between 150px (narrow portrait) and 370px (wide landscape)
+        const clampedWidth = Math.max(150, Math.min(370, computedWidth));
+        return { width: `${clampedWidth}px` };
+    }, [aspectRatio]);
+
+    return (
+        <div
+            style={itemStyle}
+            className="relative h-[210px] sm:h-[250px] shrink-0 overflow-hidden rounded-2xl border border-gray-200/80 bg-black/5 dark:border-white/10 dark:bg-white/5 shadow-sm transition-[width] duration-300 ease-out"
+        >
+            <button
+                type="button"
+                onClick={onOpenDetail}
+                className="group/item relative h-full w-full focus:outline-none"
+            >
+                {mediaType === 'video' ? (
+                    <video
+                        src={mediaUrl}
+                        controls
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <img
+                        src={mediaUrl}
+                        alt={`Post media ${index + 1}`}
+                        draggable={false}
+                        onLoad={(e) => {
+                            const { naturalWidth, naturalHeight } = e.target;
+                            if (naturalWidth && naturalHeight) {
+                                setAspectRatio(naturalWidth / naturalHeight);
+                            }
+                        }}
+                        className="h-full w-full object-cover [image-rendering:-webkit-optimize-contrast] select-none pointer-events-none"
+                    />
+                )}
+            </button>
+
+            <div className="pointer-events-none absolute right-2.5 top-2.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-md">
+                {index + 1}/{total}
+            </div>
+        </div>
+    );
+}
+
+function SingleMediaItem({ media, onOpenDetail }) {
+    const mediaUrl = media?.url || media;
+    const mediaType = media?.type || 'image';
+
+    return (
+        <div className="mt-3 inline-block max-w-full overflow-hidden rounded-2xl border border-gray-200/80 bg-black/5 dark:border-white/10 dark:bg-white/5">
+            <button
+                type="button"
+                onClick={onOpenDetail}
+                className="group relative block max-w-full overflow-hidden focus:outline-none"
+            >
+                {mediaType === 'video' ? (
+                    <video
+                        src={mediaUrl}
+                        controls
+                        className="max-h-[440px] max-w-full w-auto h-auto rounded-2xl object-contain block"
+                    />
+                ) : (
+                    <img
+                        src={mediaUrl}
+                        alt="Post media"
+                        draggable={false}
+                        className="max-h-[440px] max-w-full w-auto h-auto rounded-2xl object-contain block [image-rendering:-webkit-optimize-contrast] select-none"
+                    />
+                )}
+            </button>
+        </div>
+    );
+}
+
+function PostMediaGallery({ mediaItems, onOpenDetail }) {
+    if (!mediaItems || mediaItems.length === 0) return null;
+
+    // 1 image: Threads style - compact max-height, auto-constrained portrait width, rounded-2xl
+    if (mediaItems.length === 1) {
+        return <SingleMediaItem media={mediaItems[0]} onOpenDetail={onOpenDetail} />;
+    }
+
+    // 2 images: 50-50 side-by-side grid
+    if (mediaItems.length === 2) {
+        return (
+            <div className="mt-3 grid h-[210px] sm:h-[250px] grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10">
+                {mediaItems.map((media, index) => {
+                    const mediaUrl = media?.url || media;
+                    const mediaType = media?.type || 'image';
+
+                    return (
+                        <button
+                            key={media?.public_id || mediaUrl || index}
+                            type="button"
+                            onClick={onOpenDetail}
+                            className="group relative h-full w-full overflow-hidden bg-black/5 focus:outline-none dark:bg-white/5"
+                        >
+                            {mediaType === 'video' ? (
+                                <video
+                                    src={mediaUrl}
+                                    controls
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <img
+                                    src={mediaUrl}
+                                    alt={`Post media ${index + 1}`}
+                                    draggable={false}
+                                    className="h-full w-full object-cover [image-rendering:-webkit-optimize-contrast] select-none"
+                                />
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    // 3+ images: Threads style horizontal drag scroll track (flex flex-row flex-nowrap overflow-x-auto)
+    return (
+        <div className="group/gallery relative mt-3 overflow-hidden rounded-2xl">
+            <HorizontalDragScroll className="w-full rounded-2xl py-0.5">
+                {mediaItems.map((media, index) => (
+                    <MediaSlideItem
+                        key={media?.public_id || media?.url || media || index}
+                        media={media}
+                        index={index}
+                        total={mediaItems.length}
+                        onOpenDetail={onOpenDetail}
+                    />
+                ))}
+            </HorizontalDragScroll>
+        </div>
+    );
+}
+
 export default function Post({ post, currentUser, onLike, onComment, onEdit, onDelete }) {
     const [isLiked, setIsLiked] = useState(!!post?.isLiked);
     const [localLikesCount, setLocalLikesCount] = useState(post?.likesCount ?? post?.likes ?? 0);
@@ -545,10 +760,8 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     }, [openDetail, postId]);
 
     return (
-        <article className="group relative mb-5 overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl dark:border-white/10 dark:bg-[#1f1f22]">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-violet-500" />
-
-            <div className="p-5">
+        <article className="group relative border-b border-gray-200/80 px-4 py-4 sm:px-5 sm:py-5 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
+            <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                         <Avatar className="h-12 w-12 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10">
@@ -669,28 +882,28 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                     </DropdownMenu>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white dark:bg-white dark:text-gray-900">
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-gray-900 px-2.5 py-0.5 text-[11px] font-semibold text-white dark:bg-white dark:text-gray-900">
                         {postTypeLabels[postType] || 'Bài viết'}
                     </span>
 
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200">
+                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
                         {categoryLabels[category] || 'Khác'}
                     </span>
 
                     {post?.sourceType && (
-                        <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300">
+                        <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-medium text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300">
                             {post.sourceType === 'hot'
                                 ? 'Đang nổi bật'
                                 : post.sourceType === 'interest'
-                                  ? 'Phù hợp sở thích'
-                                  : 'Từ kết nối của bạn'}
+                                    ? 'Phù hợp sở thích'
+                                    : 'Từ kết nối của bạn'}
                         </span>
                     )}
                 </div>
 
                 {content && (
-                    <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-gray-800 dark:text-gray-100">
+                    <p className="mt-2.5 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
                         {renderContentWithRealMentions(content, post?.mentions || [])}
                     </p>
                 )}
@@ -708,63 +921,24 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                 {postType === 'achievement' && <AchievementShowcase />}
 
                 {mediaItems.length > 0 && (
-                    <div className="mt-4 overflow-hidden rounded-3xl border border-gray-200 bg-gray-100 dark:border-white/10 dark:bg-white/5">
-                        <Swiper
-                            modules={[Navigation, Pagination, Keyboard]}
-                            navigation={mediaItems.length > 1}
-                            pagination={mediaItems.length > 1 ? { clickable: true } : false}
-                            keyboard={{ enabled: true }}
-                            className="w-full"
-                        >
-                            {mediaItems.map((media, index) => {
-                                const mediaUrl = media?.url || media;
-                                const mediaType = media?.type || 'image';
-
-                                return (
-                                    <SwiperSlide key={media?.public_id || mediaUrl || index}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOpenDetail(true)}
-                                            className="block w-full bg-black"
-                                        >
-                                            {mediaType === 'video' ? (
-                                                <video
-                                                    src={mediaUrl}
-                                                    controls
-                                                    className="max-h-[520px] w-full object-cover"
-                                                />
-                                            ) : (
-                                                <img
-                                                    src={mediaUrl}
-                                                    alt={`Post media ${index + 1}`}
-                                                    className="max-h-[520px] w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-                                                />
-                                            )}
-                                        </button>
-                                    </SwiperSlide>
-                                );
-                            })}
-                        </Swiper>
-                    </div>
+                    <PostMediaGallery mediaItems={mediaItems} onOpenDetail={() => setOpenDetail(true)} />
                 )}
 
                 <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/10">
                     <div className="flex flex-wrap items-center gap-2">
                         <div
-                            className={`inline-flex items-center overflow-hidden rounded-full text-sm font-semibold transition ${
-                                isLiked
-                                    ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
-                                    : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200'
-                            }`}
+                            className={`inline-flex items-center overflow-hidden rounded-full text-sm font-semibold transition ${isLiked
+                                ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                                : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200'
+                                }`}
                         >
                             <button
                                 type="button"
                                 onClick={handleLike}
-                                className={`inline-flex items-center gap-2 px-3 py-2 transition ${
-                                    isLiked
-                                        ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
-                                        : 'hover:bg-gray-200 dark:hover:bg-white/15'
-                                }`}
+                                className={`inline-flex items-center gap-2 px-3 py-2 transition ${isLiked
+                                    ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
+                                    : 'hover:bg-gray-200 dark:hover:bg-white/15'
+                                    }`}
                             >
                                 <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                             </button>
@@ -777,11 +951,10 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                                     }
                                 }}
                                 disabled={displayedLikeCount <= 0}
-                                className={`px-3 py-2 transition ${
-                                    isLiked
-                                        ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
-                                        : 'hover:bg-gray-200 dark:hover:bg-white/15'
-                                } ${displayedLikeCount <= 0 ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
+                                className={`px-3 py-2 transition ${isLiked
+                                    ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
+                                    : 'hover:bg-gray-200 dark:hover:bg-white/15'
+                                    } ${displayedLikeCount <= 0 ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
                                 title="Xem danh sách người thích"
                             >
                                 {displayedLikeCount}
