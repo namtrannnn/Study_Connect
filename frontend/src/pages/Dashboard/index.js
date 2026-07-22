@@ -231,42 +231,7 @@ function Dashboard({ user: propUser, theme }) {
     ];
 
     return (
-        <div className="pb-6">
-            <StoriesBar
-                user={user}
-                stories={stories}
-                onOpenStory={(story) => console.log('Open story:', story)}
-                onCreateStory={() => console.log('Create story')}
-            />
-
-            <div className="mb-4 rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1f1f22]/90 transition hover:shadow duration-300">
-                <div className="flex items-center gap-3">
-                    <img
-                        src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
-                        alt="avatar"
-                        className="h-11 w-11 rounded-[14px] object-cover ring-2 ring-indigo-500/10 shadow-sm dark:ring-white/5"
-                    />
-
-                    <button
-                        type="button"
-                        onClick={() => setOpenModal(true)}
-                        className="flex-1 rounded-[16px] bg-slate-50 px-4 py-3.5 text-left text-sm font-semibold text-gray-500 transition hover:bg-slate-100 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
-                    >
-                        {user?.fullName ? `${user.fullName} ơi, bạn đang nghĩ gì?` : 'Bạn đang nghĩ gì?'}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={handleRefreshFeed}
-                        disabled={refreshing}
-                        className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:opacity-60 dark:bg-blue-500/15 dark:text-blue-300 active:scale-95"
-                        title="Làm mới feed"
-                    >
-                        <RefreshCcw size={18} className={refreshing ? 'animate-spin' : ''} />
-                    </button>
-                </div>
-            </div>
-
+        <>
             {openModal && (
                 <Modal
                     setOpenModal={setOpenModal}
@@ -281,44 +246,90 @@ function Dashboard({ user: propUser, theme }) {
                 />
             )}
 
-            {loadingPosts && <DashboardSkeleton />}
+            {/* Threads Unified Container - flex column fills entire height */}
+            <div className="flex h-full flex-col rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                {/* Fixed Header - never scrolls */}
+                <div className="shrink-0 border-b border-gray-200/80 p-4 dark:border-white/10 sm:p-5">
+                    <div className="flex items-center gap-3">
+                        <img
+                            src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                            alt="avatar"
+                            className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
+                        />
 
-            {!loadingPosts && posts.length === 0 && (
-                <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 text-center shadow-sm dark:border-white/10 dark:bg-[#1f1f22]">
-                    <div className="text-base font-semibold text-gray-800 dark:text-white">Chưa có bài viết nào</div>
-                    <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Hãy tạo bài viết đầu tiên hoặc theo dõi thêm bạn bè.
+                        <button
+                            type="button"
+                            onClick={() => setOpenModal(true)}
+                            className="flex-1 cursor-pointer text-left text-sm font-normal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        >
+                            {user?.fullName ? `${user.fullName} ơi, có gì mới?` : 'Có gì mới?'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setOpenModal(true)}
+                            className="rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white transition hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 active:scale-95"
+                        >
+                            Đăng
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleRefreshFeed}
+                            disabled={refreshing}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                            title="Làm mới feed"
+                        >
+                            <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
                     </div>
                 </div>
-            )}
 
-            {!loadingPosts && posts.length > 0 && (
-                <InfiniteScroll
-                    dataLength={posts.length}
-                    next={handleLoadMore}
-                    hasMore={hasMore}
-                    loader={
-                        <div className="py-5 text-center text-sm font-semibold text-slate-400 dark:text-slate-500 animate-pulse flex items-center justify-center gap-1.5 select-none">
-                            <Clock size={14} className="animate-spin text-indigo-500" /> Đang tải thêm bài viết...
-                        </div>
-                    }
-                    endMessage={
-                        <div className="py-6 text-center text-sm font-semibold text-slate-400 select-none">Bạn đã xem hết bài viết rồi.</div>
-                    }
-                    scrollableTarget="dashboard-scroll-container"
+                {/* Scrollable Feed Content */}
+                <div
+                    id="dashboard-feed-scroll"
+                    className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
                 >
-                    {posts.map((post) => (
-                        <Post
-                            key={post._id || post.id}
-                            post={post}
-                            currentUser={user}
-                            onEdit={handleEditPost}
-                            onDelete={handleDeletePost}
-                        />
-                    ))}
-                </InfiniteScroll>
-            )}
-        </div>
+                    {loadingPosts && <DashboardSkeleton />}
+
+                    {!loadingPosts && posts.length === 0 && (
+                        <div className="p-8 text-center">
+                            <div className="text-base font-semibold text-gray-800 dark:text-white">Chưa có bài viết nào</div>
+                            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Hãy tạo bài viết đầu tiên hoặc theo dõi thêm bạn bè.
+                            </div>
+                        </div>
+                    )}
+
+                    {!loadingPosts && posts.length > 0 && (
+                        <InfiniteScroll
+                            dataLength={posts.length}
+                            next={handleLoadMore}
+                            hasMore={hasMore}
+                            loader={
+                                <div className="flex items-center justify-center gap-1.5 select-none py-5 text-center text-sm font-semibold text-slate-400 animate-pulse dark:text-slate-500">
+                                    <Clock size={14} className="animate-spin text-indigo-500" /> Đang tải thêm bài viết...
+                                </div>
+                            }
+                            endMessage={
+                                <div className="select-none py-6 text-center text-sm font-semibold text-slate-400">Bạn đã xem hết bài viết rồi.</div>
+                            }
+                            scrollableTarget="dashboard-feed-scroll"
+                        >
+                            {posts.map((post) => (
+                                <Post
+                                    key={post._id || post.id}
+                                    post={post}
+                                    currentUser={user}
+                                    onEdit={handleEditPost}
+                                    onDelete={handleDeletePost}
+                                />
+                            ))}
+                        </InfiniteScroll>
+                    )}
+                </div>
+            </div>
+        </>
     );
 }
 

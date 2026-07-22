@@ -700,9 +700,9 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                     <SwiperSlide key={media?.public_id || mediaUrl || index} className="h-full">
                                         <div className="h-full w-full bg-black">
                                             {mediaType === 'video' ? (
-                                                <video src={mediaUrl} controls className="h-full w-full object-cover animate-[fadeIn_300ms_ease-out]" />
+                                                <video src={mediaUrl} controls className="h-full w-full object-contain animate-[fadeIn_300ms_ease-out]" />
                                             ) : (
-                                                <img src={mediaUrl} alt={`post-media-${index}`} className="h-full w-full object-cover animate-[fadeIn_300ms_ease-out]" />
+                                                <img src={mediaUrl} alt={`post-media-${index}`} className="h-full w-full object-contain animate-[fadeIn_300ms_ease-out] [image-rendering:-webkit-optimize-contrast]" />
                                             )}
                                         </div>
                                     </SwiperSlide>

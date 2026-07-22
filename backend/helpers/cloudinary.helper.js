@@ -14,6 +14,9 @@ const uploadStreamToCloudinary = (buffer, path) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: folder + path,
+        transformation: [
+          { width: 1600, crop: "limit", quality: "auto:best" },
+        ],
       },
       (error, result) => {
         if (result)

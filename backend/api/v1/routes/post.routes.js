@@ -53,6 +53,13 @@ router.delete("/pin/:id", userMiddleware.requireUser, controller.unpinPost);
 // POST /api/v1/post/share/:postId
 router.post("/share/:postId", userMiddleware.requireUser, controller.sharePost);
 
+// POST /api/v1/post/:id/quiz/answer
+router.post(
+  "/:id/quiz/answer",
+  userMiddleware.requireUser,
+  controller.answerQuiz,
+);
+
 // GET /api/v1/post/:id
 // Route động /:id nên để gần cuối
 router.get("/:id", userMiddleware.requireUser, controller.detailPost);

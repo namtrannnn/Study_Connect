@@ -23,12 +23,8 @@ const {
 } = require("../../../helpers/postScore.helper");
 const VALID_POST_TYPES = [
   "normal",
-  "project",
   "question",
-  "knowledge",
-  "learning",
-  "collaboration",
-  "achievement",
+  "quiz",
 ];
 
 const VALID_CATEGORIES = [
@@ -83,46 +79,39 @@ function normalizeCategory(category) {
 
 function getPostTypeData(
   postType,
-  { project, question, learning, collaboration },
+  { question, quiz },
 ) {
   return {
-    project: postType === "project" ? project : undefined,
     question: postType === "question" ? question : undefined,
-    learning: postType === "learning" ? learning : undefined,
-    collaboration: postType === "collaboration" ? collaboration : undefined,
+    quiz: postType === "quiz" ? quiz : undefined,
   };
 }
 
 function hasSpecialPostContent(
   postType,
-  { project, question, learning, collaboration },
+  { question, quiz },
 ) {
   return (
-    (postType === "project" && project?.projectName) ||
     (postType === "question" && question?.title) ||
-    (postType === "learning" && learning?.title) ||
-    (postType === "collaboration" && collaboration?.title)
+    (postType === "quiz" && quiz?.options?.length > 0)
   );
 }
 
 function validateSpecialPostData(
   postType,
-  { project, question, learning, collaboration },
+  { question, quiz },
 ) {
-  if (postType === "project" && !project?.projectName) {
-    return "Tên dự án là bắt buộc";
-  }
-
   if (postType === "question" && !question?.title) {
     return "Tiêu đề câu hỏi là bắt buộc";
   }
 
-  if (postType === "learning" && !learning?.title) {
-    return "Tiêu đề học tập là bắt buộc";
-  }
-
-  if (postType === "collaboration" && !collaboration?.title) {
-    return "Tiêu đề tìm cộng sự là bắt buộc";
+  if (postType === "quiz") {
+    if (!quiz?.options || !Array.isArray(quiz.options) || quiz.options.length < 2) {
+      return "Câu hỏi trắc nghiệm phải có ít nhất 2 đáp án";
+    }
+    if (quiz.correctOption === undefined || quiz.correctOption === null || quiz.correctOption < 0 || quiz.correctOption >= quiz.options.length) {
+      return "Chỉ số đáp án đúng không hợp lệ";
+    }
   }
 
   return null;
@@ -193,10 +182,8 @@ module.exports.createPost = async (req, res) => {
       hideShare = false,
       visibility = "public",
       allowedUsers = [],
-      project,
       question,
-      learning,
-      collaboration,
+      quiz,
     } = req.body;
 
     postType = normalizePostType(postType);
@@ -209,16 +196,12 @@ module.exports.createPost = async (req, res) => {
 
     mentions = parseObjectIdArray(mentions);
 
-    project = parseJsonObject(project);
     question = parseJsonObject(question);
-    learning = parseJsonObject(learning);
-    collaboration = parseJsonObject(collaboration);
+    quiz = parseJsonObject(quiz);
 
     const specialData = {
-      project,
       question,
-      learning,
-      collaboration,
+      quiz,
     };
 
     const validationMessage = validateSpecialPostData(postType, specialData);
@@ -281,10 +264,8 @@ module.exports.createPost = async (req, res) => {
       location,
       hashtags,
       mentions,
-      project: typeData.project,
       question: typeData.question,
-      learning: typeData.learning,
-      collaboration: typeData.collaboration,
+      quiz: typeData.quiz,
       allowComments: String(allowComments) === "false" ? false : true,
       hideLikeCount: String(hideLikeCount) === "true",
       hideShare: String(hideShare) === "true",
@@ -337,10 +318,8 @@ module.exports.editPost = async (req, res) => {
       visibility,
       allowedUsers,
       keepMediaIds,
-      project,
       question,
-      learning,
-      collaboration,
+      quiz,
     } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(postId)) {
@@ -425,33 +404,19 @@ module.exports.editPost = async (req, res) => {
     const finalPostType =
       updateData.postType !== undefined ? updateData.postType : post.postType;
 
-    if (project !== undefined) {
-      updateData.project = parseJsonObject(project);
-    }
-
     if (question !== undefined) {
       updateData.question = parseJsonObject(question);
     }
 
-    if (learning !== undefined) {
-      updateData.learning = parseJsonObject(learning);
-    }
-
-    if (collaboration !== undefined) {
-      updateData.collaboration = parseJsonObject(collaboration);
+    if (quiz !== undefined) {
+      updateData.quiz = parseJsonObject(quiz);
     }
 
     const finalSpecialData = {
-      project:
-        updateData.project !== undefined ? updateData.project : post.project,
       question:
         updateData.question !== undefined ? updateData.question : post.question,
-      learning:
-        updateData.learning !== undefined ? updateData.learning : post.learning,
-      collaboration:
-        updateData.collaboration !== undefined
-          ? updateData.collaboration
-          : post.collaboration,
+      quiz:
+        updateData.quiz !== undefined ? updateData.quiz : post.quiz,
     };
 
     const validationMessage = validateSpecialPostData(
@@ -468,20 +433,12 @@ module.exports.editPost = async (req, res) => {
 
     // Nếu đổi loại bài thì xóa dữ liệu loại cũ để tránh rác DB
     if (postType !== undefined) {
-      if (finalPostType !== "project") {
-        updateData.project = undefined;
-      }
-
       if (finalPostType !== "question") {
         updateData.question = undefined;
       }
 
-      if (finalPostType !== "learning") {
-        updateData.learning = undefined;
-      }
-
-      if (finalPostType !== "collaboration") {
-        updateData.collaboration = undefined;
+      if (finalPostType !== "quiz") {
+        updateData.quiz = undefined;
       }
     }
 
@@ -1221,6 +1178,88 @@ exports.sharePost = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+// [POST] /api/v1/post/:id/quiz/answer
+module.exports.answerQuiz = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const postId = req.params.id;
+    const { optionIndex } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID bài viết không hợp lệ",
+      });
+    }
+
+    const post = await Post.findOne({ _id: postId, status: "active" });
+    if (!post) {
+      return res.status(404).json({
+        code: 404,
+        message: "Bài viết không tồn tại",
+      });
+    }
+
+    if (post.postType !== "quiz" || !post.quiz) {
+      return res.status(400).json({
+        code: 400,
+        message: "Bài viết này không phải là bài đăng trắc nghiệm",
+      });
+    }
+
+    const optIndex = Number(optionIndex);
+    if (isNaN(optIndex) || optIndex < 0 || optIndex >= post.quiz.options.length) {
+      return res.status(400).json({
+        code: 400,
+        message: "Đáp án lựa chọn không hợp lệ",
+      });
+    }
+
+    // Kiểm tra xem người dùng đã trả lời chưa
+    const alreadyAnswered = post.quiz.answers.some(
+      (ans) => ans.user.toString() === userId.toString(),
+    );
+
+    if (alreadyAnswered) {
+      return res.status(400).json({
+        code: 400,
+        message: "Bạn đã trả lời câu hỏi trắc nghiệm này rồi",
+      });
+    }
+
+    // Lưu câu trả lời của user
+    post.quiz.answers.push({
+      user: userId,
+      optionIndex: optIndex,
+    });
+
+    // Tăng số lượt bình chọn của phương án được chọn
+    post.quiz.options[optIndex].votesCount += 1;
+
+    await post.save();
+
+    // Phát tín hiệu socket realtime cho các client đang xem bài viết này
+    if (global._io) {
+      global._io.to(`post:${postId}`).emit("SERVER_RETURN_QUIZ_ANSWER", {
+        postId,
+        quiz: post.quiz,
+      });
+    }
+
+    return res.status(200).json({
+      code: 200,
+      message: "Trả lời câu hỏi trắc nghiệm thành công",
+      data: post.quiz,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi hệ thống",
     });
   }
 };
