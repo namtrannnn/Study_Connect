@@ -34,7 +34,7 @@ const MIN_COMMENTS_PER_POST = 1;
 const MAX_COMMENTS_PER_POST = 5;
 
 // Dấu hiệu nhận biết dữ liệu fake do script tạo
-const SEED_MARK = "seed_social_flutter";
+const SEED_MARK = "";
 
 // ===============================
 // DATA FAKE

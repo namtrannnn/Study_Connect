@@ -74,7 +74,7 @@ module.exports.createComment = async (req, res) => {
     const post = await Post.findOne({
       _id: postId,
       status: "active",
-    }).populate("author", "followers friendList");
+    }).populate("author", "followers following");
 
     if (!post) {
       return res.status(404).json({
@@ -275,7 +275,7 @@ module.exports.getCommentsByPost = async (req, res) => {
     await finalizeExpiredPendingDeleteComments(postId);
     const post = await Post.findById(postId).populate(
       "author",
-      "followers friendList",
+      "followers following",
     );
 
     if (!post || post.status !== "active") {
@@ -835,7 +835,7 @@ module.exports.toggleLikeComment = async (req, res) => {
 
     const post = await Post.findById(comment.post).populate(
       "author",
-      "followers friendList",
+      "followers following",
     );
 
     if (!post || post.status !== "active") {
@@ -1093,7 +1093,7 @@ module.exports.getRepliesByComment = async (req, res) => {
     }
     const post = await Post.findById(parentComment.post).populate(
       "author",
-      "followers friendList",
+      "followers following",
     );
 
     if (!post || post.status !== "active") {

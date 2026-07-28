@@ -314,20 +314,16 @@ module.exports.searchUsers = async (req, res) => {
 
     if (scope !== "all") {
       const currentUser = await User.findById(viewerId).select(
-        "following followers friendList",
+        "following followers",
       );
 
       const followingIds = currentUser?.following || [];
       const followerIds = currentUser?.followers || [];
 
-      const friendIds = (currentUser?.friendList || [])
-        .map((item) => item.user_id)
-        .filter(Boolean);
-
       let scopeIds = [];
 
       if (scope === "mention") {
-        scopeIds = [...friendIds, ...followingIds, ...followerIds];
+        scopeIds = [...followingIds, ...followerIds];
       }
 
       if (scope === "friends") {

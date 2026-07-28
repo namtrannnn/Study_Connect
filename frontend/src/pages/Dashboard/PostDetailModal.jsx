@@ -388,17 +388,22 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
     const authorName = post?.author?.fullName || post?.author?.name || currentUser?.fullName || 'Người dùng';
     const authorUsername = post?.author?.username || currentUser?.username || 'studyconnect';
     const authorAvatar = post?.author?.avatar || currentUser?.avatar || '';
-    const caption = post?.caption || post?.content || '';
+    const rawCaption = post?.caption || post?.content || '';
+    const caption = rawCaption.replace(/seed_social_flutter/g, '').trim();
     const createdAt = post?.createdAt || post?.timestamp || '';
     const postAuthorId = post?.author?._id || post?.author?.id;
 
     const isSelf = String(postAuthorId) === String(currentUser?._id || currentUser?.id || currentUser?.userId);
     const isFriend = useMemo(() => {
-        if (!currentUser?.friendList || !postAuthorId) return false;
-        return currentUser.friendList.some(
-            (f) => String(f.user_id) === String(postAuthorId)
+        if (!currentUser?.following || !currentUser?.followers || !postAuthorId) return false;
+        const isFollowing = currentUser.following.some(
+            (id) => String(id) === String(postAuthorId)
         );
-    }, [currentUser?.friendList, postAuthorId]);
+        const isFollower = currentUser.followers.some(
+            (id) => String(id) === String(postAuthorId)
+        );
+        return isFollowing && isFollower;
+    }, [currentUser?.following, currentUser?.followers, postAuthorId]);
 
     /* ── API calls ── */
     const fetchComments = async (page = 1) => {

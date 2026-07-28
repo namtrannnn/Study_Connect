@@ -115,7 +115,7 @@ module.exports.getUsersLikedPost = async (req, res) => {
       status: "active",
     }).populate(
       "author",
-      "fullName username avatar isVerified followers friendList",
+      "fullName username avatar isVerified followers following",
     );
 
     if (!post) {

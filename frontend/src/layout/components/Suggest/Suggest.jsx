@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 
 import { getSuggestSummary } from '../../../services/suggest.services';
+import { followUser } from '../../../services/friend.services';
+import { toast } from 'react-toastify';
 
 const topicIcons = {
     react: Code2,
@@ -214,7 +216,14 @@ export default function Suggest() {
                                 <Button
                                     size="sm"
                                     className="h-9 w-9 shrink-0 rounded-2xl bg-primary p-0 text-white shadow-brand-soft hover:bg-brand-700"
-                                    onClick={() => console.log('Add friend:', user._id)}
+                                    onClick={async () => {
+                                        try {
+                                            await followUser(user._id);
+                                            toast.success(`Đã theo dõi ${user.name}`);
+                                        } catch (e) {
+                                            toast.error('Không thể theo dõi');
+                                        }
+                                    }}
                                 >
                                     <UserPlus className="h-4 w-4" />
                                 </Button>

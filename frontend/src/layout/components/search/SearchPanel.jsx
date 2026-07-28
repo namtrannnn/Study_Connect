@@ -14,14 +14,19 @@ const tabs = [
 
 function getRelationButtonText(status) {
     switch (status) {
+        case 'mutual':
         case 'friend':
-            return 'Bạn bè';
+            return 'Đang theo dõi (Bạn bè)';
+        case 'following':
+            return 'Đang theo dõi';
+        case 'follower':
+            return 'Theo dõi lại';
         case 'pending_sent':
-            return 'Đã gửi';
+            return 'Đã gửi yêu cầu';
         case 'pending_received':
             return 'Chấp nhận';
         default:
-            return 'Kết bạn';
+            return 'Theo dõi';
     }
 }
 

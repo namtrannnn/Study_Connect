@@ -106,9 +106,9 @@ function FriendsPage() {
                 <div className="mb-6 rounded-[28px] border border-blue-100 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#181b22]">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bạn bè</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mối quan hệ & Theo dõi</h1>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Quản lý danh sách bạn bè và lời mời kết bạn của bạn.
+                                Quản lý danh sách người theo dõi qua lại và yêu cầu theo dõi chờ duyệt.
                             </p>
                         </div>
 
@@ -116,7 +116,7 @@ function FriendsPage() {
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Tìm bạn bè..."
+                                placeholder="Tìm kiếm..."
                                 className="h-11 w-full rounded-2xl border border-blue-100 bg-blue-50/60 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
                             />
                         </div>
@@ -132,7 +132,7 @@ function FriendsPage() {
                                     : 'text-gray-600 hover:text-primary dark:text-gray-300'
                             }`}
                         >
-                            Bạn bè ({friends.length})
+                            Bạn bè (Mutual Follow) ({friends.length})
                         </button>
 
                         <button
@@ -144,7 +144,7 @@ function FriendsPage() {
                                     : 'text-gray-600 hover:text-primary dark:text-gray-300'
                             }`}
                         >
-                            Lời mời ({requests.length})
+                            Yêu cầu theo dõi ({requests.length})
                         </button>
                     </div>
                 </div>
