@@ -55,16 +55,7 @@ const userSchema = new mongoose.Schema(
       default: "offline",
     },
 
-    requestFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "user" }],
-
-    acceptFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "user" }],
-
-    friendList: [
-      {
-        user_id: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
-        room_chat_id: { type: mongoose.Schema.Types.ObjectId, ref: "RoomChat" },
-      },
-    ],
+    pendingFollowRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "user" }],
 
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "user" }],
 

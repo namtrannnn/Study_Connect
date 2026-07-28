@@ -3,7 +3,7 @@ const User = require("../models/user.model");
 const Post = require("../models/post.model");
 const Like = require("../models/postLike.model");
 const userSelect =
-  "_id fullName username avatar bio isVerified isPrivate postsCount followersCount followingCount followers following friendList requestFriends acceptFriends pinnedPosts";
+  "_id fullName username avatar bio headline fieldOfStudy skills interests portfolioLinks isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts";
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
 
@@ -17,49 +17,75 @@ const getRelation = (currentUser, targetUser) => {
     return {
       isMe: true,
       isFollowing: false,
+      isFollower: false,
       isFriend: false,
       relationStatus: "self",
     };
   }
 
-  const isFollowing = targetUser.followers?.some(
-    (id) => id.toString() === currentUserId,
+  const isFollowing = (currentUser.following || []).some(
+    (id) => id.toString() === targetUserId,
   );
 
-  const isFriend = currentUser.friendList?.some(
-    (item) => item.user_id?.toString() === targetUserId,
+  const isFollower = (currentUser.followers || []).some(
+    (id) => id.toString() === targetUserId,
   );
 
-  if (isFriend) {
+  const isMutual = isFollowing && isFollower;
+
+  if (isMutual) {
     return {
       isMe: false,
-      isFollowing,
+      isFollowing: true,
+      isFollower: true,
       isFriend: true,
-      relationStatus: "friend",
+      relationStatus: "mutual",
     };
   }
 
-  const isPendingSent = currentUser.requestFriends?.some(
-    (id) => id.toString() === targetUserId,
+  if (isFollowing) {
+    return {
+      isMe: false,
+      isFollowing: true,
+      isFollower: false,
+      isFriend: false,
+      relationStatus: "following",
+    };
+  }
+
+  if (isFollower) {
+    return {
+      isMe: false,
+      isFollowing: false,
+      isFollower: true,
+      isFriend: false,
+      relationStatus: "follower",
+    };
+  }
+
+  const isPendingSent = (targetUser.pendingFollowRequests || []).some(
+    (id) => id.toString() === currentUserId,
   );
 
   if (isPendingSent) {
     return {
       isMe: false,
-      isFollowing,
+      isFollowing: false,
+      isFollower: false,
       isFriend: false,
       relationStatus: "pending_sent",
     };
   }
 
-  const isPendingReceived = currentUser.acceptFriends?.some(
+  const isPendingReceived = (currentUser.pendingFollowRequests || []).some(
     (id) => id.toString() === targetUserId,
   );
 
   if (isPendingReceived) {
     return {
       isMe: false,
-      isFollowing,
+      isFollowing: false,
+      isFollower: false,
       isFriend: false,
       relationStatus: "pending_received",
     };
@@ -67,7 +93,8 @@ const getRelation = (currentUser, targetUser) => {
 
   return {
     isMe: false,
-    isFollowing,
+    isFollowing: false,
+    isFollower: false,
     isFriend: false,
     relationStatus: "none",
   };
@@ -183,7 +210,7 @@ module.exports.getUserPostGrid = async (req, res) => {
       _id: userId,
       deleted: false,
       status: "active",
-    }).select("followers friendList");
+    }).select("followers following");
 
     if (!author) {
       return res.status(404).json({
@@ -206,7 +233,7 @@ module.exports.getUserPostGrid = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 3)
       .select(
-        "_id author caption media likesCount commentsCount visibility allowedUsers createdAt",
+        "_id author postType caption media likesCount commentsCount visibility allowedUsers project question learning collaboration study_session study_note challenge peer_review createdAt",
       );
 
     const visiblePosts = posts
@@ -216,6 +243,7 @@ module.exports.getUserPostGrid = async (req, res) => {
     const data = visiblePosts.map((post) => ({
       _id: post._id,
       author: post.author,
+      postType: post.postType,
       caption: post.caption || "",
       media: post.media || [],
       firstMedia: post.media?.[0] || null,
@@ -223,6 +251,14 @@ module.exports.getUserPostGrid = async (req, res) => {
       likesCount: post.likesCount,
       commentsCount: post.commentsCount,
       visibility: post.visibility,
+      project: post.project,
+      question: post.question,
+      learning: post.learning,
+      collaboration: post.collaboration,
+      study_session: post.study_session,
+      study_note: post.study_note,
+      challenge: post.challenge,
+      peer_review: post.peer_review,
       createdAt: post.createdAt,
     }));
 
@@ -265,7 +301,7 @@ module.exports.getUserPostFeed = async (req, res) => {
       _id: userId,
       deleted: false,
       status: "active",
-    }).select("followers friendList");
+    }).select("followers following");
 
     if (!author) {
       return res.status(404).json({
@@ -338,12 +374,21 @@ module.exports.getUserPostFeed = async (req, res) => {
 // [PATCH] /api/v1/profile/update
 module.exports.updateProfile = async (req, res) => {
   try {
-    const allowFields = ["fullName", "username", "bio", "isPrivate"];
+    const allowFields = ["fullName", "username", "bio", "isPrivate", "headline", "fieldOfStudy", "skills", "interests", "portfolioLinks"];
     const updateData = {};
 
     allowFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
+        let value = req.body[field];
+        // Parse JSON strings for array/object fields if sent via FormData
+        if (["skills", "interests", "portfolioLinks"].includes(field) && typeof value === "string") {
+          try {
+            value = JSON.parse(value);
+          } catch (e) {
+            // Fail silent
+          }
+        }
+        updateData[field] = value;
       }
     });
 

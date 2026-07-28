@@ -4,28 +4,12 @@ const postTypes = [
         label: 'Bài viết thường',
     },
     {
-        value: 'project',
-        label: 'Dự án',
-    },
-    {
         value: 'question',
-        label: 'Câu hỏi',
+        label: 'Câu hỏi / Thảo luận',
     },
     {
-        value: 'knowledge',
-        label: 'Kiến thức',
-    },
-    {
-        value: 'learning',
-        label: 'Học tập',
-    },
-    {
-        value: 'collaboration',
-        label: 'Tìm cộng sự',
-    },
-    {
-        value: 'achievement',
-        label: 'Thành tựu',
+        value: 'quiz',
+        label: 'Trắc nghiệm (Quiz)',
     },
 ];
 

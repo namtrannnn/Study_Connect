@@ -135,7 +135,7 @@ exports.sharePostToStory = async (req, res) => {
     const post = await Post.findOne({
       _id: postId,
       status: "active",
-    }).populate("author", "followers friendList");
+    }).populate("author", "followers following");
 
     if (!post) {
       return res.status(404).json({
@@ -199,7 +199,7 @@ exports.getStoryFeed = async (req, res) => {
     const viewerId = req.user._id;
 
     const currentUser = await User.findById(viewerId).select(
-      "following friendList",
+      "following",
     );
 
     const followingIds = currentUser?.following || [];
@@ -213,7 +213,7 @@ exports.getStoryFeed = async (req, res) => {
     })
       .populate(
         "author",
-        "fullName username avatar isVerified followers friendList",
+        "fullName username avatar isVerified followers following",
       )
       .populate({
         path: "post",
@@ -320,7 +320,7 @@ exports.getStoriesByUser = async (req, res) => {
     }
 
     const author = await User.findById(userId).select(
-      "fullName username avatar isVerified followers friendList",
+      "fullName username avatar isVerified followers following",
     );
 
     if (!author) {
@@ -381,7 +381,7 @@ exports.viewStory = async (req, res) => {
       _id: storyId,
       status: "active",
       expiresAt: { $gt: new Date() },
-    }).populate("author", "followers friendList");
+    }).populate("author", "followers following");
 
     if (!story) {
       return res.status(404).json({

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
@@ -8,6 +8,41 @@ import Modal from './Modal';
 import Post from './Post';
 import { useSelector } from 'react-redux';
 import * as PostServices from '../../services/posts.services';
+
+// Beautiful Shimmering Skeleton Loader for Dashboard Posts
+function DashboardSkeleton() {
+    return (
+        <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="animate-pulse rounded-[28px] border border-gray-200/50 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#12141c]/90">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="h-11 w-11 rounded-2xl bg-slate-200 dark:bg-white/5" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-4 w-32 bg-slate-200 dark:bg-white/5 rounded-md" />
+                            <div className="h-3 w-20 bg-slate-200 dark:bg-white/5 rounded-md" />
+                        </div>
+                    </div>
+                    {/* Caption */}
+                    <div className="space-y-2.5 mb-4">
+                        <div className="h-4 w-full bg-slate-200 dark:bg-white/5 rounded-md" />
+                        <div className="h-4 w-[92%] bg-slate-200 dark:bg-white/5 rounded-md" />
+                        <div className="h-4 w-[65%] bg-slate-200 dark:bg-white/5 rounded-md" />
+                    </div>
+                    {/* Shimmer media box */}
+                    {idx === 0 && (
+                        <div className="h-48 md:h-[350px] w-full bg-slate-200 dark:bg-white/5 rounded-[20px] mb-4" />
+                    )}
+                    {/* Footer buttons */}
+                    <div className="flex gap-4 border-t border-slate-100 dark:border-white/5 pt-3.5 mt-2">
+                        <div className="h-4 w-12 bg-slate-200 dark:bg-white/5 rounded-md" />
+                        <div className="h-4 w-16 bg-slate-200 dark:bg-white/5 rounded-md" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function Dashboard({ user: propUser, theme }) {
     const reduxUser = useSelector((state) => state.user?.infoUser || {});
@@ -68,7 +103,14 @@ function Dashboard({ user: propUser, theme }) {
             console.log('Load feed error:', error);
             toast.error(error?.response?.data?.message || 'Không thể tải danh sách bài viết');
         } finally {
-            setLoadingPosts(false);
+            if (mode === 'init') {
+                // Short timeout to guarantee the transition doesn't look raw on high-speed local APIs
+                setTimeout(() => {
+                    setLoadingPosts(false);
+                }, 500);
+            } else {
+                setLoadingPosts(false);
+            }
             setRefreshing(false);
         }
     };
@@ -189,42 +231,7 @@ function Dashboard({ user: propUser, theme }) {
     ];
 
     return (
-        <div className="pb-6">
-            <StoriesBar
-                user={user}
-                stories={stories}
-                onOpenStory={(story) => console.log('Open story:', story)}
-                onCreateStory={() => console.log('Create story')}
-            />
-
-            <div className="mb-4 rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1f1f22]/90">
-                <div className="flex items-center gap-3">
-                    <img
-                        src={user?.avatar || 'https://i.pravatar.cc/150?img=3'}
-                        alt="avatar"
-                        className="h-11 w-11 rounded-2xl object-cover ring-2 ring-white shadow-sm dark:ring-white/10"
-                    />
-
-                    <button
-                        type="button"
-                        onClick={() => setOpenModal(true)}
-                        className="flex-1 rounded-2xl bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-500 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/15"
-                    >
-                        {user?.fullName ? `${user.fullName} ơi, bạn đang nghĩ gì?` : 'Bạn đang nghĩ gì?'}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={handleRefreshFeed}
-                        disabled={refreshing}
-                        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:opacity-60 dark:bg-blue-500/15 dark:text-blue-300"
-                        title="Làm mới feed"
-                    >
-                        <RefreshCcw size={18} className={refreshing ? 'animate-spin' : ''} />
-                    </button>
-                </div>
-            </div>
-
+        <>
             {openModal && (
                 <Modal
                     setOpenModal={setOpenModal}
@@ -239,48 +246,87 @@ function Dashboard({ user: propUser, theme }) {
                 />
             )}
 
-            {loadingPosts && (
-                <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 text-center text-gray-500 shadow-sm dark:border-white/10 dark:bg-[#1f1f22] dark:text-gray-300">
-                    Đang tải bài viết...
-                </div>
-            )}
+            {/* Threads Unified Container - flex column fills entire height */}
+            <div className="flex h-full flex-col rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                {/* Fixed Header - never scrolls */}
+                <div className="shrink-0 border-b border-gray-200/80 p-4 dark:border-white/10 sm:p-5">
+                    <div className="flex items-center gap-3">
+                        <img
+                            src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                            alt="avatar"
+                            className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
+                        />
 
-            {!loadingPosts && posts.length === 0 && (
-                <div className="rounded-[28px] border border-white/70 bg-white/90 p-6 text-center shadow-sm dark:border-white/10 dark:bg-[#1f1f22]">
-                    <div className="text-base font-semibold text-gray-800 dark:text-white">Chưa có bài viết nào</div>
-                    <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Hãy tạo bài viết đầu tiên hoặc theo dõi thêm bạn bè.
+                        <button
+                            type="button"
+                            onClick={() => setOpenModal(true)}
+                            className="flex-1 cursor-pointer text-left text-sm font-normal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        >
+                            {user?.fullName ? `${user.fullName} ơi, có gì mới?` : 'Có gì mới?'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setOpenModal(true)}
+                            className="rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white transition hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 active:scale-95"
+                        >
+                            Đăng
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleRefreshFeed}
+                            disabled={refreshing}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                            title="Làm mới feed"
+                        >
+                            <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
                     </div>
                 </div>
-            )}
 
-            {!loadingPosts && posts.length > 0 && (
-                <InfiniteScroll
-                    dataLength={posts.length}
-                    next={handleLoadMore}
-                    hasMore={hasMore}
-                    loader={
-                        <div className="py-4 text-center text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Đang tải thêm bài viết...
+                {/* Feed Content */}
+                <div className="min-h-0 flex-1">
+                    {loadingPosts && <DashboardSkeleton />}
+
+                    {!loadingPosts && posts.length === 0 && (
+                        <div className="p-8 text-center">
+                            <div className="text-base font-semibold text-gray-800 dark:text-white">Chưa có bài viết nào</div>
+                            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Hãy tạo bài viết đầu tiên hoặc theo dõi thêm bạn bè.
+                            </div>
                         </div>
-                    }
-                    endMessage={
-                        <div className="py-5 text-center text-sm text-gray-400">Bạn đã xem hết bài viết rồi.</div>
-                    }
-                    scrollableTarget="dashboard-scroll-container"
-                >
-                    {posts.map((post) => (
-                        <Post
-                            key={post._id || post.id}
-                            post={post}
-                            currentUser={user}
-                            onEdit={handleEditPost}
-                            onDelete={handleDeletePost}
-                        />
-                    ))}
-                </InfiniteScroll>
-            )}
-        </div>
+                    )}
+
+                    {!loadingPosts && posts.length > 0 && (
+                        <InfiniteScroll
+                            dataLength={posts.length}
+                            next={handleLoadMore}
+                            hasMore={hasMore}
+                            loader={
+                                <div className="flex items-center justify-center gap-1.5 select-none py-5 text-center text-sm font-semibold text-slate-400 animate-pulse dark:text-slate-500">
+                                    <Clock size={14} className="animate-spin text-indigo-500" /> Đang tải thêm bài viết...
+                                </div>
+                            }
+                            endMessage={
+                                <div className="select-none py-6 text-center text-sm font-semibold text-slate-400">Bạn đã xem hết bài viết rồi.</div>
+                            }
+                            scrollableTarget="social-scroll-container"
+                        >
+                            {posts.map((post) => (
+                                <Post
+                                    key={post._id || post.id}
+                                    post={post}
+                                    currentUser={user}
+                                    onEdit={handleEditPost}
+                                    onDelete={handleDeletePost}
+                                />
+                            ))}
+                        </InfiniteScroll>
+                    )}
+                </div>
+            </div>
+        </>
     );
 }
 

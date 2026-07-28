@@ -1,65 +1,39 @@
 const mongoose = require("mongoose");
 
-const linkSchema = new mongoose.Schema(
+const quizAnswerSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      default: "",
-      trim: true,
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
     },
-
-    url: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
-    type: {
-      type: String,
-      enum: ["github", "demo", "figma", "document", "website", "other"],
-      default: "other",
+    optionIndex: {
+      type: Number,
+      required: true,
     },
   },
-  { _id: false },
+  { timestamps: true, _id: false },
 );
 
-const projectSchema = new mongoose.Schema(
+const quizSchema = new mongoose.Schema(
   {
-    projectName: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 120,
-    },
-
-    summary: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 500,
-    },
-
-    tools: [
+    options: [
       {
-        type: String,
-        trim: true,
+        text: { type: String, required: true, trim: true },
+        votesCount: { type: Number, default: 0 },
       },
     ],
-
-    progress: {
+    correctOption: {
       type: Number,
-      default: 0,
-      min: 0,
-      max: 100,
+      required: true,
     },
-
-    status: {
+    explanation: {
       type: String,
-      enum: ["idea", "planning", "in_progress", "completed", "paused"],
-      default: "in_progress",
+      default: "",
+      trim: true,
+      maxlength: 2000,
     },
-
-    links: [linkSchema],
+    answers: [quizAnswerSchema],
   },
   { _id: false },
 );
@@ -94,64 +68,6 @@ const questionSchema = new mongoose.Schema(
   { _id: false },
 );
 
-const learningSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 200,
-    },
-
-    goal: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 300,
-    },
-
-    progressText: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 1000,
-    },
-
-    resources: [linkSchema],
-  },
-  { _id: false },
-);
-
-const collaborationSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 200,
-    },
-
-    neededRoles: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
-
-    description: {
-      type: String,
-      default: "",
-      trim: true,
-      maxlength: 1000,
-    },
-
-    isOpen: {
-      type: Boolean,
-      default: true,
-    },
-  },
-  { _id: false },
-);
 
 const postSchema = new mongoose.Schema(
   {
@@ -163,37 +79,10 @@ const postSchema = new mongoose.Schema(
 
     postType: {
       type: String,
-      enum: [
-        "normal",
-        "project",
-        "question",
-        "knowledge",
-        "learning",
-        "collaboration",
-        "achievement",
-      ],
+      enum: ["normal", "quiz"],
       default: "normal",
     },
 
-    category: {
-      type: String,
-      enum: [
-        "technology",
-        "finance_banking",
-        "marketing",
-        "design",
-        "business",
-        "language",
-        "education",
-        "science",
-        "startup",
-        "art",
-        "music",
-        "health",
-        "other",
-      ],
-      default: "other",
-    },
 
     caption: {
       type: String,
@@ -238,23 +127,13 @@ const postSchema = new mongoose.Schema(
       },
     ],
 
-    project: {
-      type: projectSchema,
-      default: undefined,
-    },
-
     question: {
       type: questionSchema,
       default: undefined,
     },
 
-    learning: {
-      type: learningSchema,
-      default: undefined,
-    },
-
-    collaboration: {
-      type: collaborationSchema,
+    quiz: {
+      type: quizSchema,
       default: undefined,
     },
 

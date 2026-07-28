@@ -83,7 +83,7 @@ function StudyConnectLayout({
                 <div className="flex min-w-0 flex-1 overflow-hidden">
                     <main
                         id={mainId}
-                        className="min-w-0 flex-1 overflow-y-auto overscroll-contain pb-24 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
+                        className="min-w-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth pb-24 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
                     >
                         <div className={`mx-auto w-full px-4 py-4 ${contentClassName}`}>{children}</div>
                     </main>

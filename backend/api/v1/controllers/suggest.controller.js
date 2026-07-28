@@ -37,7 +37,7 @@ module.exports.getSuggestSummary = async (req, res) => {
     const userId = req.user.id || req.user._id;
 
     const currentUser = await User.findById(userId)
-      .select("friendList requestFriends acceptFriends followers following")
+      .select("followers following pendingFollowRequests")
       .lean();
 
     if (!currentUser) {
@@ -48,18 +48,13 @@ module.exports.getSuggestSummary = async (req, res) => {
       });
     }
 
-    const myFriendIds = (currentUser.friendList || [])
-      .map((item) => item.user_id)
-      .filter(Boolean);
-
-    const requestFriendIds = (currentUser.requestFriends || []).filter(Boolean);
-    const acceptFriendIds = (currentUser.acceptFriends || []).filter(Boolean);
+    const followingIds = (currentUser.following || []).filter(Boolean);
+    const pendingIds = (currentUser.pendingFollowRequests || []).filter(Boolean);
 
     const excludedIds = [
       userId,
-      ...myFriendIds,
-      ...requestFriendIds,
-      ...acceptFriendIds,
+      ...followingIds,
+      ...pendingIds,
     ]
       .filter(Boolean)
       .map((id) => toObjectId(id));
@@ -74,7 +69,7 @@ module.exports.getSuggestSummary = async (req, res) => {
       openQuestionPosts,
       activeLearnerUsers,
     ] = await Promise.all([
-      // 1. Gợi ý học cùng
+      // 1. Gợi ý học cùng (dựa trên người đang follow chung)
       User.aggregate([
         {
           $match: {
@@ -88,14 +83,8 @@ module.exports.getSuggestSummary = async (req, res) => {
             mutualFriends: {
               $size: {
                 $setIntersection: [
-                  {
-                    $map: {
-                      input: { $ifNull: ["$friendList", []] },
-                      as: "friend",
-                      in: "$$friend.user_id",
-                    },
-                  },
-                  myFriendIds.map((id) => toObjectId(id)),
+                  { $ifNull: ["$followers", []] },
+                  followingIds.map((id) => toObjectId(id)),
                 ],
               },
             },
@@ -211,10 +200,10 @@ module.exports.getSuggestSummary = async (req, res) => {
         .lean(),
 
       // 5. Bạn học đang hoạt động
-      myFriendIds.length
+      followingIds.length
         ? User.find({
             _id: {
-              $in: myFriendIds,
+              $in: followingIds,
               $ne: userId,
             },
             statusOnline: "online",

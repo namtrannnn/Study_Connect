@@ -5,9 +5,7 @@ function toId(value) {
     return value;
   }
 
-  // QUAN TRỌNG:
-  // friendList item có dạng { user_id, room_chat_id, _id }
-  // phải lấy user_id trước, không lấy _id của subdocument
+  // Nếu item là object có user hoặc user_id, lấy giá trị đó
   if (value.user_id) {
     return toId(value.user_id);
   }
@@ -49,7 +47,10 @@ function isFollower(viewerId, author) {
 
 function isFriend(viewerId, author) {
   if (!viewerId || !author) return false;
-  return includesId(author.friendList || [], viewerId);
+  const vId = toId(viewerId);
+  const isFollower = includesId(author.followers || [], vId);
+  const isFollowing = includesId(author.following || [], vId);
+  return isFollower && isFollowing;
 }
 
 function isAllowedCustomUser(viewerId, post) {

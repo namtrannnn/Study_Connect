@@ -4,17 +4,9 @@ import {
     X,
     ImagePlus,
     Sparkles,
-    FolderKanban,
-    HelpCircle,
-    BookOpen,
-    GraduationCap,
-    Handshake,
-    Trophy,
     Globe2,
     Users,
     Lock,
-    Github,
-    ExternalLink,
     Loader2,
     Trash2,
     Settings2,
@@ -29,66 +21,8 @@ import { toast } from 'react-toastify';
 
 import * as PostServices from '../../services/posts.services';
 import * as UserServices from '../../services/user.services';
-const POST_TYPES = [
-    {
-        value: 'normal',
-        label: 'Bài viết',
-        desc: 'Chia sẻ nhanh',
-        icon: Sparkles,
-    },
-    {
-        value: 'project',
-        label: 'Dự án',
-        desc: 'Showcase sản phẩm',
-        icon: FolderKanban,
-    },
-    {
-        value: 'question',
-        label: 'Câu hỏi',
-        desc: 'Cần hỗ trợ',
-        icon: HelpCircle,
-    },
-    {
-        value: 'knowledge',
-        label: 'Kiến thức',
-        desc: 'Chia sẻ bài học',
-        icon: BookOpen,
-    },
-    {
-        value: 'learning',
-        label: 'Học tập',
-        desc: 'Tiến trình học',
-        icon: GraduationCap,
-    },
-    {
-        value: 'collaboration',
-        label: 'Cộng tác',
-        desc: 'Tìm đồng đội',
-        icon: Handshake,
-    },
-    {
-        value: 'achievement',
-        label: 'Thành tựu',
-        desc: 'Khoe thành quả',
-        icon: Trophy,
-    },
-];
+import VisibilitySelector from '../../components/VisibilitySelector';
 
-const CATEGORIES = [
-    { value: 'technology', label: 'Công nghệ' },
-    { value: 'finance_banking', label: 'Tài chính' },
-    { value: 'marketing', label: 'Marketing' },
-    { value: 'design', label: 'Thiết kế' },
-    { value: 'business', label: 'Kinh doanh' },
-    { value: 'language', label: 'Ngôn ngữ' },
-    { value: 'education', label: 'Giáo dục' },
-    { value: 'science', label: 'Khoa học' },
-    { value: 'startup', label: 'Startup' },
-    { value: 'art', label: 'Nghệ thuật' },
-    { value: 'music', label: 'Âm nhạc' },
-    { value: 'health', label: 'Sức khỏe' },
-    { value: 'other', label: 'Khác' },
-];
 
 const VISIBILITIES = [
     {
@@ -103,7 +37,7 @@ const VISIBILITIES = [
     },
     {
         value: 'friends',
-        label: 'Bạn bè',
+        label: 'Bạn bè (Mutual follow)',
         icon: Users,
     },
     {
@@ -121,8 +55,6 @@ const VISIBILITIES = [
 function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated }) {
     const isEdit = mode === 'edit';
 
-    const [postType, setPostType] = useState('normal');
-    const [category, setCategory] = useState('other');
     const [caption, setCaption] = useState('');
     const [visibility, setVisibility] = useState('public');
     const [images, setImages] = useState([]);
@@ -134,6 +66,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
     const [mentionKeyword, setMentionKeyword] = useState('');
     const [mentionSuggestions, setMentionSuggestions] = useState([]);
     const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+    const [selectedCustomUsers, setSelectedCustomUsers] = useState([]);
     const [allowedUsersText, setAllowedUsersText] = useState('');
 
     const [allowComments, setAllowComments] = useState(true);
@@ -142,41 +75,10 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
 
     const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
-    const [project, setProject] = useState({
-        projectName: '',
-        summary: '',
-        toolsText: '',
-        progress: 0,
-        status: 'in_progress',
-        githubUrl: '',
-        demoUrl: '',
-    });
-    const [question, setQuestion] = useState({
-        title: '',
-        detail: '',
-    });
-
-    const [learning, setLearning] = useState({
-        title: '',
-        goal: '',
-        progressText: '',
-        resourceTitle: '',
-        resourceUrl: '',
-    });
-
-    const [collaboration, setCollaboration] = useState({
-        title: '',
-        neededRolesText: '',
-        description: '',
-        isOpen: true,
-    });
-
     // Điền dữ liệu cũ khi ở mode edit
     useEffect(() => {
         if (!isEdit || !post) return;
 
-        setPostType(post.postType || 'normal');
-        setCategory(post.category || 'other');
         setCaption(post.caption || post.content || '');
         setVisibility(post.visibility || post.privacy || 'public');
         setLocation(post.location || '');
@@ -186,44 +88,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
         setImages([]);
         // Load ảnh cũ đã có trên server
         setExistingMedia(Array.isArray(post.media) ? post.media : []);
-
-        if (post.project) {
-            const githubLink = post.project.links?.find((l) => l.type === 'github');
-            const demoLink = post.project.links?.find((l) => l.type === 'demo');
-            setProject({
-                projectName: post.project.projectName || '',
-                summary: post.project.summary || '',
-                toolsText: (post.project.tools || []).join(', '),
-                progress: post.project.progress ?? 0,
-                status: post.project.status || 'in_progress',
-                githubUrl: githubLink?.url || '',
-                demoUrl: demoLink?.url || '',
-            });
-        }
-        if (post.question) {
-            setQuestion({ title: post.question.title || '', detail: post.question.detail || '' });
-        }
-        if (post.learning) {
-            const res = post.learning.resources?.[0];
-            setLearning({
-                title: post.learning.title || '',
-                goal: post.learning.goal || '',
-                progressText: post.learning.progressText || '',
-                resourceTitle: res?.title || '',
-                resourceUrl: res?.url || '',
-            });
-        }
-        if (post.collaboration) {
-            setCollaboration({
-                title: post.collaboration.title || '',
-                neededRolesText: (post.collaboration.neededRoles || []).join(', '),
-                description: post.collaboration.description || '',
-                isOpen: post.collaboration.isOpen ?? true,
-            });
-        }
     }, [isEdit, post]);
-    const selectedPostType = POST_TYPES.find((item) => item.value === postType);
-    const SelectedPostIcon = selectedPostType?.icon || Sparkles;
     const selectedVisibility = VISIBILITIES.find((item) => item.value === visibility);
     const SelectedVisibilityIcon = selectedVisibility?.icon || Globe2;
 
@@ -301,32 +166,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
         setShowMentionSuggestions(false);
         setMentionSuggestions([]);
     };
-    const handleProjectChange = (field, value) => {
-        setProject((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
-    const handleQuestionChange = (field, value) => {
-        setQuestion((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
 
-    const handleLearningChange = (field, value) => {
-        setLearning((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
-
-    const handleCollaborationChange = (field, value) => {
-        setCollaboration((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
-    };
     const handleSelectImages = (e) => {
         const files = Array.from(e.target.files || []);
 
@@ -343,79 +183,6 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
         setImages((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const buildProjectPayload = () => {
-        const tools = project.toolsText
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-
-        const links = [];
-
-        if (project.githubUrl.trim()) {
-            links.push({
-                title: 'GitHub',
-                url: project.githubUrl.trim(),
-                type: 'github',
-            });
-        }
-
-        if (project.demoUrl.trim()) {
-            links.push({
-                title: 'Demo',
-                url: project.demoUrl.trim(),
-                type: 'demo',
-            });
-        }
-
-        return {
-            projectName: project.projectName.trim(),
-            summary: project.summary.trim(),
-            tools,
-            progress: Number(project.progress) || 0,
-            status: project.status,
-            links,
-        };
-    };
-    const buildQuestionPayload = () => {
-        return {
-            title: question.title.trim(),
-            detail: question.detail.trim(),
-            isResolved: false,
-        };
-    };
-
-    const buildLearningPayload = () => {
-        const resources = [];
-
-        if (learning.resourceUrl.trim()) {
-            resources.push({
-                title: learning.resourceTitle.trim() || 'Tài liệu học tập',
-                url: learning.resourceUrl.trim(),
-                type: 'document',
-            });
-        }
-
-        return {
-            title: learning.title.trim(),
-            goal: learning.goal.trim(),
-            progressText: learning.progressText.trim(),
-            resources,
-        };
-    };
-
-    const buildCollaborationPayload = () => {
-        const neededRoles = collaboration.neededRolesText
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-
-        return {
-            title: collaboration.title.trim(),
-            neededRoles,
-            description: collaboration.description.trim(),
-            isOpen: collaboration.isOpen,
-        };
-    };
     const parseIdList = (text) => {
         return text
             .split(',')
@@ -423,36 +190,10 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
             .filter(Boolean);
     };
     const validateForm = () => {
-        if (postType === 'normal' && !caption.trim() && images.length === 0) {
-            toast.error('Bài viết thường cần có nội dung hoặc ảnh');
-            return false;
-        }
-
-        if (postType === 'project' && !project.projectName.trim()) {
-            toast.error('Tên dự án là bắt buộc');
-            return false;
-        }
-
-        if (postType === 'question' && !question.title.trim()) {
-            toast.error('Tiêu đề câu hỏi là bắt buộc');
-            return false;
-        }
-
-        if (postType === 'learning' && !learning.title.trim()) {
-            toast.error('Tiêu đề học tập là bắt buộc');
-            return false;
-        }
-
-        if (postType === 'collaboration' && !collaboration.title.trim()) {
-            toast.error('Tiêu đề tìm cộng sự là bắt buộc');
-            return false;
-        }
-
-        if (['knowledge', 'achievement'].includes(postType) && !caption.trim() && images.length === 0) {
+        if (!caption.trim() && images.length === 0) {
             toast.error('Vui lòng nhập nội dung hoặc thêm ảnh');
             return false;
         }
-
         return true;
     };
     const renderCaptionHighlight = (text = '') => {
@@ -482,8 +223,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
 
             const formData = new FormData();
 
-            formData.append('postType', postType);
-            formData.append('category', category);
+            formData.append('postType', 'normal');
             formData.append('caption', caption);
             formData.append('location', location);
             formData.append('visibility', visibility);
@@ -501,22 +241,9 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                     .map((item) => item._id || item.id)
                     .filter(Boolean);
 
-                const allowedUsers = visibility === 'custom' ? parseIdList(allowedUsersText) : [];
+                const allowedUsers = visibility === 'custom' ? selectedCustomUsers.map((u) => u._id || u.id).filter(Boolean) : [];
                 formData.append('mentions', JSON.stringify(mentions));
                 formData.append('allowedUsers', JSON.stringify(allowedUsers));
-            }
-
-            if (postType === 'project') {
-                formData.append('project', JSON.stringify(buildProjectPayload()));
-            }
-            if (postType === 'question') {
-                formData.append('question', JSON.stringify(buildQuestionPayload()));
-            }
-            if (postType === 'learning') {
-                formData.append('learning', JSON.stringify(buildLearningPayload()));
-            }
-            if (postType === 'collaboration') {
-                formData.append('collaboration', JSON.stringify(buildCollaborationPayload()));
             }
 
             images.forEach((image) => {
@@ -546,8 +273,6 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                     // Reset form
                     setCaption('');
                     setImages([]);
-                    setPostType('normal');
-                    setCategory('other');
                     setVisibility('public');
                     setLocation('');
                     setShowMentionSuggestions(false);
@@ -586,15 +311,15 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             <div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/25">
-                                        {isEdit ? <Pencil size={20} /> : <SelectedPostIcon size={20} />}
+                                        {isEdit ? <Pencil size={20} /> : <Sparkles size={20} />}
                                     </div>
 
                                     <div>
                                         <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                                            {isEdit ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới'}
+                                            {isEdit ? 'Chỉnh sửa bài viết' : 'Có gì mới?'}
                                         </h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            {isEdit ? 'Cập nhật nội dung, loại bài hoặc cài đặt hiển thị' : 'Chia sẻ ý tưởng, dự án hoặc câu hỏi của bạn'}
+                                            {isEdit ? 'Cập nhật nội dung hoặc cài đặt hiển thị' : 'Chia sẻ suy nghĩ, ảnh hoặc khoảnh khắc của bạn'}
                                         </p>
                                     </div>
                                 </div>
@@ -625,24 +350,21 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                         {user?.fullName || user?.username || 'Người dùng'}
                                     </div>
 
-                                    <div className="mt-1 flex items-center gap-2">
-                                        <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10">
-                                            <SelectedVisibilityIcon size={13} />
-                                            {selectedVisibility?.label || 'Công khai'}
-                                        </div>
-
-                                        <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-500/20">
-                                            <SelectedPostIcon size={13} />
-                                            {selectedPostType?.label || 'Bài viết'}
-                                        </div>
+                                    <div className="mt-1">
+                                        <VisibilitySelector
+                                            value={visibility}
+                                            onChange={setVisibility}
+                                            selectedCustomUsers={selectedCustomUsers}
+                                            onCustomUsersChange={setSelectedCustomUsers}
+                                        />
                                     </div>
                                 </div>
                             </div>
 
                             <div className="relative mt-4">
-                                <div className="relative min-h-[180px]">
+                                <div className="relative min-h-[100px] overflow-hidden rounded-2xl border border-gray-200 bg-white transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b]">
                                     {/* Lớp hiển thị text màu xanh cho @mention */}
-                                    <div className="pointer-events-none absolute inset-0 min-h-[180px] whitespace-pre-wrap break-words rounded-2xl border border-gray-200 bg-white px-4 py-4 text-[16px] leading-7 text-gray-900 dark:border-white/10 dark:bg-[#20232b] dark:text-white">
+                                    <div className="pointer-events-none absolute inset-0 min-h-[100px] whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-6 text-gray-900 dark:text-white">
                                         {caption ? (
                                             renderCaptionHighlight(caption)
                                         ) : (
@@ -656,8 +378,8 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                     <textarea
                                         value={caption}
                                         onChange={(e) => handleCaptionChange(e.target.value)}
-                                        rows={5}
-                                        className="relative z-10 min-h-[180px] w-full resize-none rounded-2xl border border-gray-200 bg-transparent px-4 py-4 text-[16px] leading-7 text-transparent caret-gray-900 outline-none transition placeholder:text-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:caret-white"
+                                        rows={3}
+                                        className="relative z-10 min-h-[100px] w-full resize-none border-none bg-transparent px-4 py-3 text-[15px] leading-6 text-transparent caret-gray-900 outline-none placeholder:text-transparent focus:outline-none dark:caret-white"
                                     />
                                 </div>
 
@@ -718,104 +440,24 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             </div>
                         </div>
 
-                        <div className="mt-5">
-                            <div className="mb-3 flex items-center justify-between">
-                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Chọn kiểu bài viết</h3>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                    {selectedPostType?.desc}
-                                </span>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                                {POST_TYPES.map((type) => {
-                                    const Icon = type.icon;
-                                    const active = postType === type.value;
-
-                                    return (
-                                        <button
-                                            key={type.value}
-                                            type="button"
-                                            onClick={() => setPostType(type.value)}
-                                            className={`rounded-2xl border p-3 text-left transition ${
-                                                active
-                                                    ? 'border-blue-500 bg-blue-50 text-blue-700 ring-4 ring-blue-500/10 dark:border-blue-400 dark:bg-blue-500/15 dark:text-blue-300'
-                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-blue-200 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10'
-                                            }`}
-                                        >
-                                            <Icon size={20} />
-                                            <div className="mt-2 text-sm font-semibold">{type.label}</div>
-                                            <div className="mt-0.5 text-[11px] opacity-70">{type.desc}</div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <div>
-                                <label className="mb-2 block text-sm font-bold text-gray-900 dark:text-white">
-                                    Danh mục
-                                </label>
-
-                                <select
-                                    value={category}
-                                    onChange={(e) => setCategory(e.target.value)}
-                                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                >
-                                    {CATEGORIES.map((item) => (
-                                        <option key={item.value} value={item.value}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-sm font-bold text-gray-900 dark:text-white">
-                                    Quyền riêng tư
-                                </label>
-
-                                <select
-                                    value={visibility}
-                                    onChange={(e) => setVisibility(e.target.value)}
-                                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                >
-                                    {VISIBILITIES.map((item) => (
-                                        <option key={item.value} value={item.value}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="mt-5 overflow-hidden rounded-3xl border border-gray-200 bg-white dark:border-white/10 dark:bg-white/5">
+                        {/* Nút bật/tắt Tùy chọn nâng cao nhỏ gọn */}
+                        <div className="mt-3 flex items-center justify-between">
                             <button
                                 type="button"
                                 onClick={() => setShowAdvancedOptions((prev) => !prev)}
-                                className="flex w-full items-center justify-between px-4 py-4 text-left"
+                                className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                                    showAdvancedOptions
+                                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'
+                                        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10'
+                                }`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
-                                        <Settings2 size={18} />
-                                    </div>
-
-                                    <div>
-                                        <div className="text-sm font-bold text-gray-900 dark:text-white">
-                                            Tùy chọn nâng cao
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                            Vị trí, nhắc tên, quyền xem, bình luận và hiển thị tương tác
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <span className="text-sm font-semibold text-blue-600 dark:text-blue-300">
-                                    {showAdvancedOptions ? 'Ẩn' : 'Mở'}
-                                </span>
+                                <Settings2 size={15} />
+                                <span>Tùy chọn nâng cao</span>
                             </button>
+                        </div>
 
                             {showAdvancedOptions && (
-                                <div className="space-y-4 border-t border-gray-100 px-4 py-4 dark:border-white/10">
+                                <div className="mt-3 space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                                     <div className="relative">
                                         <MapPin
                                             size={17}
@@ -829,302 +471,112 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                         />
                                     </div>
 
-                                    {/* <div className="relative">
-                                        <AtSign
-                                            size={17}
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                                        />
-                                        <input
-                                            value={mentionsText}
-                                            onChange={(e) => setMentionsText(e.target.value)}
-                                            placeholder="Mentions userId, cách nhau bằng dấu phẩy"
-                                            className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                        />
-                                    </div> */}
-
-                                    {visibility === 'custom' && (
-                                        <div className="relative">
-                                            <UserCheck
-                                                size={17}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                                            />
-                                            <input
-                                                value={allowedUsersText}
-                                                onChange={(e) => setAllowedUsersText(e.target.value)}
-                                                placeholder="UserId được xem bài, cách nhau bằng dấu phẩy"
-                                                className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                            />
-                                        </div>
-                                    )}
-
                                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-[#20232b]">
-                                            <input
-                                                type="checkbox"
-                                                checked={allowComments}
-                                                onChange={(e) => setAllowComments(e.target.checked)}
-                                            />
+                                        <div 
+                                            onClick={() => setAllowComments(!allowComments)}
+                                            className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3.5 transition hover:bg-gray-100 dark:border-white/10 dark:bg-[#20232b] dark:hover:bg-white/10"
+                                        >
                                             <div>
                                                 <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-                                                    <MessageCircleOff size={15} />
+                                                    <MessageCircleOff size={15} className="text-blue-500" />
                                                     Bình luận
                                                 </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                                     {allowComments ? 'Đang bật' : 'Đang tắt'}
                                                 </div>
                                             </div>
-                                        </label>
 
-                                        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-[#20232b]">
-                                            <input
-                                                type="checkbox"
-                                                checked={hideLikeCount}
-                                                onChange={(e) => setHideLikeCount(e.target.checked)}
-                                            />
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={allowComments}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAllowComments(!allowComments);
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                    allowComments ? 'bg-blue-600' : 'bg-gray-300 dark:bg-white/20'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                                                        allowComments ? 'translate-x-5' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        <div 
+                                            onClick={() => setHideLikeCount(!hideLikeCount)}
+                                            className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3.5 transition hover:bg-gray-100 dark:border-white/10 dark:bg-[#20232b] dark:hover:bg-white/10"
+                                        >
                                             <div>
                                                 <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-                                                    <EyeOff size={15} />
+                                                    <EyeOff size={15} className="text-purple-500" />
                                                     Ẩn lượt thích
                                                 </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                                     {hideLikeCount ? 'Sẽ ẩn' : 'Đang hiện'}
                                                 </div>
                                             </div>
-                                        </label>
 
-                                        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-[#20232b]">
-                                            <input
-                                                type="checkbox"
-                                                checked={hideShare}
-                                                onChange={(e) => setHideShare(e.target.checked)}
-                                            />
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={hideLikeCount}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setHideLikeCount(!hideLikeCount);
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                    hideLikeCount ? 'bg-purple-600' : 'bg-gray-300 dark:bg-white/20'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                                                        hideLikeCount ? 'translate-x-5' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        <div 
+                                            onClick={() => setHideShare(!hideShare)}
+                                            className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3.5 transition hover:bg-gray-100 dark:border-white/10 dark:bg-[#20232b] dark:hover:bg-white/10"
+                                        >
                                             <div>
                                                 <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-                                                    <Share2 size={15} />
+                                                    <Share2 size={15} className="text-cyan-500" />
                                                     Ẩn chia sẻ
                                                 </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                                     {hideShare ? 'Sẽ ẩn' : 'Đang hiện'}
                                                 </div>
                                             </div>
-                                        </label>
+
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={hideShare}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setHideShare(!hideShare);
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                    hideShare ? 'bg-cyan-600' : 'bg-gray-300 dark:bg-white/20'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                                                        hideShare ? 'translate-x-5' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
-                        </div>
-                        {postType === 'project' && (
-                            <div className="mt-5 overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-4 dark:border-blue-500/20 dark:from-blue-950/40 dark:via-white/5 dark:to-cyan-950/20">
-                                <div className="mb-4 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 dark:text-white">Thông tin dự án</h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Hiển thị như một project showcase trong feed
-                                        </p>
-                                    </div>
 
-                                    <div className="rounded-2xl bg-white px-3 py-2 text-center text-xs font-bold text-blue-600 shadow-sm dark:bg-white/10 dark:text-blue-300">
-                                        {project.progress || 0}%
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <input
-                                        value={project.projectName}
-                                        onChange={(e) => handleProjectChange('projectName', e.target.value)}
-                                        placeholder="Tên dự án, ví dụ: StudyConnect"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <textarea
-                                        value={project.summary}
-                                        onChange={(e) => handleProjectChange('summary', e.target.value)}
-                                        placeholder="Mô tả ngắn về dự án"
-                                        rows={3}
-                                        className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <input
-                                        value={project.toolsText}
-                                        onChange={(e) => handleProjectChange('toolsText', e.target.value)}
-                                        placeholder="Công nghệ: React, Node.js, MongoDB"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            value={project.progress}
-                                            onChange={(e) => handleProjectChange('progress', e.target.value)}
-                                            placeholder="Tiến độ"
-                                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                        />
-
-                                        <select
-                                            value={project.status}
-                                            onChange={(e) => handleProjectChange('status', e.target.value)}
-                                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                        >
-                                            <option value="idea">Ý tưởng</option>
-                                            <option value="in_progress">Đang làm</option>
-                                            <option value="completed">Hoàn thành</option>
-                                            <option value="paused">Tạm dừng</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                        <div className="relative">
-                                            <Github
-                                                size={17}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                                            />
-                                            <input
-                                                value={project.githubUrl}
-                                                onChange={(e) => handleProjectChange('githubUrl', e.target.value)}
-                                                placeholder="Link GitHub"
-                                                className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                            />
-                                        </div>
-
-                                        <div className="relative">
-                                            <ExternalLink
-                                                size={17}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                                            />
-                                            <input
-                                                value={project.demoUrl}
-                                                onChange={(e) => handleProjectChange('demoUrl', e.target.value)}
-                                                placeholder="Link demo"
-                                                className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        {postType === 'question' && (
-                            <div className="mt-5 overflow-hidden rounded-3xl border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 dark:border-amber-500/20 dark:from-amber-950/30 dark:via-white/5 dark:to-orange-950/20">
-                                <div className="mb-4">
-                                    <h3 className="font-bold text-gray-900 dark:text-white">Thông tin câu hỏi</h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        Đặt câu hỏi rõ ràng để mọi người dễ hỗ trợ hơn
-                                    </p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <input
-                                        value={question.title}
-                                        onChange={(e) => handleQuestionChange('title', e.target.value)}
-                                        placeholder="Tiêu đề câu hỏi, ví dụ: Lỗi JWT 401 khi tạo post?"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <textarea
-                                        value={question.detail}
-                                        onChange={(e) => handleQuestionChange('detail', e.target.value)}
-                                        placeholder="Mô tả chi tiết vấn đề, bạn đã thử gì, lỗi xảy ra ở đâu..."
-                                        rows={4}
-                                        className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        {postType === 'learning' && (
-                            <div className="mt-5 overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 dark:border-emerald-500/20 dark:from-emerald-950/30 dark:via-white/5 dark:to-teal-950/20">
-                                <div className="mb-4">
-                                    <h3 className="font-bold text-gray-900 dark:text-white">Tiến trình học tập</h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        Chia sẻ mục tiêu, tiến độ hoặc tài liệu bạn đang học
-                                    </p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <input
-                                        value={learning.title}
-                                        onChange={(e) => handleLearningChange('title', e.target.value)}
-                                        placeholder="Tiêu đề, ví dụ: Học React Query trong 7 ngày"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <input
-                                        value={learning.goal}
-                                        onChange={(e) => handleLearningChange('goal', e.target.value)}
-                                        placeholder="Mục tiêu học tập"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <textarea
-                                        value={learning.progressText}
-                                        onChange={(e) => handleLearningChange('progressText', e.target.value)}
-                                        placeholder="Bạn đã học được gì? Đang gặp khó khăn ở đâu?"
-                                        rows={4}
-                                        className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                        <input
-                                            value={learning.resourceTitle}
-                                            onChange={(e) => handleLearningChange('resourceTitle', e.target.value)}
-                                            placeholder="Tên tài liệu"
-                                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                        />
-
-                                        <input
-                                            value={learning.resourceUrl}
-                                            onChange={(e) => handleLearningChange('resourceUrl', e.target.value)}
-                                            placeholder="Link tài liệu"
-                                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        {postType === 'collaboration' && (
-                            <div className="mt-5 overflow-hidden rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-4 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-white/5 dark:to-fuchsia-950/20">
-                                <div className="mb-4 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-gray-900 dark:text-white">Tìm cộng sự</h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Tạo lời mời tham gia dự án, nhóm học tập hoặc sản phẩm
-                                        </p>
-                                    </div>
-
-                                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
-                                        <input
-                                            type="checkbox"
-                                            checked={collaboration.isOpen}
-                                            onChange={(e) => handleCollaborationChange('isOpen', e.target.checked)}
-                                        />
-                                        Đang mở
-                                    </label>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <input
-                                        value={collaboration.title}
-                                        onChange={(e) => handleCollaborationChange('title', e.target.value)}
-                                        placeholder="Tiêu đề, ví dụ: Tìm frontend React cho StudyConnect"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <input
-                                        value={collaboration.neededRolesText}
-                                        onChange={(e) => handleCollaborationChange('neededRolesText', e.target.value)}
-                                        placeholder="Vai trò cần tìm: Frontend, Backend, Designer"
-                                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-
-                                    <textarea
-                                        value={collaboration.description}
-                                        onChange={(e) => handleCollaborationChange('description', e.target.value)}
-                                        placeholder="Mô tả dự án, yêu cầu, thời gian, cách tham gia..."
-                                        rows={4}
-                                        className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 dark:border-white/10 dark:bg-[#20232b] dark:text-white"
-                                    />
-                                </div>
-                            </div>
-                        )}
                         <div className="mt-5 rounded-3xl border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
                             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-white px-4 py-4 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 dark:bg-white/10 dark:text-white dark:hover:bg-white/15">
                                 <ImagePlus size={20} />

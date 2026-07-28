@@ -435,16 +435,16 @@ module.exports.getOrCreateFriend = async (req, res) => {
         message: "Cannot chat with yourself",
       });
     }
-    const me = await User.findById(meId).select("friendList").lean();
+    const me = await User.findById(meId).select("following followers").lean();
 
-    const isFriend = me.friendList.some(
-      (item) => item.user_id.toString() === userId.toString(),
+    const isFollowing = (me.following || []).some(
+      (id) => id.toString() === userId.toString(),
     );
 
-    if (!isFriend) {
+    if (!isFollowing) {
       return res.status(403).json({
         code: 403,
-        message: "Chỉ có thể nhắn tin với bạn bè",
+        message: "Bạn phải theo dõi người này để bắt đầu trò chuyện",
       });
     }
     const targetUser = await User.findOne({
@@ -533,30 +533,7 @@ module.exports.getOrCreateFriend = async (req, res) => {
     if (shouldSaveRoom) {
       await room.save();
     }
-    await User.updateOne(
-      {
-        _id: meId,
-        "friendList.user_id": userId,
-      },
-      {
-        $set: {
-          "friendList.$.room_chat_id": room._id,
-        },
-      },
-    );
-
-    await User.updateOne(
-      {
-        _id: userId,
-        "friendList.user_id": meId,
-      },
-      {
-        $set: {
-          "friendList.$.room_chat_id": room._id,
-        },
-      },
-    );
-    const responseRoom = await buildRoomResponse(roomChat._id, meId);
+    const responseRoom = await buildRoomResponse(room._id, meId);
 
     return res.status(200).json({
       message: "OK",
