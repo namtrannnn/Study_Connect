@@ -576,7 +576,8 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const authorAvatar = post?.author?.avatar;
     const authorUsername = post?.author?.username;
 
-    const content = post?.caption || post?.content || '';
+    const rawContent = post?.caption || post?.content || '';
+    const content = rawContent.replace(/seed_social_flutter/g, '').trim();
 
     const mediaItems = useMemo(() => {
         if (Array.isArray(post?.media) && post.media.length > 0) {
@@ -882,49 +883,17 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                     </DropdownMenu>
                 </div>
 
-                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-full bg-gray-900 px-2.5 py-0.5 text-[11px] font-semibold text-white dark:bg-white dark:text-gray-900">
-                        {postTypeLabels[postType] || 'Bài viết'}
-                    </span>
-
-                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                        {categoryLabels[category] || 'Khác'}
-                    </span>
-
-                    {post?.sourceType && (
-                        <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-medium text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300">
-                            {post.sourceType === 'hot'
-                                ? 'Đang nổi bật'
-                                : post.sourceType === 'interest'
-                                    ? 'Phù hợp sở thích'
-                                    : 'Từ kết nối của bạn'}
-                        </span>
-                    )}
-                </div>
-
                 {content && (
                     <p className="mt-2.5 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
                         {renderContentWithRealMentions(content, post?.mentions || [])}
                     </p>
                 )}
 
-                {postType === 'project' && <ProjectShowcase project={post?.project} />}
-
-                {postType === 'question' && <QuestionShowcase question={post?.question} />}
-
-                {postType === 'learning' && <LearningShowcase learning={post?.learning} />}
-
-                {postType === 'collaboration' && <CollaborationShowcase collaboration={post?.collaboration} />}
-
-                {postType === 'knowledge' && <KnowledgeShowcase content={content} />}
-
-                {postType === 'achievement' && <AchievementShowcase />}
-
                 {mediaItems.length > 0 && (
                     <PostMediaGallery mediaItems={mediaItems} onOpenDetail={() => setOpenDetail(true)} />
                 )}
 
-                <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/10">
+                <div className="mt-2.5 flex items-center justify-between border-t border-gray-100 pt-2.5 dark:border-white/10">
                     <div className="flex flex-wrap items-center gap-2">
                         <div
                             className={`inline-flex items-center overflow-hidden rounded-full text-sm font-semibold transition ${isLiked

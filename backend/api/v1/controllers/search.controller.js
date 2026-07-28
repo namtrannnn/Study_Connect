@@ -9,36 +9,33 @@ const escapeRegex = (text = "") => {
 const getRelationStatus = (viewer, targetUserId) => {
   const targetId = targetUserId.toString();
 
-  const friendIds = (viewer.friendList || [])
-    .map((item) => item.user_id?.toString())
-    .filter(Boolean);
+  const followingIds = (viewer.following || []).map((id) => id.toString());
+  const followerIds = (viewer.followers || []).map((id) => id.toString());
 
-  const requestFriendIds = (viewer.requestFriends || []).map((id) =>
-    id.toString(),
-  );
+  const isFollowing = followingIds.includes(targetId);
+  const isFollower = followerIds.includes(targetId);
 
-  const acceptFriendIds = (viewer.acceptFriends || []).map((id) =>
-    id.toString(),
-  );
-
-  if (friendIds.includes(targetId)) {
-    return "friend";
+  if (isFollowing && isFollower) {
+    return "mutual";
   }
 
-  // Mình đã gửi lời mời cho người đó
-  if (requestFriendIds.includes(targetId)) {
+  if (isFollowing) {
+    return "following";
+  }
+
+  if (isFollower) {
+    return "follower";
+  }
+
+  const pendingSentIds = (viewer.pendingFollowRequests || []).map((id) => id.toString());
+  if (pendingSentIds.includes(targetId)) {
     return "pending_sent";
-  }
-
-  // Người đó đã gửi lời mời cho mình
-  if (acceptFriendIds.includes(targetId)) {
-    return "pending_received";
   }
 
   return "none";
 };
 
-const buildPostVisibilityQuery = ({ viewerId, friendIds, followingIds }) => {
+const buildPostVisibilityQuery = ({ viewerId, followingIds }) => {
   return {
     $or: [
       // Bài public ai cũng thấy
@@ -47,16 +44,10 @@ const buildPostVisibilityQuery = ({ viewerId, friendIds, followingIds }) => {
       // Bài của chính mình
       { author: viewerId },
 
-      // Bài chỉ followers: mình phải đang follow tác giả
+      // Bài chỉ followers hoặc friends: mình phải đang follow tác giả
       {
-        visibility: "followers",
+        visibility: { $in: ["followers", "friends"] },
         author: { $in: followingIds },
-      },
-
-      // Bài friends: tác giả phải nằm trong danh sách bạn bè
-      {
-        visibility: "friends",
-        author: { $in: friendIds },
       },
 
       // Bài custom: mình nằm trong allowedUsers
@@ -67,6 +58,7 @@ const buildPostVisibilityQuery = ({ viewerId, friendIds, followingIds }) => {
     ],
   };
 };
+
 const getFollowStatus = (viewer, targetUserId) => {
   const targetId = targetUserId.toString();
 
@@ -90,6 +82,7 @@ const getFollowStatus = (viewer, targetUserId) => {
 
   return "none";
 };
+
 // [GET] /api/v1/search?keyword=react&type=all
 module.exports.globalSearch = async (req, res) => {
   try {
@@ -111,7 +104,7 @@ module.exports.globalSearch = async (req, res) => {
     }
 
     const viewer = await User.findById(viewerId).select(
-      "requestFriends acceptFriends friendList followers following",
+      "followers following pendingFollowRequests",
     );
 
     if (!viewer) {
@@ -124,10 +117,6 @@ module.exports.globalSearch = async (req, res) => {
     const normalizedKeyword = rawKeyword.replace(/^@+/, "");
     const rawRegex = new RegExp(escapeRegex(rawKeyword), "i");
     const normalizedRegex = new RegExp(escapeRegex(normalizedKeyword), "i");
-
-    const friendIds = (viewer.friendList || [])
-      .map((item) => item.user_id)
-      .filter(Boolean);
 
     const followingIds = viewer.following || [];
 
@@ -179,7 +168,6 @@ module.exports.globalSearch = async (req, res) => {
         status: "active",
         ...buildPostVisibilityQuery({
           viewerId,
-          friendIds,
           followingIds,
         }),
         $or: [

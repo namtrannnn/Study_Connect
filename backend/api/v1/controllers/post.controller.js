@@ -565,21 +565,17 @@ module.exports.getFeedPosts = async (req, res) => {
 
     // 1. Lấy following
     const currentUser = await User.findById(user._id).select(
-      "following friendList",
+      "following",
     );
 
     const followingIds = currentUser?.following || [];
-
-    const friendIds = (currentUser?.friendList || [])
-      .map((item) => item.user_id)
-      .filter(Boolean);
 
     // 2. Lấy hashtag sở thích của user
     const userInterestHashtags = await getUserInterestHashtags(user._id);
 
     // 3. Lấy bài của mình + following
     const followingPostsRaw = await Post.find({
-      author: { $in: [...followingIds, ...friendIds, user._id] },
+      author: { $in: [...followingIds, user._id] },
       status: "active",
     })
       .populate("author", "fullName username avatar isVerified")
@@ -591,7 +587,7 @@ module.exports.getFeedPosts = async (req, res) => {
 
     if (userInterestHashtags.length > 0) {
       interestPostsRaw = await Post.find({
-        author: { $nin: [...followingIds, ...friendIds, user._id] },
+        author: { $nin: [...followingIds, user._id] },
         status: "active",
         hashtags: { $in: userInterestHashtags },
       })
@@ -605,7 +601,7 @@ module.exports.getFeedPosts = async (req, res) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const hotPostsRaw = await Post.find({
-      author: { $nin: [...followingIds, ...friendIds, user._id] },
+      author: { $nin: [...followingIds, user._id] },
       status: "active",
       createdAt: { $gte: sevenDaysAgo },
     })
@@ -633,7 +629,7 @@ module.exports.getFeedPosts = async (req, res) => {
 
     const authors = await User.find({
       _id: { $in: authorIds },
-    }).select("followers friendList");
+    }).select("followers following");
 
     const authorMap = new Map(
       authors.map((author) => [author._id.toString(), author]),
@@ -648,7 +644,7 @@ module.exports.getFeedPosts = async (req, res) => {
     const uniquePosts = uniquePostsById(visiblePosts);
 
     // 9. Tính điểm
-    const sourceIds = [...followingIds, ...friendIds];
+    const sourceIds = [...followingIds];
 
     const scoredPosts = uniquePosts.map((post) =>
       calculatePostScore(post, user._id, sourceIds, userInterestHashtags),
@@ -779,7 +775,7 @@ module.exports.detailPost = async (req, res) => {
     })
       .populate(
         "author",
-        "fullName username avatar isVerified followers friendList",
+        "fullName username avatar isVerified followers following",
       )
       .populate("mentions", "fullName username avatar isVerified")
       .populate("allowedUsers", "fullName username avatar isVerified");
@@ -879,7 +875,7 @@ module.exports.getPostsByUser = async (req, res) => {
     }
 
     const author = await User.findById(userId).select(
-      "fullName username avatar isVerified followers friendList pinnedPosts",
+      "fullName username avatar isVerified followers following pinnedPosts",
     );
 
     if (!author) {
@@ -1125,7 +1121,7 @@ module.exports.getRelatedPosts = async (req, res) => {
     })
       .populate(
         "author",
-        "fullName username avatar isVerified followers friendList",
+        "fullName username avatar isVerified followers following",
       )
       .sort({ createdAt: -1 })
       .limit(20);

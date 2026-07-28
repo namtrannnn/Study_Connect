@@ -79,33 +79,10 @@ const postSchema = new mongoose.Schema(
 
     postType: {
       type: String,
-      enum: [
-        "normal",
-        "question",
-        "quiz",
-      ],
+      enum: ["normal", "quiz"],
       default: "normal",
     },
 
-    category: {
-      type: String,
-      enum: [
-        "technology",
-        "finance_banking",
-        "marketing",
-        "design",
-        "business",
-        "language",
-        "education",
-        "science",
-        "startup",
-        "art",
-        "music",
-        "health",
-        "other",
-      ],
-      default: "other",
-    },
 
     caption: {
       type: String,

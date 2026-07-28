@@ -15,12 +15,10 @@ function isFollower(viewerId, author) {
 
 function isFriend(viewerId, author) {
   if (!viewerId || !author) return false;
-
-  const friendIds = (author.friendList || []).map((item) =>
-    item.user_id?.toString(),
-  );
-
-  return friendIds.includes(viewerId.toString());
+  const vId = viewerId.toString();
+  const followers = normalizeObjectIdArray(author.followers || []);
+  const following = normalizeObjectIdArray(author.following || []);
+  return followers.includes(vId) && following.includes(vId);
 }
 
 function isAllowedCustomUser(viewerId, story) {

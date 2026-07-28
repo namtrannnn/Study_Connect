@@ -285,11 +285,8 @@ function Dashboard({ user: propUser, theme }) {
                     </div>
                 </div>
 
-                {/* Scrollable Feed Content */}
-                <div
-                    id="dashboard-feed-scroll"
-                    className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
-                >
+                {/* Feed Content */}
+                <div className="min-h-0 flex-1">
                     {loadingPosts && <DashboardSkeleton />}
 
                     {!loadingPosts && posts.length === 0 && (
@@ -314,7 +311,7 @@ function Dashboard({ user: propUser, theme }) {
                             endMessage={
                                 <div className="select-none py-6 text-center text-sm font-semibold text-slate-400">Bạn đã xem hết bài viết rồi.</div>
                             }
-                            scrollableTarget="dashboard-feed-scroll"
+                            scrollableTarget="social-scroll-container"
                         >
                             {posts.map((post) => (
                                 <Post

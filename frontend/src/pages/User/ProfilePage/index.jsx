@@ -173,10 +173,22 @@ export default function ProfilePage() {
         try {
             setFriendLoading(true);
             let res;
-            if (relationStatus === 'none') { res = await FriendServices.sendFriendRequest(user._id); toast.success('Đã gửi lời mời kết bạn'); }
-            else if (relationStatus === 'pending_sent') { res = await FriendServices.cancelFriendRequest(user._id); toast('Đã hủy lời mời'); }
-            else if (relationStatus === 'pending_received') { res = await FriendServices.acceptFriendRequest(user._id); toast.success('Đã chấp nhận lời mời'); }
-            else if (relationStatus === 'friend') { res = await FriendServices.cancelFriendRequest(user._id); toast('Đã hủy kết bạn'); }
+            if (relationStatus === 'none' || relationStatus === 'follower') {
+                res = await FriendServices.sendFriendRequest(user._id);
+                toast.success(res?.message || 'Đã theo dõi');
+            }
+            else if (relationStatus === 'pending_sent') {
+                res = await FriendServices.cancelFriendRequest(user._id);
+                toast('Đã hủy yêu cầu theo dõi');
+            }
+            else if (relationStatus === 'pending_received') {
+                res = await FriendServices.acceptFriendRequest(user._id);
+                toast.success('Đã chấp nhận yêu cầu theo dõi');
+            }
+            else if (relationStatus === 'following' || relationStatus === 'mutual' || relationStatus === 'friend') {
+                res = await FriendServices.cancelFriendRequest(user._id);
+                toast('Đã bỏ theo dõi');
+            }
             if (res?.data?.relationStatus) setRelationStatus(res.data.relationStatus);
         } catch (err) { toast.error(err?.response?.data?.message || 'Không thể thực hiện'); }
         finally { setFriendLoading(false); }
@@ -192,10 +204,7 @@ export default function ProfilePage() {
     };
 
     const handleOpenChat = () => {
-        const roomChatId = currentUser?.friendList?.find(
-            (f) => f.user_id === user?._id || f.user_id?.toString() === user?._id?.toString()
-        )?.room_chat_id;
-        navigate(roomChatId ? `/messenger?roomId=${roomChatId}` : '/messenger');
+        navigate(user?._id ? `/messenger?userId=${user._id}` : '/messenger');
     };
 
     const openEditModal = () => {
@@ -348,8 +357,20 @@ export default function ProfilePage() {
                                     <>
                                         <button onClick={handleFriendAction} disabled={friendLoading}
                                             className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition active:scale-95 disabled:opacity-60">
-                                            {relationStatus === 'friend' ? <UserCheck size={16} /> : <UserPlus size={16} />}
-                                            {friendLoading ? 'Đang xử lý...' : relationStatus === 'friend' ? 'Bạn bè' : relationStatus === 'pending_sent' ? 'Đã gửi yêu cầu' : relationStatus === 'pending_received' ? 'Đồng ý kết bạn' : 'Kết bạn'}
+                                            {['following', 'mutual', 'friend'].includes(relationStatus) ? <UserCheck size={16} /> : <UserPlus size={16} />}
+                                            {friendLoading
+                                                ? 'Đang xử lý...'
+                                                : relationStatus === 'mutual' || relationStatus === 'friend'
+                                                ? 'Đang theo dõi (Bạn bè)'
+                                                : relationStatus === 'following'
+                                                ? 'Đang theo dõi'
+                                                : relationStatus === 'pending_sent'
+                                                ? 'Đã gửi yêu cầu'
+                                                : relationStatus === 'pending_received'
+                                                ? 'Chấp nhận theo dõi'
+                                                : relationStatus === 'follower'
+                                                ? 'Theo dõi lại'
+                                                : 'Theo dõi'}
                                         </button>
                                         
                                         {relationStatus === 'pending_received' && (
@@ -493,7 +514,7 @@ export default function ProfilePage() {
                                 )}
                             </div>
 
-                            {/* Friends Panel */}
+                            {/* Mutual Follow Panel */}
                             {friendList.length > 0 && (
                                 <div className="rounded-[28px] bg-white border border-gray-100 dark:border-white/5 dark:bg-[#0f111a] p-6 shadow-sm">
                                     <div className="flex items-center justify-between mb-4">
