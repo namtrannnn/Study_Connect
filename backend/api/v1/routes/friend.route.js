@@ -49,6 +49,19 @@ router.get(
   controller.getListFriends,
 );
 
+// GET /api/v1/friends/following
+// GET /api/v1/friends/following/:userId
+router.get("/following", authMiddleware.requireUser, controller.getFollowingList);
+router.get("/following/:userId", authMiddleware.requireUser, controller.getFollowingList);
+
+// GET /api/v1/friends/followers
+// GET /api/v1/friends/followers/:userId
+router.get("/followers", authMiddleware.requireUser, controller.getFollowersList);
+router.get("/followers/:userId", authMiddleware.requireUser, controller.getFollowersList);
+
+// GET /api/v1/friends/suggested
+router.get("/suggested", authMiddleware.requireUser, controller.getSuggestedUsers);
+
 // GET /api/v1/friends/requests/received
 router.get(
   "/requests/received",

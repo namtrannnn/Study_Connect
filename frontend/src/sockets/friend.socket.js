@@ -15,59 +15,49 @@ export const registerFriendSocketEvents = ({
     }
 
     // Xóa listener cũ trước khi đăng ký listener mới
+    socket.off('SERVER_FOLLOW_REQUEST_RECEIVED');
+    socket.off('SERVER_FOLLOW_SUCCESS');
+    socket.off('SERVER_UNFOLLOW_SUCCESS');
+    socket.off('SERVER_ACCEPT_FOLLOW_SUCCESS');
     socket.off('SERVER_FRIEND_REQUEST_RECEIVED');
-    socket.off('SERVER_FRIEND_REQUEST_CANCELLED');
     socket.off('SERVER_ACCEPT_FRIEND_SUCCESS');
-    socket.off('SERVER_FRIEND_REQUEST_REFUSED');
+
+    socket.on('SERVER_FOLLOW_REQUEST_RECEIVED', (data) => {
+        console.log('SERVER_FOLLOW_REQUEST_RECEIVED:', data);
+        toast.info(`${data?.sender?.fullName || 'Ai đó'} đã gửi yêu cầu theo dõi bạn`);
+        if (onRequestReceived) onRequestReceived(data);
+    });
+
+    socket.on('SERVER_FOLLOW_SUCCESS', (data) => {
+        console.log('SERVER_FOLLOW_SUCCESS:', data);
+        toast.info(`${data?.sender?.fullName || 'Ai đó'} đã bắt đầu theo dõi bạn`);
+        if (onFriendAccepted) onFriendAccepted(data);
+    });
+
+    socket.on('SERVER_UNFOLLOW_SUCCESS', (data) => {
+        console.log('SERVER_UNFOLLOW_SUCCESS:', data);
+        if (onRequestCancelled) onRequestCancelled(data);
+    });
+
+    socket.on('SERVER_ACCEPT_FOLLOW_SUCCESS', (data) => {
+        console.log('SERVER_ACCEPT_FOLLOW_SUCCESS:', data);
+        toast.success('Yêu cầu theo dõi đã được chấp nhận!');
+        if (onFriendAccepted) onFriendAccepted(data);
+    });
 
     socket.on('SERVER_FRIEND_REQUEST_RECEIVED', (data) => {
-        console.log('SERVER_FRIEND_REQUEST_RECEIVED:', data);
-
-        toast.info(`${data?.sender?.fullName || 'Ai đó'} đã gửi lời mời kết bạn`);
-
-        if (onRequestReceived) {
-            onRequestReceived(data);
-        }
-    });
-
-    socket.on('SERVER_FRIEND_REQUEST_CANCELLED', (data) => {
-        console.log('SERVER_FRIEND_REQUEST_CANCELLED:', data);
-
-        toast.info('Lời mời kết bạn đã được hủy');
-
-        if (onRequestCancelled) {
-            onRequestCancelled(data);
-        }
-    });
-
-    socket.on('SERVER_ACCEPT_FRIEND_SUCCESS', (data) => {
-        console.log('SERVER_ACCEPT_FRIEND_SUCCESS:', data);
-
-        toast.success('Kết bạn thành công');
-
-        if (onFriendAccepted) {
-            onFriendAccepted(data);
-        }
-    });
-
-    socket.on('SERVER_FRIEND_REQUEST_REFUSED', (data) => {
-        console.log('SERVER_FRIEND_REQUEST_REFUSED:', data);
-
-        toast.info('Lời mời kết bạn đã bị từ chối');
-
-        if (onRequestRefused) {
-            onRequestRefused(data);
-        }
+        if (onRequestReceived) onRequestReceived(data);
     });
 };
 
 export const unregisterFriendSocketEvents = () => {
     const socket = getSocket();
-
     if (!socket) return;
 
+    socket.off('SERVER_FOLLOW_REQUEST_RECEIVED');
+    socket.off('SERVER_FOLLOW_SUCCESS');
+    socket.off('SERVER_UNFOLLOW_SUCCESS');
+    socket.off('SERVER_ACCEPT_FOLLOW_SUCCESS');
     socket.off('SERVER_FRIEND_REQUEST_RECEIVED');
-    socket.off('SERVER_FRIEND_REQUEST_CANCELLED');
     socket.off('SERVER_ACCEPT_FRIEND_SUCCESS');
-    socket.off('SERVER_FRIEND_REQUEST_REFUSED');
 };
