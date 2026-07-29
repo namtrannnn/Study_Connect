@@ -2,6 +2,7 @@ const Post = require("../models/post.model");
 const User = require("../models/user.model");
 const Like = require("../models/postLike.model");
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
+const { deleteMultipleFromCloudinary } = uploadStreamToCloudinary;
 const mongoose = require("mongoose");
 
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
@@ -466,6 +467,26 @@ module.exports.editPost = async (req, res) => {
         keepSet.has(media._id.toString()),
       );
 
+      const removedMedia = (post.media || []).filter(
+        (media) => !keepSet.has(media._id.toString()),
+      );
+
+      if (removedMedia.length > 0) {
+        const removedImageIds = removedMedia
+          .filter((m) => m.type !== "video" && m.public_id)
+          .map((m) => m.public_id);
+        const removedVideoIds = removedMedia
+          .filter((m) => m.type === "video" && m.public_id)
+          .map((m) => m.public_id);
+
+        if (removedImageIds.length > 0) {
+          deleteMultipleFromCloudinary(removedImageIds, "image");
+        }
+        if (removedVideoIds.length > 0) {
+          deleteMultipleFromCloudinary(removedVideoIds, "video");
+        }
+      }
+
       const uploadedMedia = [];
 
       for (const file of files) {
@@ -847,6 +868,24 @@ module.exports.deletePost = async (req, res) => {
 
     post.status = "deleted";
     await post.save();
+
+    // Xóa tất cả ảnh / video của bài viết khỏi Cloudinary để giải phóng dung lượng
+    if (post.media && post.media.length > 0) {
+      const imageIds = post.media
+        .filter((item) => item.type !== "video" && item.public_id)
+        .map((item) => item.public_id);
+
+      const videoIds = post.media
+        .filter((item) => item.type === "video" && item.public_id)
+        .map((item) => item.public_id);
+
+      if (imageIds.length > 0) {
+        deleteMultipleFromCloudinary(imageIds, "image");
+      }
+      if (videoIds.length > 0) {
+        deleteMultipleFromCloudinary(videoIds, "video");
+      }
+    }
 
     return res.status(200).json({
       code: 200,

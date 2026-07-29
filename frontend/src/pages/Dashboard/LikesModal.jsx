@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { X, Heart, Loader2, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+import { useNavigate } from 'react-router-dom';
 import * as PostServices from '../../services/posts.services';
 import useDebounce from '../../hooks/useDebounce';
 
 function LikesModal({ open, onClose, postId }) {
+    const navigate = useNavigate();
     const [likes, setLikes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
@@ -186,6 +188,11 @@ function LikesModal({ open, onClose, postId }) {
                             <button
                                 type="button"
                                 key={item.likeId || userId}
+                                onClick={() => {
+                                    onClose?.();
+                                    const target = likedUser.username || userId;
+                                    if (target) navigate(`/profile/${target}`);
+                                }}
                                 className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/10"
                             >
                                 <img

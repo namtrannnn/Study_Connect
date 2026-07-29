@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Heart,
     MessageCircle,
@@ -21,6 +22,7 @@ import {
     CheckCircle2,
     Users,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
@@ -38,6 +40,7 @@ import LikesModal from './LikesModal';
 import ShareModal from './ShareModal';
 import Modal from './Modal';
 
+/* eslint-disable no-unused-vars */
 const postTypeLabels = {
     normal: 'Bài viết',
     project: 'Dự án',
@@ -63,6 +66,7 @@ const categoryLabels = {
     health: 'Sức khỏe',
     other: 'Khác',
 };
+/* eslint-enable no-unused-vars */
 
 function formatTime(value, fallback) {
     if (!value) return fallback || '';
@@ -86,6 +90,7 @@ function formatTime(value, fallback) {
     }
 }
 
+// eslint-disable-next-line no-unused-vars
 function ProjectShowcase({ project }) {
     if (!project) return null;
 
@@ -159,6 +164,7 @@ function ProjectShowcase({ project }) {
         </div>
     );
 }
+// eslint-disable-next-line no-unused-vars
 function QuestionShowcase({ question }) {
     if (!question) return null;
 
@@ -198,6 +204,7 @@ function QuestionShowcase({ question }) {
     );
 }
 
+// eslint-disable-next-line no-unused-vars
 function LearningShowcase({ learning }) {
     if (!learning) return null;
 
@@ -249,6 +256,7 @@ function LearningShowcase({ learning }) {
     );
 }
 
+// eslint-disable-next-line no-unused-vars
 function CollaborationShowcase({ collaboration }) {
     if (!collaboration) return null;
 
@@ -268,10 +276,11 @@ function CollaborationShowcase({ collaboration }) {
                     </div>
 
                     <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${collaboration.isOpen
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300'
-                            }`}
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                            collaboration.isOpen
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300'
+                        }`}
                     >
                         {collaboration.isOpen ? 'Đang mở' : 'Đã đóng'}
                     </span>
@@ -307,6 +316,7 @@ function CollaborationShowcase({ collaboration }) {
     );
 }
 
+// eslint-disable-next-line no-unused-vars
 function KnowledgeShowcase({ content }) {
     return (
         <div className="mt-4 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50 p-4 dark:border-sky-500/20 dark:from-sky-950/30 dark:via-[#1f2937] dark:to-blue-950/20">
@@ -322,6 +332,7 @@ function KnowledgeShowcase({ content }) {
     );
 }
 
+// eslint-disable-next-line no-unused-vars
 function AchievementShowcase() {
     return (
         <div className="mt-4 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 via-white to-pink-50 p-4 dark:border-purple-500/20 dark:from-purple-950/30 dark:via-[#1f2937] dark:to-pink-950/20">
@@ -438,11 +449,7 @@ function MediaSlideItem({ media, index, total, onOpenDetail }) {
                 className="group/item relative h-full w-full focus:outline-none"
             >
                 {mediaType === 'video' ? (
-                    <video
-                        src={mediaUrl}
-                        controls
-                        className="h-full w-full object-cover"
-                    />
+                    <video src={mediaUrl} controls className="h-full w-full object-cover" />
                 ) : (
                     <img
                         src={mediaUrl}
@@ -471,7 +478,7 @@ function SingleMediaItem({ media, onOpenDetail }) {
     const mediaType = media?.type || 'image';
 
     return (
-        <div className="mt-3 inline-block max-w-full overflow-hidden rounded-2xl border border-gray-200/80 bg-black/5 dark:border-white/10 dark:bg-white/5">
+        <div className="mt-1 inline-block max-w-full overflow-hidden rounded-2xl border border-gray-200/80 bg-black/5 dark:border-white/10 dark:bg-white/5">
             <button
                 type="button"
                 onClick={onOpenDetail}
@@ -507,7 +514,7 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
     // 2 images: 50-50 side-by-side grid
     if (mediaItems.length === 2) {
         return (
-            <div className="mt-3 grid h-[210px] sm:h-[250px] grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10">
+            <div className="mt-1 grid h-[210px] sm:h-[250px] grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-gray-200/80 dark:border-white/10">
                 {mediaItems.map((media, index) => {
                     const mediaUrl = media?.url || media;
                     const mediaType = media?.type || 'image';
@@ -520,11 +527,7 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
                             className="group relative h-full w-full overflow-hidden bg-black/5 focus:outline-none dark:bg-white/5"
                         >
                             {mediaType === 'video' ? (
-                                <video
-                                    src={mediaUrl}
-                                    controls
-                                    className="h-full w-full object-cover"
-                                />
+                                <video src={mediaUrl} controls className="h-full w-full object-cover" />
                             ) : (
                                 <img
                                     src={mediaUrl}
@@ -542,7 +545,7 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
 
     // 3+ images: Threads style horizontal drag scroll track (flex flex-row flex-nowrap overflow-x-auto)
     return (
-        <div className="group/gallery relative mt-3 overflow-hidden rounded-2xl">
+        <div className="group/gallery relative mt-1 overflow-hidden rounded-2xl">
             <HorizontalDragScroll className="w-full rounded-2xl py-0.5">
                 {mediaItems.map((media, index) => (
                     <MediaSlideItem
@@ -605,7 +608,9 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const currentId = currentUser?.id || currentUser?._id || currentUser?.userId;
     const isOwner = authorId && currentId ? authorId === currentId : post?.author?.name === currentUser?.fullName;
 
+    // eslint-disable-next-line no-unused-vars
     const postType = post?.postType || 'normal';
+    // eslint-disable-next-line no-unused-vars
     const category = post?.category || 'other';
 
     const handleLike = async () => {
@@ -760,19 +765,32 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
         };
     }, [openDetail, postId]);
 
+    const navigate = useNavigate();
+    const handleGoAuthorProfile = (e) => {
+        e.stopPropagation();
+        const target = authorUsername || authorId;
+        if (target) navigate(`/profile/${target}`);
+    };
+
     return (
-        <article className="group relative border-b border-gray-200/80 px-4 py-4 sm:px-5 sm:py-5 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
+        <article className="group relative border-b border-gray-200/80 px-4 py-3 sm:px-5 sm:py-3 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
             <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                        <Avatar className="h-12 w-12 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10">
+                        <Avatar
+                            onClick={handleGoAuthorProfile}
+                            className="h-12 w-12 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10 transition hover:opacity-85"
+                        >
                             <AvatarImage src={authorAvatar} />
                             <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
                         </Avatar>
 
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className="max-w-[180px] truncate text-sm font-bold text-gray-900 hover:underline dark:text-white">
+                                <span
+                                    onClick={handleGoAuthorProfile}
+                                    className="max-w-[180px] cursor-pointer truncate text-sm font-bold text-gray-900 hover:underline dark:text-white"
+                                >
                                     {authorName}
                                 </span>
 
@@ -791,7 +809,14 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                             </div>
 
                             <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                                {authorUsername && <span>@{authorUsername}</span>}
+                                {authorUsername && (
+                                    <span
+                                        onClick={handleGoAuthorProfile}
+                                        className="cursor-pointer hover:underline"
+                                    >
+                                        @{authorUsername}
+                                    </span>
+                                )}
                                 {authorUsername && <span>•</span>}
                                 <span>{createdTime}</span>
                             </div>
@@ -884,7 +909,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                 </div>
 
                 {content && (
-                    <p className="mt-2.5 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
                         {renderContentWithRealMentions(content, post?.mentions || [])}
                     </p>
                 )}
@@ -893,21 +918,23 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                     <PostMediaGallery mediaItems={mediaItems} onOpenDetail={() => setOpenDetail(true)} />
                 )}
 
-                <div className="mt-2.5 flex items-center justify-between border-t border-gray-100 pt-2.5 dark:border-white/10">
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="mt-1 flex items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-1.5">
                         <div
-                            className={`inline-flex items-center overflow-hidden rounded-full text-sm font-semibold transition ${isLiked
-                                ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
-                                : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200'
-                                }`}
+                            className={`inline-flex items-center overflow-hidden rounded-full text-xs sm:text-sm font-semibold transition ${
+                                isLiked
+                                    ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200'
+                            }`}
                         >
                             <button
                                 type="button"
                                 onClick={handleLike}
-                                className={`inline-flex items-center gap-2 px-3 py-2 transition ${isLiked
-                                    ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
-                                    : 'hover:bg-gray-200 dark:hover:bg-white/15'
-                                    }`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 transition ${
+                                    isLiked
+                                        ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
+                                        : 'hover:bg-gray-200 dark:hover:bg-white/15'
+                                }`}
                             >
                                 <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                             </button>
@@ -920,10 +947,11 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                                     }
                                 }}
                                 disabled={displayedLikeCount <= 0}
-                                className={`px-3 py-2 transition ${isLiked
-                                    ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
-                                    : 'hover:bg-gray-200 dark:hover:bg-white/15'
-                                    } ${displayedLikeCount <= 0 ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
+                                className={`px-2.5 py-1.5 transition ${
+                                    isLiked
+                                        ? 'hover:bg-red-100 dark:hover:bg-red-500/20'
+                                        : 'hover:bg-gray-200 dark:hover:bg-white/15'
+                                } ${displayedLikeCount <= 0 ? 'cursor-default opacity-60' : 'cursor-pointer'}`}
                                 title="Xem danh sách người thích"
                             >
                                 {displayedLikeCount}
@@ -933,7 +961,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                         <button
                             type="button"
                             onClick={handleComment}
-                            className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
                         >
                             <MessageCircle className="h-4 w-4" />
                             {commentCount}
@@ -942,7 +970,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                         <button
                             type="button"
                             onClick={() => setOpenShare(true)}
-                            className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
                         >
                             <Send className="h-4 w-4" />
                             {shareCount}
@@ -952,10 +980,10 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                     <button
                         type="button"
                         onClick={handleSavePost}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
                         aria-label="Save"
                     >
-                        <Bookmark className="h-5 w-5" />
+                        <Bookmark className="h-4 w-4" />
                     </button>
                 </div>
             </div>
@@ -971,12 +999,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
             />
 
             <LikesModal open={openLikes} onClose={() => setOpenLikes(false)} postId={post?._id || post?.id} />
-            <ShareModal
-                open={openShare}
-                onClose={() => setOpenShare(false)}
-                post={post}
-                currentUser={currentUser}
-            />
+            <ShareModal open={openShare} onClose={() => setOpenShare(false)} post={post} currentUser={currentUser} />
 
             {/* Edit Modal — dùng chung Modal.jsx với mode="edit" */}
             {openEdit && (
@@ -996,45 +1019,49 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
             )}
 
             {/* Delete Confirm Dialog */}
-            {showDeleteConfirm && (
-                <div
-                    className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
-                    onMouseDown={(e) => {
-                        if (e.target === e.currentTarget && !deletingPost) setShowDeleteConfirm(false);
-                    }}
-                >
-                    <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-2xl dark:border-white/10 dark:bg-[#17191f]">
-                        <div className="p-6 text-center">
-                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/15">
-                                <Trash2 size={24} className="text-red-600 dark:text-red-400" />
+            {showDeleteConfirm &&
+                createPortal(
+                    <div
+                        className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget && !deletingPost) setShowDeleteConfirm(false);
+                        }}
+                    >
+                        <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-2xl dark:border-white/10 dark:bg-[#17191f]">
+                            <div className="p-6 text-center">
+                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/15">
+                                    <Trash2 size={24} className="text-red-600 dark:text-red-400" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Xóa bài viết?</h3>
+                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                    Bài viết sẽ bị xóa vĩnh viễn và không thể khôi phục.
+                                </p>
                             </div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Xóa bài viết?</h3>
-                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                Bài viết sẽ bị xóa vĩnh viễn và không thể khôi phục.
-                            </p>
+                            <div className="flex gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={deletingPost}
+                                    className="flex-1 rounded-2xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDeletePost}
+                                    disabled={deletingPost}
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                                >
+                                    {deletingPost && (
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    )}
+                                    {deletingPost ? 'Đang xóa...' : 'Xóa'}
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/10">
-                            <button
-                                type="button"
-                                onClick={() => setShowDeleteConfirm(false)}
-                                disabled={deletingPost}
-                                className="flex-1 rounded-2xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDeletePost}
-                                disabled={deletingPost}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-                            >
-                                {deletingPost && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                                {deletingPost ? 'Đang xóa...' : 'Xóa'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                    </div>,
+                    document.body,
+                )}
         </article>
     );
 }

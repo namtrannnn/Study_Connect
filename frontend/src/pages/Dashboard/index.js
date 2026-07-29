@@ -3,46 +3,12 @@ import { RefreshCcw, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
-import StoriesBar from './StoriesBar';
+// import StoriesBar from './StoriesBar';
 import Modal from './Modal';
 import Post from './Post';
 import { useSelector } from 'react-redux';
 import * as PostServices from '../../services/posts.services';
-
-// Beautiful Shimmering Skeleton Loader for Dashboard Posts
-function DashboardSkeleton() {
-    return (
-        <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="animate-pulse rounded-[28px] border border-gray-200/50 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#12141c]/90">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="h-11 w-11 rounded-2xl bg-slate-200 dark:bg-white/5" />
-                        <div className="space-y-2 flex-1">
-                            <div className="h-4 w-32 bg-slate-200 dark:bg-white/5 rounded-md" />
-                            <div className="h-3 w-20 bg-slate-200 dark:bg-white/5 rounded-md" />
-                        </div>
-                    </div>
-                    {/* Caption */}
-                    <div className="space-y-2.5 mb-4">
-                        <div className="h-4 w-full bg-slate-200 dark:bg-white/5 rounded-md" />
-                        <div className="h-4 w-[92%] bg-slate-200 dark:bg-white/5 rounded-md" />
-                        <div className="h-4 w-[65%] bg-slate-200 dark:bg-white/5 rounded-md" />
-                    </div>
-                    {/* Shimmer media box */}
-                    {idx === 0 && (
-                        <div className="h-48 md:h-[350px] w-full bg-slate-200 dark:bg-white/5 rounded-[20px] mb-4" />
-                    )}
-                    {/* Footer buttons */}
-                    <div className="flex gap-4 border-t border-slate-100 dark:border-white/5 pt-3.5 mt-2">
-                        <div className="h-4 w-12 bg-slate-200 dark:bg-white/5 rounded-md" />
-                        <div className="h-4 w-16 bg-slate-200 dark:bg-white/5 rounded-md" />
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
+import { LoadingDashboard } from '../../components/Loading';
 
 function Dashboard({ user: propUser, theme }) {
     const reduxUser = useSelector((state) => state.user?.infoUser || {});
@@ -209,26 +175,7 @@ function Dashboard({ user: propUser, theme }) {
         }
     };
 
-    const stories = [
-        {
-            id: 1,
-            name: '2imtist',
-            avatar: 'https://i.pravatar.cc/150?img=11',
-            seen: false,
-        },
-        {
-            id: 2,
-            name: 'junig_eiu',
-            avatar: 'https://i.pravatar.cc/150?img=12',
-            seen: true,
-        },
-        {
-            id: 3,
-            name: 'nam_dev',
-            avatar: 'https://i.pravatar.cc/150?img=13',
-            seen: true,
-        },
-    ];
+
 
     return (
         <>
@@ -287,7 +234,7 @@ function Dashboard({ user: propUser, theme }) {
 
                 {/* Feed Content */}
                 <div className="min-h-0 flex-1">
-                    {loadingPosts && <DashboardSkeleton />}
+                    {loadingPosts && <LoadingDashboard />}
 
                     {!loadingPosts && posts.length === 0 && (
                         <div className="p-8 text-center">
@@ -311,7 +258,7 @@ function Dashboard({ user: propUser, theme }) {
                             endMessage={
                                 <div className="select-none py-6 text-center text-sm font-semibold text-slate-400">Bạn đã xem hết bài viết rồi.</div>
                             }
-                            scrollableTarget="social-scroll-container"
+                            scrollableTarget="dashboard-scroll-container"
                         >
                             {posts.map((post) => (
                                 <Post

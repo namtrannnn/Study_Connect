@@ -3,7 +3,7 @@ const User = require("../models/user.model");
 const Post = require("../models/post.model");
 const Like = require("../models/postLike.model");
 const userSelect =
-  "_id fullName username avatar bio headline fieldOfStudy skills interests portfolioLinks isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts";
+  "_id fullName username avatar bio isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
 
@@ -148,18 +148,12 @@ module.exports.getProfileByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        code: 400,
-        message: "UserId không hợp lệ",
-      });
-    }
+    const isObjectId = mongoose.Types.ObjectId.isValid(userId);
+    const userQuery = isObjectId
+      ? { _id: userId, deleted: false, status: "active" }
+      : { username: userId.trim().toLowerCase(), deleted: false, status: "active" };
 
-    const user = await User.findOne({
-      _id: userId,
-      deleted: false,
-      status: "active",
-    }).select(userSelect);
+    const user = await User.findOne(userQuery).select(userSelect);
 
     if (!user) {
       return res.status(404).json({
@@ -199,18 +193,24 @@ module.exports.getUserPostGrid = async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 30, 50);
     const cursor = req.query.cursor;
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        code: 400,
-        message: "UserId không hợp lệ",
+    const isObjectId = mongoose.Types.ObjectId.isValid(userId);
+    const authorQuery = isObjectId
+      ? { _id: userId, deleted: false, status: "active" }
+      : { username: userId.trim().toLowerCase(), deleted: false, status: "active" };
+
+    const author = await User.findOne(authorQuery).select("followers following _id");
+
+    if (!author) {
+      return res.status(404).json({
+        code: 404,
+        message: "Không tìm thấy người dùng",
       });
     }
 
-    const author = await User.findOne({
-      _id: userId,
-      deleted: false,
+    const filter = {
+      author: author._id,
       status: "active",
-    }).select("followers following");
+    };
 
     if (!author) {
       return res.status(404).json({
@@ -290,18 +290,12 @@ module.exports.getUserPostFeed = async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 10, 20);
     const cursor = req.query.cursor;
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        code: 400,
-        message: "UserId không hợp lệ",
-      });
-    }
+    const isObjectId = mongoose.Types.ObjectId.isValid(userId);
+    const authorQuery = isObjectId
+      ? { _id: userId, deleted: false, status: "active" }
+      : { username: userId.trim().toLowerCase(), deleted: false, status: "active" };
 
-    const author = await User.findOne({
-      _id: userId,
-      deleted: false,
-      status: "active",
-    }).select("followers following");
+    const author = await User.findOne(authorQuery).select("followers following _id");
 
     if (!author) {
       return res.status(404).json({
@@ -311,7 +305,7 @@ module.exports.getUserPostFeed = async (req, res) => {
     }
 
     const filter = {
-      author: userId,
+      author: author._id,
       status: "active",
     };
 
@@ -374,21 +368,12 @@ module.exports.getUserPostFeed = async (req, res) => {
 // [PATCH] /api/v1/profile/update
 module.exports.updateProfile = async (req, res) => {
   try {
-    const allowFields = ["fullName", "username", "bio", "isPrivate", "headline", "fieldOfStudy", "skills", "interests", "portfolioLinks"];
+    const allowFields = ["fullName", "username", "bio", "isPrivate"];
     const updateData = {};
 
     allowFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        let value = req.body[field];
-        // Parse JSON strings for array/object fields if sent via FormData
-        if (["skills", "interests", "portfolioLinks"].includes(field) && typeof value === "string") {
-          try {
-            value = JSON.parse(value);
-          } catch (e) {
-            // Fail silent
-          }
-        }
-        updateData[field] = value;
+        updateData[field] = req.body[field];
       }
     });
 
