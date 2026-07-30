@@ -32,6 +32,7 @@ export default function Slider({
     activePanel,
     onOpenSearch,
     onOpenNotifications,
+    onOpenCreatePost,
     onClosePanel,
 }) {
     const [panel, setPanel] = useState(null);
@@ -99,9 +100,17 @@ export default function Slider({
             { id: 'messages', label: 'Tin nhắn', icon: MessageCircle, path: config.routes.messenger },
             { id: 'friends', label: 'Đang theo dõi', icon: Users, path: config.routes.friends },
             { id: 'search', label: 'Tìm kiếm', icon: Search, action: () => togglePanel('search') },
-            { id: 'explore', label: 'Khám phá', icon: Compass, path: '/explore' },
             { id: 'notifications', label: 'Thông báo', icon: Heart, action: () => togglePanel('notifications') },
-            { id: 'create', label: 'Tạo', icon: PlusSquare, path: '/create' },
+            {
+                id: 'create',
+                label: 'Tạo',
+                icon: PlusSquare,
+                action: () => {
+                    setMoreOpen(false);
+                    onClosePanel?.();
+                    onOpenCreatePost?.();
+                },
+            },
             {
                 id: 'profile',
                 label: 'Trang cá nhân',
@@ -111,7 +120,7 @@ export default function Slider({
             },
         ],
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [],
+        [onOpenCreatePost],
     );
 
     const bottomItems = useMemo(
