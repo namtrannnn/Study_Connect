@@ -32,7 +32,8 @@ import httpRequest from '../../../config/axios';
 
 /* ────────────────────────── Main Component ────────────────────────── */
 export default function ProfilePage() {
-    const { userId } = useParams();
+    const { userId, username } = useParams();
+    const profileIdentifier = username || userId;
     const navigate = useNavigate();
     const currentUser = useSelector((state) => state.user?.infoUser);
 
@@ -71,14 +72,16 @@ export default function ProfilePage() {
     const relation = profileData?.relation;
     const currentProfileUserId = user?._id;
     const isOwnProfile =
-        !userId ||
+        !profileIdentifier ||
         (currentUser &&
-            (currentUser._id === currentProfileUserId || currentUser.id === currentProfileUserId));
+            (currentUser._id === currentProfileUserId ||
+                currentUser.username === profileIdentifier ||
+                currentUser.id === currentProfileUserId));
 
     /* ── Load Profile ── */
     useEffect(() => {
         loadProfile();
-    }, [userId]); // eslint-disable-line
+    }, [profileIdentifier]); // eslint-disable-line
 
     useEffect(() => {
         if (currentProfileUserId) {
@@ -99,8 +102,8 @@ export default function ProfilePage() {
         try {
             setLoading(true);
             setError('');
-            const res = userId
-                ? await ProfileServices.getProfileByUserId(userId)
+            const res = profileIdentifier
+                ? await ProfileServices.getProfileByUserId(profileIdentifier)
                 : await ProfileServices.getMyProfile();
             setProfileData(res.data);
         } catch (err) {

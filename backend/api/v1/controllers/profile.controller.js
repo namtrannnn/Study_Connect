@@ -212,18 +212,6 @@ module.exports.getUserPostGrid = async (req, res) => {
       status: "active",
     };
 
-    if (!author) {
-      return res.status(404).json({
-        code: 404,
-        message: "Không tìm thấy người dùng",
-      });
-    }
-
-    const filter = {
-      author: userId,
-      status: "active",
-    };
-
     if (cursor) {
       filter.createdAt = { $lt: new Date(cursor) };
     }

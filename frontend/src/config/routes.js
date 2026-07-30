@@ -18,7 +18,7 @@ export const routes = {
     messenger: '/messenger',
 
     // user
-    profile: '/profile/:userId?',
+    profile: '/profile/:username?',
     search: '/search',
 
     // admin

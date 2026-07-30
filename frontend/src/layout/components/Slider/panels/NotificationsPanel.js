@@ -8,6 +8,9 @@ import * as NotificationServices from '../../../../services/notification.service
 import { setUnreadCount, incrementUnread, decrementUnread, resetUnread } from '../../../../redux/slices/notificationSlice';
 
 const TYPE_ICONS = {
+    follow: '👤',
+    follow_request: '👥',
+    follow_accept: '🤝',
     friend_request: '👥',
     friend_accept: '🤝',
     post_like: '❤️',
