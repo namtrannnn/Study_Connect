@@ -37,7 +37,29 @@ export const getFriendList = async (userId) => {
 export const getMutualFollowers = getFriendList;
 
 // GET /api/v1/friends/requests/received (Danh sách yêu cầu follow chờ duyệt)
-export const getReceivedRequests = async () => {
-    const res = await httpRequest.get('/friends/requests/received');
+export const getReceivedRequests = async (page = 1, limit = 20) => {
+    const res = await httpRequest.get(`/friends/requests/received?page=${page}&limit=${limit}`);
+    return res.data;
+};
+
+// GET /api/v1/friends/following (Danh sách đang theo dõi)
+export const getFollowingList = async (params = {}) => {
+    const { userId, page = 1, limit = 20 } = typeof params === 'object' ? params : { page: params };
+    const url = userId ? `/friends/following/${userId}` : '/friends/following';
+    const res = await httpRequest.get(url, { params: { page, limit } });
+    return res.data;
+};
+
+// GET /api/v1/friends/followers (Danh sách người theo dõi)
+export const getFollowersList = async (params = {}) => {
+    const { userId, page = 1, limit = 20 } = typeof params === 'object' ? params : { page: params };
+    const url = userId ? `/friends/followers/${userId}` : '/friends/followers';
+    const res = await httpRequest.get(url, { params: { page, limit } });
+    return res.data;
+};
+
+// GET /api/v1/friends/suggested (Danh sách gợi ý theo dõi)
+export const getSuggestedUsers = async (page = 1, limit = 20) => {
+    const res = await httpRequest.get(`/friends/suggested`, { params: { page, limit } });
     return res.data;
 };

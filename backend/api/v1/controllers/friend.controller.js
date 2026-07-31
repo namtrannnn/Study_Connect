@@ -485,16 +485,27 @@ module.exports.getListFriends = async (req, res) => {
 // [GET] /api/v1/friends/requests/received (Danh sách lời mời theo dõi chờ duyệt)
 module.exports.getReceivedRequests = async (req, res) => {
   try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+
+    const rawUser = await User.findById(req.user._id).select("pendingFollowRequests");
+    const totalRequests = rawUser?.pendingFollowRequests?.length || 0;
+
     const myUser = await User.findOne({
       _id: req.user._id,
       status: "active",
       deleted: false,
     }).populate({
       path: "pendingFollowRequests",
-      select: "_id fullName username avatar isVerified",
+      select: "_id fullName username avatar isVerified bio",
       match: {
         status: "active",
         deleted: false,
+      },
+      options: {
+        limit,
+        skip,
       },
     });
 
@@ -513,18 +524,187 @@ module.exports.getReceivedRequests = async (req, res) => {
         username: user.username,
         avatar: user.avatar,
         isVerified: user.isVerified,
+        bio: user.bio,
       }));
+
+    const hasMore = skip + requests.length < totalRequests;
 
     return res.json({
       code: 200,
       message: "Lấy danh sách yêu cầu theo dõi thành công",
       data: {
-        totalRequests: requests.length,
+        totalRequests,
         requests,
+        hasMore,
+        page,
       },
     });
   } catch (error) {
     console.log("getReceivedRequests error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Failed",
+    });
+  }
+};
+
+// [GET] /api/v1/friends/following
+// [GET] /api/v1/friends/following/:userId
+module.exports.getFollowingList = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const targetUserId = req.params.userId || currentUser._id;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+
+    const rawUser = await User.findById(targetUserId).select("following followingCount");
+    const totalFollowing = rawUser?.followingCount || rawUser?.following?.length || 0;
+
+    const targetUser = await User.findOne({
+      _id: targetUserId,
+      status: "active",
+      deleted: false,
+    }).populate({
+      path: "following",
+      select: "_id fullName username avatar isVerified bio",
+      match: {
+        status: "active",
+        deleted: false,
+      },
+      options: {
+        limit,
+        skip,
+      },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        code: 404,
+        message: "Người dùng không tồn tại",
+      });
+    }
+
+    const following = (targetUser.following || []).filter(Boolean);
+    const hasMore = skip + following.length < totalFollowing;
+
+    return res.json({
+      code: 200,
+      message: "Lấy danh sách đang theo dõi thành công",
+      data: {
+        userId: targetUser._id,
+        totalFollowing,
+        following,
+        hasMore,
+        page,
+      },
+    });
+  } catch (error) {
+    console.log("getFollowingList error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Failed",
+    });
+  }
+};
+
+// [GET] /api/v1/friends/followers
+// [GET] /api/v1/friends/followers/:userId
+module.exports.getFollowersList = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const targetUserId = req.params.userId || currentUser._id;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+
+    const rawUser = await User.findById(targetUserId).select("followers followersCount");
+    const totalFollowers = rawUser?.followersCount || rawUser?.followers?.length || 0;
+
+    const targetUser = await User.findOne({
+      _id: targetUserId,
+      status: "active",
+      deleted: false,
+    }).populate({
+      path: "followers",
+      select: "_id fullName username avatar isVerified bio",
+      match: {
+        status: "active",
+        deleted: false,
+      },
+      options: {
+        limit,
+        skip,
+      },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        code: 404,
+        message: "Người dùng không tồn tại",
+      });
+    }
+
+    const followers = (targetUser.followers || []).filter(Boolean);
+    const hasMore = skip + followers.length < totalFollowers;
+
+    return res.json({
+      code: 200,
+      message: "Lấy danh sách người theo dõi thành công",
+      data: {
+        userId: targetUser._id,
+        totalFollowers,
+        followers,
+        hasMore,
+        page,
+      },
+    });
+  } catch (error) {
+    console.log("getFollowersList error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Failed",
+    });
+  }
+};
+
+// [GET] /api/v1/friends/suggested
+module.exports.getSuggestedUsers = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+
+    const myUser = req.user;
+    const followingIds = (myUser.following || []).map((id) => id.toString());
+
+    const filter = {
+      _id: { $nin: [...followingIds, myUser._id] },
+      status: "active",
+      deleted: false,
+    };
+
+    const totalUsers = await User.countDocuments(filter);
+
+    const suggestedUsers = await User.find(filter)
+      .select("_id fullName username avatar isVerified bio followersCount isPrivate")
+      .skip(skip)
+      .limit(limit);
+
+    const hasMore = skip + suggestedUsers.length < totalUsers;
+
+    return res.json({
+      code: 200,
+      message: "Lấy danh sách gợi ý thành công",
+      data: {
+        users: suggestedUsers,
+        totalUsers,
+        hasMore,
+        page,
+      },
+    });
+  } catch (error) {
+    console.log("getSuggestedUsers error:", error);
     return res.status(500).json({
       code: 500,
       message: "Failed",

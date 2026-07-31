@@ -1,45 +1,32 @@
 import { useEffect, useState } from 'react';
 import { Search, X, Clock, FileText, FolderKanban, CircleHelp, GraduationCap, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import InfiniteScroll from 'react-infinite-scroll-component';
+import { toast } from 'react-toastify';
 
 import { searchStudyConnect } from '../../../services/SearchServices';
+import useDebounce from '../../../hooks/useDebounce';
+import { LoadingSearch } from '../../../components/Loading';
+import { followUser, unfollowUser, acceptFollowRequest } from '../../../services/friend.services';
 
-const tabs = [
+const TABS = [
     { id: 'all', label: 'Tất cả' },
     { id: 'users', label: 'Người dùng' },
     { id: 'posts', label: 'Bài viết' },
-    { id: 'project', label: 'Dự án' },
-    { id: 'question', label: 'Câu hỏi' },
 ];
 
-function getRelationButtonText(status) {
+function getRelationBadge(status) {
     switch (status) {
         case 'mutual':
-        case 'friend':
-            return 'Đang theo dõi (Bạn bè)';
+            return { label: '👥 Bạn bè', className: 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400' };
         case 'following':
-            return 'Đang theo dõi';
+            return { label: 'Đang theo dõi', className: 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300' };
         case 'follower':
-            return 'Theo dõi lại';
+            return { label: 'Theo dõi lại', className: 'bg-blue-600 text-white hover:bg-blue-700' };
         case 'pending_sent':
-            return 'Đã gửi yêu cầu';
-        case 'pending_received':
-            return 'Chấp nhận';
+            return { label: 'Đã gửi yêu cầu', className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' };
         default:
-            return 'Theo dõi';
-    }
-}
-
-function getFollowButtonText(status) {
-    switch (status) {
-        case 'following':
-            return 'Đang theo dõi';
-        case 'followed_by':
-            return 'Theo dõi lại';
-        case 'mutual_follow':
-            return 'Theo dõi nhau';
-        default:
-            return 'Theo dõi';
+            return { label: '+ Theo dõi', className: 'bg-blue-600 text-white hover:bg-blue-700' };
     }
 }
 
@@ -70,46 +57,58 @@ function getPostIcon(type) {
     return FileText;
 }
 
-function SearchPanel({ onClose }) {
+export default function SearchPanel({ onClose }) {
     const navigate = useNavigate();
 
     const [keyword, setKeyword] = useState('');
+    const debouncedKeyword = useDebounce(keyword.trim(), 400);
+
     const [activeTab, setActiveTab] = useState('all');
     const [users, setUsers] = useState([]);
     const [posts, setPosts] = useState([]);
+    const [page, setPage] = useState(1);
+    const [hasMoreUsers, setHasMoreUsers] = useState(false);
+    const [hasMorePosts, setHasMorePosts] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [actionLoadingId, setActionLoadingId] = useState(null);
     const [error, setError] = useState('');
 
-    const trimmedKeyword = keyword.trim();
     const hasResult = users.length > 0 || posts.length > 0;
-
     const showUsers = activeTab === 'all' || activeTab === 'users';
-    const showPosts = activeTab !== 'users';
+    const showPosts = activeTab === 'all' || activeTab === 'posts';
 
+    // Initial Search when debounced keyword or tab changes
     useEffect(() => {
-        if (!trimmedKeyword) {
+        if (!debouncedKeyword) {
             setUsers([]);
             setPosts([]);
+            setPage(1);
+            setHasMoreUsers(false);
+            setHasMorePosts(false);
             setError('');
             setLoading(false);
             return;
         }
 
-        const timer = setTimeout(async () => {
+        const executeSearch = async () => {
             try {
                 setLoading(true);
                 setError('');
+                setPage(1);
 
                 const res = await searchStudyConnect({
-                    keyword: trimmedKeyword,
+                    keyword: debouncedKeyword,
                     type: activeTab,
-                    limit: activeTab === 'all' ? 6 : 15,
+                    page: 1,
+                    limit: activeTab === 'all' ? 8 : 15,
                 });
 
                 const data = res?.data || {};
-
                 setUsers(data.users || []);
                 setPosts(data.posts || []);
+                setHasMoreUsers(Boolean(data.hasMoreUsers));
+                setHasMorePosts(Boolean(data.hasMorePosts));
             } catch (err) {
                 console.log('Search error:', err);
                 setUsers([]);
@@ -118,15 +117,87 @@ function SearchPanel({ onClose }) {
             } finally {
                 setLoading(false);
             }
-        }, 500);
+        };
 
-        return () => clearTimeout(timer);
-    }, [trimmedKeyword, activeTab]);
+        executeSearch();
+    }, [debouncedKeyword, activeTab]);
 
-    const handleGoProfile = (userId) => {
-        if (!userId) return;
+    // Load More Pagination
+    const handleLoadMore = async () => {
+        if (loadingMore || !debouncedKeyword) return;
+        const nextPage = page + 1;
+        try {
+            setLoadingMore(true);
+            const res = await searchStudyConnect({
+                keyword: debouncedKeyword,
+                type: activeTab,
+                page: nextPage,
+                limit: activeTab === 'all' ? 8 : 15,
+            });
+
+            const data = res?.data || {};
+            const newUsers = data.users || [];
+            const newPosts = data.posts || [];
+
+            setUsers((prev) => [...prev, ...newUsers]);
+            setPosts((prev) => [...prev, ...newPosts]);
+            setPage(nextPage);
+            setHasMoreUsers(Boolean(data.hasMoreUsers));
+            setHasMorePosts(Boolean(data.hasMorePosts));
+        } catch (err) {
+            console.log('Load more search error:', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    // Follow / Unfollow User Action Handler
+    const handleToggleFollow = async (e, user) => {
+        e.stopPropagation();
+        const targetUserId = user._id;
+        if (actionLoadingId === targetUserId) return;
+
+        try {
+            setActionLoadingId(targetUserId);
+
+            if (user.relationStatus === 'following' || user.relationStatus === 'mutual') {
+                // Unfollow
+                await unfollowUser(targetUserId);
+                setUsers((prev) =>
+                    prev.map((u) => (u._id === targetUserId ? { ...u, relationStatus: 'none' } : u)),
+                );
+                toast.info(`Đã bỏ theo dõi ${user.fullName}`);
+            } else if (user.relationStatus === 'pending_sent') {
+                // Cancel pending request
+                await unfollowUser(targetUserId);
+                setUsers((prev) =>
+                    prev.map((u) => (u._id === targetUserId ? { ...u, relationStatus: 'none' } : u)),
+                );
+                toast.info('Đã hủy yêu cầu theo dõi');
+            } else {
+                // Follow
+                const res = await followUser(targetUserId);
+                const newStatus = res?.data?.relationStatus || (user.isPrivate ? 'pending_sent' : 'following');
+                setUsers((prev) =>
+                    prev.map((u) => (u._id === targetUserId ? { ...u, relationStatus: newStatus } : u)),
+                );
+                toast.success(
+                    newStatus === 'pending_sent'
+                        ? 'Đã gửi yêu cầu theo dõi'
+                        : `Đã theo dõi ${user.fullName}`,
+                );
+            }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+        } finally {
+            setActionLoadingId(null);
+        }
+    };
+
+    const handleGoProfile = (target) => {
+        if (!target) return;
         onClose?.();
-        navigate(`/profile/${userId}`);
+        navigate(`/profile/${target}`);
     };
 
     const handleGoPost = (postId) => {
@@ -137,11 +208,12 @@ function SearchPanel({ onClose }) {
 
     return (
         <div className="flex h-full flex-col bg-white text-slate-900 dark:bg-[#181b22] dark:text-white">
+            {/* Header */}
             <div className="border-b border-blue-100 px-5 py-4 dark:border-white/10">
                 <div className="mb-4 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-black text-slate-900 dark:text-white">Tìm kiếm</h2>
-                        <p className="text-xs font-medium text-slate-400">Tìm bạn học, bài viết, dự án, câu hỏi</p>
+                        <p className="text-xs font-medium text-slate-400">Tìm kiếm bạn học, bài viết nhanh chóng</p>
                     </div>
 
                     <button
@@ -153,6 +225,7 @@ function SearchPanel({ onClose }) {
                     </button>
                 </div>
 
+                {/* Input with debounce */}
                 <div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-3 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-blue-200 dark:bg-white/10 dark:focus-within:bg-white/10 dark:focus-within:ring-blue-400/30">
                     <Search className="h-5 w-5 shrink-0 text-slate-400" />
 
@@ -175,8 +248,9 @@ function SearchPanel({ onClose }) {
                     )}
                 </div>
 
+                {/* Tabs Filter */}
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {tabs.map((tab) => {
+                    {TABS.map((tab) => {
                         const active = activeTab === tab.id;
 
                         return (
@@ -185,7 +259,7 @@ function SearchPanel({ onClose }) {
                                 type="button"
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`
-                                    shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition
+                                    shrink-0 rounded-full px-4 py-2 text-xs font-bold transition
                                     ${
                                         active
                                             ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
@@ -200,18 +274,19 @@ function SearchPanel({ onClose }) {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-                {!trimmedKeyword && (
+            {/* Body Results */}
+            <div id="search-scroll-container" className="flex-1 overflow-y-auto px-5 py-4">
+                {!debouncedKeyword && (
                     <div className="space-y-4">
                         <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-4 dark:border-white/10 dark:bg-white/5">
                             <p className="text-sm font-bold text-slate-800 dark:text-white">Bạn muốn tìm gì hôm nay?</p>
                             <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                Có thể tìm theo tên, @username, kỹ năng, hashtag, dự án hoặc câu hỏi học tập.
+                                Nhập tên bạn bè, @username hoặc từ khóa tìm kiếm.
                             </p>
                         </div>
 
                         <div className="space-y-2">
-                            {['react', '@nam', 'studyconnect', 'nodejs', 'jwt'].map((item) => (
+                            {['react', '@namtran', 'studyconnect', 'nodejs', 'javascript'].map((item) => (
                                 <button
                                     key={item}
                                     type="button"
@@ -229,45 +304,34 @@ function SearchPanel({ onClose }) {
                     </div>
                 )}
 
-                {trimmedKeyword && loading && (
-                    <div className="space-y-3">
-                        {Array.from({ length: 5 }).map((_, index) => (
-                            <div key={index} className="flex animate-pulse items-center gap-3 rounded-2xl p-3">
-                                <div className="h-12 w-12 rounded-full bg-slate-200 dark:bg-white/10" />
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-3 w-2/3 rounded-full bg-slate-200 dark:bg-white/10" />
-                                    <div className="h-3 w-1/2 rounded-full bg-slate-200 dark:bg-white/10" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                {debouncedKeyword && loading && <LoadingSearch />}
 
-                {trimmedKeyword && !loading && error && (
+                {debouncedKeyword && !loading && error && (
                     <div className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-500 dark:bg-red-500/10">
                         {error}
                     </div>
                 )}
 
-                {trimmedKeyword && !loading && !error && !hasResult && (
+                {debouncedKeyword && !loading && !error && !hasResult && (
                     <div className="flex h-[260px] flex-col items-center justify-center text-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10">
                             <Search className="h-7 w-7 text-slate-400" />
                         </div>
                         <p className="text-sm font-bold text-slate-800 dark:text-white">Không tìm thấy kết quả</p>
                         <p className="mt-1 max-w-[260px] text-sm leading-6 text-slate-500 dark:text-slate-400">
-                            Thử tìm bằng tên, @username, kỹ năng, hashtag hoặc tên dự án khác.
+                            Thử tìm bằng tên, @username hoặc từ khóa bài viết khác.
                         </p>
                     </div>
                 )}
 
-                {trimmedKeyword && !loading && !error && hasResult && (
+                {debouncedKeyword && !loading && !error && hasResult && (
                     <div className="space-y-6">
+                        {/* Users Section */}
                         {showUsers && users.length > 0 && (
                             <section>
-                                <div className="mb-2 flex items-center justify-between">
+                                <div className="mb-3 flex items-center justify-between">
                                     <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                                        Người dùng liên quan
+                                        Người dùng ({users.length})
                                     </h3>
 
                                     {activeTab === 'all' && (
@@ -276,89 +340,60 @@ function SearchPanel({ onClose }) {
                                             onClick={() => setActiveTab('users')}
                                             className="text-xs font-bold text-blue-600 hover:underline"
                                         >
-                                            Xem thêm
+                                            Xem tất cả
                                         </button>
                                     )}
                                 </div>
 
-                                <div className="space-y-2">
-                                    {users.map((user) => (
-                                        <div
-                                            key={user._id}
-                                            className="rounded-3xl border border-transparent p-3 transition hover:border-blue-100 hover:bg-blue-50/70 dark:hover:border-white/10 dark:hover:bg-white/5"
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleGoProfile(user._id)}
-                                                    className="shrink-0"
-                                                >
+                                <div className="space-y-2.5">
+                                    {users.map((u) => {
+                                        const badge = getRelationBadge(u.relationStatus);
+
+                                        return (
+                                            <div
+                                                key={u._id}
+                                                onClick={() => handleGoProfile(u.username || u._id)}
+                                                className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition hover:border-blue-100 hover:bg-blue-50/70 dark:hover:border-white/10 dark:hover:bg-white/5"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0 flex-1">
                                                     <img
-                                                        src={user.avatar || 'https://i.pravatar.cc/150?img=3'}
-                                                        alt={user.fullName}
-                                                        className="h-12 w-12 rounded-full object-cover ring-2 ring-white dark:ring-white/10"
+                                                        src={u.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                                                        alt={u.fullName}
+                                                        className="h-11 w-11 shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-white/10"
                                                     />
-                                                </button>
 
-                                                <div className="min-w-0 flex-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleGoProfile(user._id)}
-                                                        className="block max-w-full truncate text-left text-sm font-black text-slate-900 hover:underline dark:text-white"
-                                                    >
-                                                        {user.fullName}
-                                                    </button>
-
-                                                    <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                                        @{user.username}
-                                                        {user.headline ? ` · ${user.headline}` : ''}
-                                                    </p>
-
-                                                    <div className="mt-3 flex flex-wrap gap-2">
-                                                        <button
-                                                            type="button"
-                                                            className={`
-                                                                rounded-full px-3 py-1.5 text-xs font-black transition
-                                                                ${
-                                                                    user.relationStatus === 'friend'
-                                                                        ? 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
-                                                                        : user.relationStatus === 'pending_received'
-                                                                          ? 'bg-blue-600 text-white'
-                                                                          : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300'
-                                                                }
-                                                            `}
-                                                        >
-                                                            {getRelationButtonText(user.relationStatus)}
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            className={`
-                                                                rounded-full px-3 py-1.5 text-xs font-black transition
-                                                                ${
-                                                                    user.followStatus === 'following' ||
-                                                                    user.followStatus === 'mutual_follow'
-                                                                        ? 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
-                                                                        : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-white/5 dark:text-slate-200 dark:ring-white/10'
-                                                                }
-                                                            `}
-                                                        >
-                                                            {getFollowButtonText(user.followStatus)}
-                                                        </button>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                                                            {u.fullName}
+                                                        </p>
+                                                        <p className="truncate text-xs font-medium text-slate-400">
+                                                            @{u.username}
+                                                        </p>
                                                     </div>
                                                 </div>
+
+                                                {/* Single Action Button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleToggleFollow(e, u)}
+                                                    disabled={actionLoadingId === u._id}
+                                                    className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold transition disabled:opacity-50 ${badge.className}`}
+                                                >
+                                                    {actionLoadingId === u._id ? 'Đang xử lý...' : badge.label}
+                                                </button>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </section>
                         )}
 
+                        {/* Posts Section */}
                         {showPosts && posts.length > 0 && (
                             <section>
-                                <div className="mb-2 flex items-center justify-between">
+                                <div className="mb-3 flex items-center justify-between">
                                     <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                                        Bài viết liên quan
+                                        Bài viết ({posts.length})
                                     </h3>
 
                                     {activeTab === 'all' && (
@@ -367,7 +402,7 @@ function SearchPanel({ onClose }) {
                                             onClick={() => setActiveTab('posts')}
                                             className="text-xs font-bold text-blue-600 hover:underline"
                                         >
-                                            Xem thêm
+                                            Xem tất cả
                                         </button>
                                     )}
                                 </div>
@@ -382,7 +417,7 @@ function SearchPanel({ onClose }) {
                                                 key={post._id}
                                                 type="button"
                                                 onClick={() => handleGoPost(post._id)}
-                                                className="w-full rounded-3xl border border-blue-100 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/5"
+                                                className="w-full rounded-2xl border border-blue-100 bg-white p-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/5"
                                             >
                                                 <div className="flex gap-3">
                                                     <div className="min-w-0 flex-1">
@@ -390,59 +425,40 @@ function SearchPanel({ onClose }) {
                                                             <img
                                                                 src={
                                                                     post.author?.avatar ||
-                                                                    'https://i.pravatar.cc/150?img=5'
+                                                                    'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
                                                                 }
                                                                 alt={post.author?.fullName || 'avatar'}
                                                                 className="h-8 w-8 rounded-full object-cover"
                                                             />
 
                                                             <div className="min-w-0">
-                                                                <p className="truncate text-sm font-black text-slate-900 dark:text-white">
+                                                                <p className="truncate text-xs font-bold text-slate-900 dark:text-white">
                                                                     {post.author?.fullName || 'Người dùng'}
                                                                 </p>
-                                                                <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                                                <p className="truncate text-[11px] text-slate-400">
                                                                     @{post.author?.username || 'user'}
                                                                 </p>
                                                             </div>
                                                         </div>
 
-                                                        <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
-                                                            <TypeIcon className="h-3.5 w-3.5" />
+                                                        <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+                                                            <TypeIcon className="h-3 w-3" />
                                                             {getPostTypeLabel(post.postType)}
                                                         </div>
 
-                                                        {post.project?.projectName && (
-                                                            <p className="mt-2 line-clamp-1 text-sm font-black text-slate-900 dark:text-white">
-                                                                {post.project.projectName}
-                                                            </p>
-                                                        )}
-
-                                                        {post.question?.title && (
-                                                            <p className="mt-2 line-clamp-1 text-sm font-black text-slate-900 dark:text-white">
-                                                                {post.question.title}
-                                                            </p>
-                                                        )}
-
-                                                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
                                                             {post.caption ||
                                                                 post.project?.summary ||
                                                                 post.question?.detail ||
-                                                                post.learning?.progressText ||
-                                                                post.collaboration?.description ||
                                                                 'Không có nội dung mô tả.'}
                                                         </p>
-
-                                                        <div className="mt-3 flex items-center gap-3 text-xs font-bold text-slate-400">
-                                                            <span>{post.likesCount || 0} thích</span>
-                                                            <span>{post.commentsCount || 0} bình luận</span>
-                                                        </div>
                                                     </div>
 
                                                     {firstMedia?.url && (
                                                         <img
                                                             src={firstMedia.url}
                                                             alt=""
-                                                            className="h-20 w-20 shrink-0 rounded-2xl object-cover"
+                                                            className="h-16 w-16 shrink-0 rounded-xl object-cover"
                                                         />
                                                     )}
                                                 </div>
@@ -452,11 +468,23 @@ function SearchPanel({ onClose }) {
                                 </div>
                             </section>
                         )}
+
+                        {/* Load More Button if hasMore */}
+                        {(hasMoreUsers || hasMorePosts) && (
+                            <div className="pt-2 text-center">
+                                <button
+                                    type="button"
+                                    onClick={handleLoadMore}
+                                    disabled={loadingMore}
+                                    className="rounded-2xl bg-blue-50 px-5 py-2.5 text-xs font-bold text-blue-600 transition hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-500/10 dark:text-blue-300"
+                                >
+                                    {loadingMore ? 'Đang tải thêm...' : 'Tải thêm kết quả'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
         </div>
     );
 }
-
-export default SearchPanel;
