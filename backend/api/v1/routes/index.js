@@ -36,7 +36,7 @@ module.exports = (app) => {
   app.use(version + "/post", Post);
   app.use(version + "/post", PostLike);
   app.use(version + "/post/comment", PostComment);
-  // app.use(version + "/post/save", PostSave);
+  app.use(version + "/post/save", PostSave);
   app.use(version + "/room-chat", RoomChat);
   // app.use(version + "/study-room", StudyRoom);
   app.use(version + "/chat", Chat);

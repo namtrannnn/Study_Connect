@@ -40,7 +40,7 @@ const publicRoute = [
         protected: ProtectedRoute,
         layoutProps: {
             showSuggest: false,
-            contentClassName: 'max-w-5xl',
+            contentClassName: 'max-w-[680px]',
             mainId: 'profile-scroll-container',
         },
     },
@@ -51,8 +51,8 @@ const publicRoute = [
         layout: StudyConnectLayout,
         protected: ProtectedRoute,
         layoutProps: {
-            showSuggest: true,
-            contentClassName: 'max-w-[900px]',
+            showSuggest: false,
+            contentClassName: 'max-w-5xl',
             mainId: 'friends-scroll-container',
         },
     },

@@ -9,6 +9,7 @@ import 'swiper/css/pagination';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 import * as CommentServices from '../../services/comment.services';
 import * as PostServices from '../../services/posts.services';
 import { registerPostCommentSocketEvents, unregisterPostCommentSocketEvents } from '../../sockets/postComment.socket';
@@ -76,11 +77,20 @@ function CommentItem({
     const commentId = comment._id?.toString();
     const isEditing = editingCommentId === comment._id;
 
+    const navigate = useNavigate();
+    const handleGoProfile = () => {
+        const target = comment?.user?.username || commentUserId;
+        if (target) navigate(`/profile/${target}`);
+    };
+
     return (
         <div className={`group/comment flex items-start gap-3 ${isReply ? '' : ''}`}>
             {/* Avatar */}
             <div className="relative shrink-0">
-                <Avatar className={`${isReply ? 'h-8 w-8' : 'h-9 w-9'} ring-2 ring-white dark:ring-white/5`}>
+                <Avatar
+                    onClick={handleGoProfile}
+                    className={`${isReply ? 'h-8 w-8' : 'h-9 w-9'} cursor-pointer ring-2 ring-white transition hover:opacity-80 dark:ring-white/5`}
+                >
                     <AvatarImage src={comment?.user?.avatar} />
                     <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-[11px] font-bold text-white">
                         {authorName?.charAt(0) || 'U'}
@@ -127,7 +137,12 @@ function CommentItem({
                 ) : (
                     <div className="rounded-2xl bg-slate-50 px-3.5 py-2.5 dark:bg-white/[.04]">
                         <p className="text-[13px] leading-[1.65]">
-                            <span className="mr-1.5 font-bold text-slate-900 dark:text-white">{username}</span>
+                            <span
+                                onClick={handleGoProfile}
+                                className="mr-1.5 cursor-pointer font-bold text-slate-900 hover:underline dark:text-white"
+                            >
+                                {username}
+                            </span>
 
                             {comment?.replyToUser?.username && (
                                 <span className="mr-1 font-semibold text-indigo-500">
@@ -284,6 +299,7 @@ function CommentItem({
    Main PostDetailModal
    ═══════════════════════════════════════════════ */
 export default function PostDetailModal({ open, onClose, post, currentUser, onSubmitComment }) {
+    const navigate = useNavigate();
     const [commentText, setCommentText] = useState('');
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editingContent, setEditingContent] = useState('');
@@ -728,7 +744,15 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                     {/* ── Header ── */}
                     <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-white/5">
                         <div className="flex min-w-0 items-center gap-3">
-                            <div className="rounded-[14px] bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-[2px]">
+                            <div
+                                onClick={() => {
+                                    if (postAuthorId) {
+                                        onClose?.();
+                                        navigate(`/profile/${authorUsername || postAuthorId}`);
+                                    }
+                                }}
+                                className="cursor-pointer rounded-[14px] bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-[2px] transition hover:opacity-85"
+                            >
                                 <Avatar className="h-10 w-10 rounded-[12px] border-2 border-white dark:border-[#12141c]">
                                     <AvatarImage src={authorAvatar} className="rounded-[10px]" />
                                     <AvatarFallback className="rounded-[10px] bg-gradient-to-br from-indigo-400 to-purple-500 text-sm font-bold text-white">
@@ -738,7 +762,17 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                    <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{authorUsername}</p>
+                                    <p
+                                        onClick={() => {
+                                            if (postAuthorId) {
+                                                onClose?.();
+                                                navigate(`/profile/${authorUsername || postAuthorId}`);
+                                            }
+                                        }}
+                                        className="cursor-pointer truncate text-sm font-bold text-slate-900 hover:underline dark:text-white"
+                                    >
+                                        {authorUsername}
+                                    </p>
                                     {post?.author?.isVerified && (
                                         <span className="text-[11px] text-indigo-500">✓</span>
                                     )}
@@ -772,7 +806,15 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                             {/* Caption */}
                             {caption && (
                                 <div className="flex items-start gap-3 pb-3 border-b border-slate-50 dark:border-white/5">
-                                    <Avatar className="h-9 w-9 shrink-0 ring-2 ring-white dark:ring-white/5">
+                                    <Avatar
+                                        onClick={() => {
+                                            if (postAuthorId) {
+                                                onClose?.();
+                                                navigate(`/profile/${authorUsername || postAuthorId}`);
+                                            }
+                                        }}
+                                        className="h-9 w-9 shrink-0 cursor-pointer ring-2 ring-white transition hover:opacity-80 dark:ring-white/5"
+                                    >
                                         <AvatarImage src={authorAvatar} />
                                         <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-[11px] font-bold text-white">
                                             {authorName?.charAt(0) || 'U'}

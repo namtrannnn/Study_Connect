@@ -32,4 +32,35 @@ const uploadStreamToCloudinary = (buffer, path) => {
   });
 };
 
+const deleteFromCloudinary = async (publicId, resourceType = "image") => {
+  if (!publicId) return null;
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
+    return result;
+  } catch (error) {
+    console.error("Cloudinary delete error:", error);
+    return null;
+  }
+};
+
+const deleteMultipleFromCloudinary = async (publicIds = [], resourceType = "image") => {
+  const validIds = publicIds.filter(Boolean);
+  if (validIds.length === 0) return null;
+  try {
+    const result = await cloudinary.api.delete_resources(validIds, {
+      resource_type: resourceType,
+    });
+    return result;
+  } catch (error) {
+    console.error("Cloudinary batch delete error:", error);
+    return null;
+  }
+};
+
+uploadStreamToCloudinary.uploadStreamToCloudinary = uploadStreamToCloudinary;
+uploadStreamToCloudinary.deleteFromCloudinary = deleteFromCloudinary;
+uploadStreamToCloudinary.deleteMultipleFromCloudinary = deleteMultipleFromCloudinary;
+
 module.exports = uploadStreamToCloudinary;

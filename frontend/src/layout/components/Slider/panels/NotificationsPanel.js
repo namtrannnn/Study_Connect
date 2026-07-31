@@ -8,6 +8,9 @@ import * as NotificationServices from '../../../../services/notification.service
 import { setUnreadCount, incrementUnread, decrementUnread, resetUnread } from '../../../../redux/slices/notificationSlice';
 
 const TYPE_ICONS = {
+    follow: '👤',
+    follow_request: '👥',
+    follow_accept: '🤝',
     friend_request: '👥',
     friend_accept: '🤝',
     post_like: '❤️',
@@ -130,11 +133,15 @@ export default function NotificationsPanel({ onClose }) {
 
         const refId = notif.refId;
         const senderId = notif.sender?._id;
+        const senderUsername = notif.sender?.username;
 
         switch (notif.type) {
             case 'friend_request':
             case 'friend_accept':
-                if (senderId) navigate(`/profile/${senderId}`);
+            case 'follow':
+            case 'follow_request':
+            case 'follow_accept':
+                if (senderUsername || senderId) navigate(`/profile/${senderUsername || senderId}`);
                 break;
             case 'post_like':
             case 'post_comment':

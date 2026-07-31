@@ -6,6 +6,7 @@ import Slider from '../components/Slider';
 import Suggest from '../components/Suggest/Suggest';
 import SearchPanel from '../components/search/SearchPanel';
 import NotificationsPanel from '../components/Slider/panels/NotificationsPanel';
+import Modal from '../../pages/Dashboard/Modal';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -18,6 +19,7 @@ function StudyConnectLayout({
     const user = useSelector((state) => state.user?.infoUser || {});
 
     const [openPanel, setOpenPanel] = useState(null);
+    const [openCreatePost, setOpenCreatePost] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
         try {
             return localStorage.getItem(STORAGE_KEY) === 'true';
@@ -62,6 +64,7 @@ function StudyConnectLayout({
                         activePanel={openPanel}
                         onOpenSearch={handleOpenSearch}
                         onOpenNotifications={handleOpenNotifications}
+                        onOpenCreatePost={() => setOpenCreatePost(true)}
                         onClosePanel={handleClosePanel}
                     />
 
@@ -151,6 +154,9 @@ function StudyConnectLayout({
             >
                 <NotificationsPanel onClose={handleClosePanel} />
             </div>
+
+            {/* Create Post Modal */}
+            {openCreatePost && <Modal setOpenModal={setOpenCreatePost} user={user} />}
         </div>
     );
 }
