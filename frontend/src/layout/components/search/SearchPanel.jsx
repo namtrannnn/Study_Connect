@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Search, X, Clock, FileText, FolderKanban, CircleHelp, GraduationCap, Users } from 'lucide-react';
+import { Search, X, Clock, FileText, FolderKanban, CircleHelp, GraduationCap, Users, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import InfiniteScroll from 'react-infinite-scroll-component';
 import { toast } from 'react-toastify';
 
 import { searchStudyConnect } from '../../../services/SearchServices';
 import useDebounce from '../../../hooks/useDebounce';
 import { LoadingSearch } from '../../../components/Loading';
-import { followUser, unfollowUser, acceptFollowRequest } from '../../../services/friend.services';
+import { followUser, unfollowUser } from '../../../services/friend.services';
 
 const TABS = [
     { id: 'all', label: 'Tất cả' },
     { id: 'users', label: 'Người dùng' },
     { id: 'posts', label: 'Bài viết' },
 ];
+
+const HISTORY_STORAGE_KEY = 'studyconnect_search_history';
 
 function getRelationBadge(status) {
     switch (status) {
@@ -24,7 +25,7 @@ function getRelationBadge(status) {
         case 'follower':
             return { label: 'Theo dõi lại', className: 'bg-blue-600 text-white hover:bg-blue-700' };
         case 'pending_sent':
-            return { label: 'Đã gửi yêu cầu', className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' };
+            return { label: '⏳ Đã gửi yêu cầu', className: 'bg-amber-50 text-amber-700 hover:bg-red-50 hover:text-red-600 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-red-500/20' };
         default:
             return { label: '+ Theo dõi', className: 'bg-blue-600 text-white hover:bg-blue-700' };
     }
@@ -63,6 +64,16 @@ export default function SearchPanel({ onClose }) {
     const [keyword, setKeyword] = useState('');
     const debouncedKeyword = useDebounce(keyword.trim(), 400);
 
+    // Search History State (from localStorage)
+    const [searchHistory, setSearchHistory] = useState(() => {
+        try {
+            const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+            return saved ? JSON.parse(saved) : ['react', '@namtran', 'studyconnect', 'javascript'];
+        } catch {
+            return ['react', '@namtran', 'studyconnect', 'javascript'];
+        }
+    });
+
     const [activeTab, setActiveTab] = useState('all');
     const [users, setUsers] = useState([]);
     const [posts, setPosts] = useState([]);
@@ -78,6 +89,39 @@ export default function SearchPanel({ onClose }) {
     const showUsers = activeTab === 'all' || activeTab === 'users';
     const showPosts = activeTab === 'all' || activeTab === 'posts';
 
+    // Save term to search history
+    const saveToHistory = (term) => {
+        if (!term || term.length < 2) return;
+        setSearchHistory((prev) => {
+            const filtered = prev.filter((item) => item.toLowerCase() !== term.toLowerCase());
+            const updated = [term, ...filtered].slice(0, 10);
+            try {
+                localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+    };
+
+    // Remove single item from search history
+    const handleRemoveHistoryItem = (e, itemToRemove) => {
+        e.stopPropagation();
+        setSearchHistory((prev) => {
+            const updated = prev.filter((item) => item !== itemToRemove);
+            try {
+                localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+    };
+
+    // Clear all search history
+    const handleClearAllHistory = () => {
+        setSearchHistory([]);
+        try {
+            localStorage.removeItem(HISTORY_STORAGE_KEY);
+        } catch {}
+    };
+
     // Initial Search when debounced keyword or tab changes
     useEffect(() => {
         if (!debouncedKeyword) {
@@ -90,6 +134,8 @@ export default function SearchPanel({ onClose }) {
             setLoading(false);
             return;
         }
+
+        saveToHistory(debouncedKeyword);
 
         const executeSearch = async () => {
             try {
@@ -153,6 +199,7 @@ export default function SearchPanel({ onClose }) {
 
     // Follow / Unfollow User Action Handler
     const handleToggleFollow = async (e, user) => {
+        e.preventDefault();
         e.stopPropagation();
         const targetUserId = user._id;
         if (actionLoadingId === targetUserId) return;
@@ -161,21 +208,18 @@ export default function SearchPanel({ onClose }) {
             setActionLoadingId(targetUserId);
 
             if (user.relationStatus === 'following' || user.relationStatus === 'mutual') {
-                // Unfollow
                 await unfollowUser(targetUserId);
                 setUsers((prev) =>
                     prev.map((u) => (u._id === targetUserId ? { ...u, relationStatus: 'none' } : u)),
                 );
                 toast.info(`Đã bỏ theo dõi ${user.fullName}`);
             } else if (user.relationStatus === 'pending_sent') {
-                // Cancel pending request
                 await unfollowUser(targetUserId);
                 setUsers((prev) =>
                     prev.map((u) => (u._id === targetUserId ? { ...u, relationStatus: 'none' } : u)),
                 );
                 toast.info('Đã hủy yêu cầu theo dõi');
             } else {
-                // Follow
                 const res = await followUser(targetUserId);
                 const newStatus = res?.data?.relationStatus || (user.isPrivate ? 'pending_sent' : 'following');
                 setUsers((prev) =>
@@ -278,29 +322,57 @@ export default function SearchPanel({ onClose }) {
             <div id="search-scroll-container" className="flex-1 overflow-y-auto px-5 py-4">
                 {!debouncedKeyword && (
                     <div className="space-y-4">
-                        <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-4 dark:border-white/10 dark:bg-white/5">
-                            <p className="text-sm font-bold text-slate-800 dark:text-white">Bạn muốn tìm gì hôm nay?</p>
-                            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                Nhập tên bạn bè, @username hoặc từ khóa tìm kiếm.
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                Lịch sử tìm kiếm gần đây
                             </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            {['react', '@namtran', 'studyconnect', 'nodejs', 'javascript'].map((item) => (
+                            {searchHistory.length > 0 && (
                                 <button
-                                    key={item}
                                     type="button"
-                                    onClick={() => setKeyword(item)}
-                                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-blue-50 dark:hover:bg-white/10"
+                                    onClick={handleClearAllHistory}
+                                    className="flex items-center gap-1 text-xs font-bold text-red-500 hover:underline"
                                 >
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300">
-                                        <Clock className="h-5 w-5" />
-                                    </span>
-
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{item}</span>
+                                    <Trash2 className="h-3 w-3" />
+                                    Xóa tất cả
                                 </button>
-                            ))}
+                            )}
                         </div>
+
+                        {searchHistory.length === 0 ? (
+                            <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-4 text-center dark:border-white/10 dark:bg-white/5">
+                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    Chưa có lịch sử tìm kiếm. Nhập từ khóa để tìm bạn học hoặc bài viết!
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1.5">
+                                {searchHistory.map((item) => (
+                                    <div
+                                        key={item}
+                                        onClick={() => setKeyword(item)}
+                                        className="group flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 text-left transition hover:bg-blue-50 dark:hover:bg-white/10"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300">
+                                                <Clock className="h-4 w-4" />
+                                            </span>
+                                            <span className="truncate text-sm font-bold text-slate-700 dark:text-slate-200">
+                                                {item}
+                                            </span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleRemoveHistoryItem(e, item)}
+                                            title="Xóa khỏi lịch sử"
+                                            className="rounded-full p-1 text-slate-400 opacity-0 transition hover:bg-slate-200 hover:text-slate-600 group-hover:opacity-100 dark:hover:bg-white/20 dark:hover:text-white"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
