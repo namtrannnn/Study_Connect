@@ -98,9 +98,9 @@ export default function ProfilePage() {
         }
     }, [relation]);
 
-    const loadProfile = async () => {
+    const loadProfile = async ({ silent = false } = {}) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             setError('');
             const res = profileIdentifier
                 ? await ProfileServices.getProfileByUserId(profileIdentifier)
@@ -109,7 +109,7 @@ export default function ProfilePage() {
         } catch (err) {
             setError(err?.response?.data?.message || 'Không thể tải trang cá nhân');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -196,7 +196,7 @@ export default function ProfilePage() {
             }
             if (res?.data?.relationStatus) setRelationStatus(res.data.relationStatus);
             setShowUnfollowModal(false);
-            await loadProfile();
+            await loadProfile({ silent: true });
         } catch (err) {
             toast.error(err?.response?.data?.message || 'Lỗi thao tác theo dõi');
         } finally {

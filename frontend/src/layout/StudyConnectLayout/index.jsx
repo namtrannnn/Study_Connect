@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 import Slider from '../components/Slider';
@@ -7,6 +7,9 @@ import Suggest from '../components/Suggest/Suggest';
 import SearchPanel from '../components/search/SearchPanel';
 import NotificationsPanel from '../components/Slider/panels/NotificationsPanel';
 import Modal from '../../pages/Dashboard/Modal';
+import { getSocket } from '../../config/socket';
+import * as NotificationServices from '../../services/notification.services';
+import { setUnreadCount, incrementUnread } from '../../redux/slices/notificationSlice';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -16,6 +19,7 @@ function StudyConnectLayout({
     contentClassName = 'max-w-[680px]',
     mainId = 'social-scroll-container',
 }) {
+    const dispatch = useDispatch();
     const user = useSelector((state) => state.user?.infoUser || {});
 
     const [openPanel, setOpenPanel] = useState(null);
@@ -33,6 +37,40 @@ function StudyConnectLayout({
             localStorage.setItem(STORAGE_KEY, String(collapsed));
         } catch {}
     }, [collapsed]);
+
+    // Global fetch and socket listener for unread notifications count
+    useEffect(() => {
+        NotificationServices.getNotifications()
+            .then((res) => {
+                if (res?.code === 200) {
+                    dispatch(setUnreadCount(res.unreadCount || 0));
+                }
+            })
+            .catch(() => {});
+
+        const socket = getSocket();
+        if (!socket) return;
+
+        const handleNew = ({ unreadCount: serverCount }) => {
+            if (typeof serverCount === 'number') {
+                dispatch(setUnreadCount(serverCount));
+            } else {
+                dispatch(incrementUnread());
+            }
+        };
+
+        const handleReadAll = ({ unreadCount: count }) => {
+            dispatch(setUnreadCount(count ?? 0));
+        };
+
+        socket.on('SERVER_NOTIFICATION_NEW', handleNew);
+        socket.on('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
+
+        return () => {
+            socket.off('SERVER_NOTIFICATION_NEW', handleNew);
+            socket.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
+        };
+    }, [dispatch]);
 
     const isSearchOpen = openPanel === 'search';
     const isNotifOpen = openPanel === 'notifications';

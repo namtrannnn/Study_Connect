@@ -37,6 +37,7 @@ export default function NotificationsPanel({ onClose }) {
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCountLocal] = useState(0);
+    const [newlyUnreadIds, setNewlyUnreadIds] = useState(new Set());
     const [loading, setLoading] = useState(false);
     const [markingAll, setMarkingAll] = useState(false);
 
@@ -45,16 +46,31 @@ export default function NotificationsPanel({ onClose }) {
             setLoading(true);
             const res = await NotificationServices.getNotifications();
             if (res.code === 200) {
-                setNotifications(res.notifications || []);
-                setUnreadCountLocal(res.unreadCount || 0);
-                dispatch(setUnreadCount(res.unreadCount || 0));
+                const fetchedNotifs = res.notifications || [];
+                setNotifications(fetchedNotifs);
+
+                // Remember which ones were unread before opening
+                const unreadSet = new Set(
+                    fetchedNotifs.filter((n) => !n.isRead).map((n) => String(n._id)),
+                );
+                setNewlyUnreadIds(unreadSet);
+
+                // If there were unread notifications, automatically mark all as read
+                if (res.unreadCount > 0) {
+                    NotificationServices.markAllAsRead().catch(() => {});
+                    dispatch(setUnreadCount(0));
+                    setUnreadCountLocal(0);
+                } else {
+                    setUnreadCountLocal(0);
+                    dispatch(setUnreadCount(0));
+                }
             }
         } catch {
             toast.error('Không thể tải thông báo');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         fetchNotifications();
@@ -71,7 +87,10 @@ export default function NotificationsPanel({ onClose }) {
                 if (existed) return prev;
                 return [notification, ...prev];
             });
-            // Use authoritative count from server instead of blindly incrementing
+
+            // Mark as new in current session
+            setNewlyUnreadIds((prev) => new Set([...prev, String(notification._id)]));
+
             if (typeof serverCount === 'number') {
                 setUnreadCountLocal(serverCount);
                 dispatch(setUnreadCount(serverCount));
@@ -100,7 +119,7 @@ export default function NotificationsPanel({ onClose }) {
             socket.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
             socket.off('SERVER_NOTIFICATION_DELETED', handleDeleted);
         };
-    }, []);
+    }, [dispatch]);
 
     const handleMarkAsRead = async (notificationId) => {
         try {
@@ -234,55 +253,61 @@ export default function NotificationsPanel({ onClose }) {
                     </div>
                 ) : (
                     <div className="space-y-1">
-                        {notifications.map((notif) => (
-                            <div
-                                key={notif._id}
-                                onClick={() => handleNotifClick(notif)}
-                                className={`group relative flex cursor-pointer items-start gap-3 rounded-3xl border p-3 transition hover:-translate-y-0.5 hover:shadow-sm ${
-                                    !notif.isRead
-                                        ? 'border-blue-100 bg-blue-50/60 dark:border-white/10 dark:bg-blue-500/5'
-                                        : 'border-transparent hover:border-blue-100 hover:bg-blue-50/70 dark:hover:border-white/10 dark:hover:bg-white/5'
-                                }`}
-                            >
-                                {/* Avatar + icon */}
-                                <div className="relative shrink-0">
-                                    <img
-                                        src={notif.sender?.avatar || 'https://i.pravatar.cc/150?img=3'}
-                                        alt={notif.sender?.fullName}
-                                        className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-white/10"
-                                    />
-                                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs shadow dark:bg-[#181b22]">
-                                        {TYPE_ICONS[notif.type] || '🔔'}
-                                    </span>
-                                </div>
+                        {notifications.map((notif) => {
+                            const isNew = newlyUnreadIds.has(String(notif._id)) || !notif.isRead;
 
-                                {/* Text */}
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm leading-5 text-slate-800 dark:text-slate-100">
-                                        <span className="font-black">{notif.sender?.fullName || 'Ai đó'}</span>{' '}
-                                        <span className="font-medium">{notif.message}</span>
-                                    </p>
-                                    <p className="mt-0.5 text-xs font-semibold text-slate-400">
-                                        {formatTime(notif.createdAt)}
-                                    </p>
-                                </div>
+                            return (
+                                <div
+                                    key={notif._id}
+                                    onClick={() => handleNotifClick(notif)}
+                                    className={`group relative flex cursor-pointer items-start gap-3 rounded-3xl border p-3 transition hover:-translate-y-0.5 hover:shadow-sm ${
+                                        isNew
+                                            ? 'border-blue-100 bg-blue-50/70 dark:border-blue-500/20 dark:bg-blue-500/10'
+                                            : 'border-transparent hover:border-blue-100 hover:bg-blue-50/70 dark:hover:border-white/10 dark:hover:bg-white/5'
+                                    }`}
+                                >
+                                    {/* Avatar + icon */}
+                                    <div className="relative shrink-0">
+                                        <img
+                                            src={notif.sender?.avatar || 'https://i.pravatar.cc/150?img=3'}
+                                            alt={notif.sender?.fullName}
+                                            className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-white/10"
+                                        />
+                                        <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs shadow dark:bg-[#181b22]">
+                                            {TYPE_ICONS[notif.type] || '🔔'}
+                                        </span>
+                                    </div>
 
-                                {/* Unread dot + delete */}
-                                <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
-                                    {!notif.isRead && (
-                                        <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => handleDelete(e, notif._id)}
-                                        className="text-slate-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100 dark:text-white/20"
-                                        aria-label="Xóa thông báo"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                    {/* Text */}
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="text-sm leading-5 text-slate-800 dark:text-slate-100">
+                                                <span className="font-black">{notif.sender?.fullName || 'Ai đó'}</span>{' '}
+                                                <span className="font-medium">{notif.message}</span>
+                                            </p>
+                                            {isNew && (
+                                                <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600 ring-4 ring-blue-100 dark:ring-blue-500/20" title="Thông báo mới" />
+                                            )}
+                                        </div>
+                                        <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                                            {formatTime(notif.createdAt)}
+                                        </p>
+                                    </div>
+
+                                    {/* Delete button */}
+                                    <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleDelete(e, notif._id)}
+                                            className="text-slate-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100 dark:text-white/20"
+                                            aria-label="Xóa thông báo"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
