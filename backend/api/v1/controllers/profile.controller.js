@@ -3,7 +3,7 @@ const User = require("../models/user.model");
 const Post = require("../models/post.model");
 const Like = require("../models/postLike.model");
 const userSelect =
-  "_id fullName username avatar bio isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
+  "_id fullName username avatar isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
 
@@ -356,7 +356,7 @@ module.exports.getUserPostFeed = async (req, res) => {
 // [PATCH] /api/v1/profile/update
 module.exports.updateProfile = async (req, res) => {
   try {
-    const allowFields = ["fullName", "username", "bio", "isPrivate"];
+    const allowFields = ["fullName", "username", "isPrivate"];
     const updateData = {};
 
     allowFields.forEach((field) => {

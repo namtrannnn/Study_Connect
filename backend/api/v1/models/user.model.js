@@ -74,12 +74,6 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
     },
 
-    bio: {
-      type: String,
-      default: "",
-      maxlength: 150,
-    },
-
     postsCount: {
       type: Number,
       default: 0,

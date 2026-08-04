@@ -184,6 +184,37 @@ function FriendsPage() {
         );
     }, [currentTabData.list, searchQuery]);
 
+    // Silent refresh: reload data without showing skeleton loading
+    const silentRefreshData = async () => {
+        try {
+            const [followingRes, followersRes, suggestedRes, requestsRes] = await Promise.allSettled([
+                getFollowingList({ page: 1, limit: 20 }),
+                getFollowersList({ page: 1, limit: 20 }),
+                getSuggestedUsers(1, 20),
+                getReceivedRequests(1, 20),
+            ]);
+
+            if (followingRes.status === 'fulfilled' && followingRes.value?.code === 200) {
+                const data = followingRes.value.data;
+                setFollowing({ list: data.following || [], page: 1, hasMore: !!data.hasMore, total: data.totalFollowing || 0 });
+            }
+            if (followersRes.status === 'fulfilled' && followersRes.value?.code === 200) {
+                const data = followersRes.value.data;
+                setFollowers({ list: data.followers || [], page: 1, hasMore: !!data.hasMore, total: data.totalFollowers || 0 });
+            }
+            if (suggestedRes.status === 'fulfilled' && suggestedRes.value?.code === 200) {
+                const data = suggestedRes.value.data;
+                setSuggested({ list: data.users || [], page: 1, hasMore: !!data.hasMore, total: data.totalUsers || 0 });
+            }
+            if (requestsRes.status === 'fulfilled' && requestsRes.value?.code === 200) {
+                const data = requestsRes.value.data;
+                setRequests({ list: data.requests || [], page: 1, hasMore: !!data.hasMore, total: data.totalRequests || 0 });
+            }
+        } catch (error) {
+            console.log('Silent refresh error:', error);
+        }
+    };
+
     // Handle Follow
     const handleFollow = async (userId) => {
         try {
@@ -191,7 +222,14 @@ function FriendsPage() {
             const res = await followUser(userId);
             if (res?.code === 200) {
                 toast.success(res.message || 'Đã theo dõi thành công');
-                await loadInitialData();
+                // Remove from suggested immediately
+                setSuggested((prev) => ({
+                    ...prev,
+                    list: prev.list.filter((u) => (u._id || u.id) !== userId),
+                    total: Math.max((prev.total || 0) - 1, 0),
+                }));
+                // Silent refresh in background
+                silentRefreshData();
             } else {
                 toast.error(res?.message || 'Không thể theo dõi');
             }
@@ -210,7 +248,14 @@ function FriendsPage() {
             if (res?.code === 200) {
                 toast.info(res.message || 'Đã bỏ theo dõi');
                 setUnfollowTargetUser(null);
-                await loadInitialData();
+                // Remove from following list immediately
+                setFollowing((prev) => ({
+                    ...prev,
+                    list: prev.list.filter((u) => (u._id || u.id) !== userId),
+                    total: Math.max((prev.total || 0) - 1, 0),
+                }));
+                // Silent refresh in background
+                silentRefreshData();
             } else {
                 toast.error(res?.message || 'Không thể bỏ theo dõi');
             }
@@ -228,7 +273,14 @@ function FriendsPage() {
             const res = await acceptFollowRequest(userId);
             if (res?.code === 200) {
                 toast.success(res.message || 'Đã chấp nhận yêu cầu theo dõi');
-                await loadInitialData();
+                // Remove from requests list immediately
+                setRequests((prev) => ({
+                    ...prev,
+                    list: prev.list.filter((u) => (u._id || u.id) !== userId),
+                    total: Math.max((prev.total || 0) - 1, 0),
+                }));
+                // Silent refresh in background
+                silentRefreshData();
             }
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Lỗi chấp nhận yêu cầu');
@@ -244,7 +296,14 @@ function FriendsPage() {
             const res = await refuseFollowRequest(userId);
             if (res?.code === 200) {
                 toast.info(res.message || 'Đã từ chối yêu cầu');
-                await loadInitialData();
+                // Remove from requests list immediately
+                setRequests((prev) => ({
+                    ...prev,
+                    list: prev.list.filter((u) => (u._id || u.id) !== userId),
+                    total: Math.max((prev.total || 0) - 1, 0),
+                }));
+                // Silent refresh in background
+                silentRefreshData();
             }
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Lỗi từ chối yêu cầu');
@@ -416,11 +475,6 @@ function FriendsPage() {
                                                     <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                                                         @{userItem.username || 'username'}
                                                     </p>
-                                                    {userItem.bio && (
-                                                        <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
-                                                            {userItem.bio}
-                                                        </p>
-                                                    )}
                                                 </div>
                                             </div>
 
