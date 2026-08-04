@@ -61,7 +61,6 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         fullName: '',
         username: '',
-        bio: '',
         isPrivate: false,
         avatar: '',
         avatarFile: null,
@@ -239,7 +238,6 @@ export default function ProfilePage() {
         setFormData({
             fullName: user.fullName || '',
             username: user.username || '',
-            bio: user.bio || '',
             isPrivate: !!user.isPrivate,
             avatar: user.avatar || '',
             avatarFile: null,
@@ -253,7 +251,6 @@ export default function ProfilePage() {
             const payload = new FormData();
             payload.append('fullName', formData.fullName);
             payload.append('username', formData.username);
-            payload.append('bio', formData.bio);
             payload.append('isPrivate', String(formData.isPrivate));
             if (formData.avatarFile) payload.append('avatar', formData.avatarFile);
 
@@ -365,7 +362,7 @@ export default function ProfilePage() {
                             )}
                         </div>
 
-                        {/* Name, Username & Bio on RIGHT */}
+                        {/* Name & Username on RIGHT */}
                         <div className="min-w-0 flex-1 pt-1">
                             <h1 className="text-xl font-extrabold leading-tight text-gray-900 dark:text-white sm:text-2xl">
                                 {user.fullName}
@@ -373,12 +370,6 @@ export default function ProfilePage() {
                             <p className="mt-0.5 text-sm font-semibold text-gray-500 dark:text-gray-400">
                                 @{user.username || 'username'}
                             </p>
-
-                            {user.bio && (
-                                <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-                                    {user.bio}
-                                </p>
-                            )}
 
                             {/* Meta items */}
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">

@@ -2,42 +2,49 @@ const mongoose = require("mongoose");
 
 const User = require("../models/user.model");
 const Post = require("../models/post.model");
+const { redisClient } = require("../../../config/redis");
 
 const toObjectId = (id) => new mongoose.Types.ObjectId(id);
 
-const extractSkillsFromText = (text = "") => {
-  const skills = [
-    "React",
-    "Node.js",
-    "MongoDB",
-    "Firebase",
-    "Python",
-    "AI",
-    "JavaScript",
-    "Tailwind",
-    "Express",
-    "UI/UX",
-  ];
-
-  return skills
-    .filter((skill) => text.toLowerCase().includes(skill.toLowerCase()))
-    .slice(0, 2);
-};
+// TTL constants (seconds)
+const TTL_HOT_POSTS = 15 * 60;       // 15 phút
+const TTL_TRENDING = 30 * 60;        // 30 phút
+const TTL_QUIZ = 30 * 60;            // 30 phút
 
 const emptySuggestData = () => ({
-  studyPartners: [],
-  trendingTopics: [],
-  featuredProjects: [],
-  openQuestions: [],
+  peopleToFollow: [],
+  trendingHashtags: [],
+  hotPosts: [],
+  suggestedQuiz: [],
   activeLearners: [],
 });
+
+// Helper: get from Redis cache, fallback to queryFn, then cache result
+async function withCache(key, ttl, queryFn) {
+  try {
+    const cached = await redisClient.get(key);
+    if (cached) return JSON.parse(cached);
+  } catch (_) {
+    // Redis lỗi thì bỏ qua, fallback query MongoDB
+  }
+
+  const result = await queryFn();
+
+  try {
+    await redisClient.setEx(key, ttl, JSON.stringify(result));
+  } catch (_) {
+    // Không cache được thì vẫn trả kết quả
+  }
+
+  return result;
+}
 
 module.exports.getSuggestSummary = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
 
     const currentUser = await User.findById(userId)
-      .select("followers following pendingFollowRequests")
+      .select("following pendingFollowRequests")
       .lean();
 
     if (!currentUser) {
@@ -51,236 +58,284 @@ module.exports.getSuggestSummary = async (req, res) => {
     const followingIds = (currentUser.following || []).filter(Boolean);
     const pendingIds = (currentUser.pendingFollowRequests || []).filter(Boolean);
 
-    const excludedIds = [
-      userId,
-      ...followingIds,
-      ...pendingIds,
-    ]
+    const excludedIds = [userId, ...followingIds, ...pendingIds]
       .filter(Boolean)
       .map((id) => toObjectId(id));
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
-    const [
-      studyPartnerUsers,
-      trendingTopics,
-      featuredProjectPosts,
-      openQuestionPosts,
-      activeLearnerUsers,
-    ] = await Promise.all([
-      // 1. Gợi ý học cùng (dựa trên người đang follow chung)
-      User.aggregate([
-        {
-          $match: {
-            _id: { $nin: excludedIds },
-            deleted: { $ne: true },
-            status: "active",
+    // Chạy song song: cached queries + per-user queries
+    const [hotPosts, trendingHashtags, suggestedQuiz, peopleToFollowRaw, activeLearnerUsers] =
+      await Promise.all([
+        // 1. Hot posts - cached
+        withCache("suggest:hotPosts", TTL_HOT_POSTS, () =>
+          Post.aggregate([
+            {
+              $match: {
+                status: "active",
+                visibility: "public",
+                createdAt: { $gte: threeDaysAgo },
+              },
+            },
+            {
+              $addFields: {
+                score: {
+                  $add: [
+                    "$likesCount",
+                    { $multiply: ["$commentsCount", 2] },
+                    { $multiply: ["$savesCount", 1.5] },
+                  ],
+                },
+              },
+            },
+            { $sort: { score: -1, createdAt: -1 } },
+            { $limit: 5 },
+            {
+              $lookup: {
+                from: "users",
+                localField: "author",
+                foreignField: "_id",
+                as: "authorData",
+                pipeline: [
+                  { $project: { fullName: 1, username: 1, avatar: 1 } },
+                ],
+              },
+            },
+            { $unwind: { path: "$authorData", preserveNullAndEmpty: true } },
+            {
+              $project: {
+                caption: 1,
+                hashtags: 1,
+                likesCount: 1,
+                commentsCount: 1,
+                savesCount: 1,
+                postType: 1,
+                media: { $slice: ["$media", 1] },
+                score: 1,
+                createdAt: 1,
+                author: {
+                  _id: "$authorData._id",
+                  fullName: "$authorData.fullName",
+                  username: "$authorData.username",
+                  avatar: "$authorData.avatar",
+                },
+              },
+            },
+          ])
+        ),
+
+        // 2. Trending hashtags - cached
+        withCache("suggest:trendingHashtags", TTL_TRENDING, () =>
+          Post.aggregate([
+            {
+              $match: {
+                status: "active",
+                visibility: "public",
+                createdAt: { $gte: sevenDaysAgo },
+                hashtags: { $exists: true, $ne: [] },
+              },
+            },
+            { $project: { hashtags: 1 } },
+            { $unwind: "$hashtags" },
+            {
+              $match: {
+                hashtags: { $nin: ["", null] },
+              },
+            },
+            {
+              $group: {
+                _id: { $toLower: "$hashtags" },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { count: -1 } },
+            { $limit: 8 },
+            {
+              $project: {
+                _id: 0,
+                name: "$_id",
+                count: 1,
+              },
+            },
+          ])
+        ),
+
+        // 3. Suggested quiz - cached
+        withCache("suggest:suggestedQuiz", TTL_QUIZ, () =>
+          Post.aggregate([
+            {
+              $match: {
+                postType: "quiz",
+                status: "active",
+                visibility: "public",
+              },
+            },
+            {
+              $addFields: {
+                totalAnswers: {
+                  $size: { $ifNull: ["$quiz.answers", []] },
+                },
+              },
+            },
+            {
+              $sort: { totalAnswers: -1, likesCount: -1, createdAt: -1 },
+            },
+            { $limit: 4 },
+            {
+              $lookup: {
+                from: "users",
+                localField: "author",
+                foreignField: "_id",
+                as: "authorData",
+                pipeline: [
+                  { $project: { fullName: 1, username: 1, avatar: 1 } },
+                ],
+              },
+            },
+            { $unwind: { path: "$authorData", preserveNullAndEmpty: true } },
+            {
+              $project: {
+                caption: 1,
+                quiz: 1,
+                likesCount: 1,
+                commentsCount: 1,
+                totalAnswers: 1,
+                createdAt: 1,
+                author: {
+                  _id: "$authorData._id",
+                  fullName: "$authorData.fullName",
+                  username: "$authorData.username",
+                  avatar: "$authorData.avatar",
+                },
+              },
+            },
+          ])
+        ),
+
+        // 4. People to follow - per-user, không cache
+        User.aggregate([
+          {
+            $match: {
+              _id: { $nin: excludedIds },
+              deleted: { $ne: true },
+              status: "active",
+            },
           },
-        },
-        {
-          $addFields: {
-            mutualFriends: {
-              $size: {
-                $setIntersection: [
-                  { $ifNull: ["$followers", []] },
-                  followingIds.map((id) => toObjectId(id)),
+          {
+            $addFields: {
+              mutualCount: {
+                $size: {
+                  $setIntersection: [
+                    { $ifNull: ["$followers", []] },
+                    followingIds.map((id) => toObjectId(id)),
+                  ],
+                },
+              },
+              hasAvatar: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ["$avatar", null] },
+                      { $ne: ["$avatar", ""] },
+                    ],
+                  },
+                  1,
+                  0,
                 ],
               },
             },
           },
-        },
-        {
-          $sort: {
-            mutualFriends: -1,
-            createdAt: -1,
-          },
-        },
-        {
-          $limit: 5,
-        },
-        {
-          $project: {
-            fullName: 1,
-            username: 1,
-            avatar: 1,
-            bio: 1,
-            mutualFriends: 1,
-          },
-        },
-      ]),
-
-      // 2. Chủ đề nổi bật
-      Post.aggregate([
-        {
-          $match: {
-            status: "active",
-            visibility: "public",
-            createdAt: { $gte: sevenDaysAgo },
-          },
-        },
-        {
-          $project: {
-            hashtags: 1,
-            category: 1,
-          },
-        },
-        {
-          $project: {
-            topics: {
-              $concatArrays: [
-                { $ifNull: ["$hashtags", []] },
-                [{ $ifNull: ["$category", "other"] }],
-              ],
+          {
+            $sort: {
+              mutualCount: -1,
+              hasAvatar: -1,
+              followersCount: -1,
             },
           },
-        },
-        {
-          $unwind: "$topics",
-        },
-        {
-          $match: {
-            topics: {
-              $nin: ["", null, "other"],
+          { $limit: 5 },
+          {
+            $project: {
+              fullName: 1,
+              username: 1,
+              avatar: 1,
+              followersCount: 1,
+              mutualCount: 1,
+              isPrivate: 1,
             },
           },
-        },
-        {
-          $group: {
-            _id: "$topics",
-            posts: { $sum: 1 },
-          },
-        },
-        {
-          $sort: {
-            posts: -1,
-          },
-        },
-        {
-          $limit: 6,
-        },
-        {
-          $project: {
-            _id: 0,
-            name: "$_id",
-            posts: 1,
-          },
-        },
-      ]),
+        ]),
 
-      // 3. Dự án nổi bật
-      Post.find({
-        postType: "project",
-        status: "active",
-        visibility: "public",
-        "project.projectName": { $exists: true, $ne: "" },
-      })
-        .populate("author", "fullName username avatar")
-        .sort({
-          likesCount: -1,
-          commentsCount: -1,
-          createdAt: -1,
-        })
-        .limit(3)
-        .lean(),
+        // 5. Active learners - per-user, không cache
+        followingIds.length
+          ? User.find({
+              _id: { $in: followingIds.map((id) => toObjectId(id)), $ne: toObjectId(userId) },
+              statusOnline: "online",
+              deleted: { $ne: true },
+              status: "active",
+            })
+              .select("fullName username avatar statusOnline")
+              .limit(6)
+              .lean()
+          : [],
+      ]);
 
-      // 4. Câu hỏi cần hỗ trợ
-      Post.find({
-        postType: "question",
-        status: "active",
-        visibility: "public",
-        "question.isResolved": { $ne: true },
-      })
-        .populate("author", "fullName username avatar")
-        .sort({
-          commentsCount: 1,
-          createdAt: -1,
-        })
-        .limit(4)
-        .lean(),
-
-      // 5. Bạn học đang hoạt động
-      followingIds.length
-        ? User.find({
-            _id: {
-              $in: followingIds,
-              $ne: userId,
-            },
-            statusOnline: "online",
-            deleted: { $ne: true },
-            status: "active",
-          })
-            .select("fullName username avatar statusOnline")
-            .limit(5)
-            .lean()
-        : [],
-    ]);
-
-    const studyPartners = studyPartnerUsers.map((user) => ({
-      _id: user._id,
-      name: user.fullName,
-      username: user.username,
-      avatar: user.avatar,
-      role: user.bio || "Người học StudyConnect",
-      skills: extractSkillsFromText(user.bio || ""),
-      mutualFriends: user.mutualFriends || 0,
-      actionStatus: "none",
+    // Map response
+    const mappedPeopleToFollow = peopleToFollowRaw.map((u) => ({
+      _id: u._id,
+      fullName: u.fullName,
+      username: u.username,
+      avatar: u.avatar,
+      followersCount: u.followersCount || 0,
+      mutualCount: u.mutualCount || 0,
+      isPrivate: u.isPrivate || false,
     }));
 
-    const featuredProjects = featuredProjectPosts.map((post) => ({
-      _id: post._id,
-      title: post.project?.projectName || "Dự án chưa đặt tên",
-      desc: post.project?.summary || post.caption || "",
-      techs: post.project?.tools || [],
-      progress: post.project?.progress || 0,
-      status: post.project?.status || "in_progress",
-      likesCount: post.likesCount || 0,
-      commentsCount: post.commentsCount || 0,
-      author: {
-        _id: post.author?._id,
-        fullName: post.author?.fullName,
-        username: post.author?.username,
-        avatar: post.author?.avatar,
-      },
+    const mappedHotPosts = hotPosts.map((p) => ({
+      _id: p._id,
+      caption: p.caption || "",
+      hashtags: p.hashtags || [],
+      likesCount: p.likesCount || 0,
+      commentsCount: p.commentsCount || 0,
+      savesCount: p.savesCount || 0,
+      postType: p.postType || "normal",
+      thumbnail: p.media?.[0]?.url || null,
+      score: p.score || 0,
+      createdAt: p.createdAt,
+      author: p.author || null,
     }));
 
-    const openQuestions = openQuestionPosts.map((post) => ({
-      _id: post._id,
-      title: post.question?.title || post.caption || "Câu hỏi chưa có tiêu đề",
-      detail: post.question?.detail || "",
-      tag: post.hashtags?.[0] || post.category || "study",
-      answers: post.commentsCount || 0,
-      isResolved: post.question?.isResolved || false,
-      author: {
-        _id: post.author?._id,
-        fullName: post.author?.fullName,
-        username: post.author?.username,
-        avatar: post.author?.avatar,
-      },
+    const mappedQuiz = suggestedQuiz.map((p) => ({
+      _id: p._id,
+      caption: p.caption || "",
+      optionsCount: p.quiz?.options?.length || 0,
+      totalAnswers: p.totalAnswers || 0,
+      likesCount: p.likesCount || 0,
+      createdAt: p.createdAt,
+      author: p.author || null,
     }));
 
-    const activeLearners = activeLearnerUsers.map((user) => ({
-      _id: user._id,
-      name: user.fullName,
-      username: user.username,
-      avatar: user.avatar,
-      statusOnline: user.statusOnline,
+    const mappedActiveLearners = activeLearnerUsers.map((u) => ({
+      _id: u._id,
+      fullName: u.fullName,
+      username: u.username,
+      avatar: u.avatar,
+      statusOnline: u.statusOnline,
     }));
 
     return res.status(200).json({
       code: 200,
       message: "Lấy dữ liệu gợi ý thành công",
       data: {
-        studyPartners,
-        trendingTopics,
-        featuredProjects,
-        openQuestions,
-        activeLearners,
+        peopleToFollow: mappedPeopleToFollow,
+        trendingHashtags,
+        hotPosts: mappedHotPosts,
+        suggestedQuiz: mappedQuiz,
+        activeLearners: mappedActiveLearners,
       },
     });
   } catch (error) {
-    console.log("GET SUGGEST SUMMARY ERROR:", error);
-
+    console.error("GET SUGGEST SUMMARY ERROR:", error);
     return res.status(500).json({
       code: 500,
       message: "Lỗi server khi lấy dữ liệu gợi ý",

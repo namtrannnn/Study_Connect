@@ -122,22 +122,6 @@ export default function EditProfileModal({ isOpen, onClose, formData, onChange, 
                         </div>
                     </div>
 
-                    {/* Bio */}
-                    <div>
-                        <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-200">
-                            Tiểu sử
-                            <span className="text-xs font-normal text-gray-400">{(formData.bio || '').length}/150</span>
-                        </label>
-                        <textarea
-                            value={formData.bio}
-                            onChange={(e) => onChange('bio', e.target.value)}
-                            maxLength={150}
-                            rows={3}
-                            placeholder="Giới thiệu ngắn về bản thân..."
-                            className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
-                        />
-                    </div>
-
                     {/* Privacy Toggle */}
                     <div className="flex items-center justify-between rounded-2xl border border-gray-100 p-4 dark:border-white/10">
                         <div className="flex items-center gap-3">
