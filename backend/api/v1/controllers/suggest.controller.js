@@ -4,7 +4,13 @@ const User = require("../models/user.model");
 const Post = require("../models/post.model");
 const { redisClient } = require("../../../config/redis");
 
-const toObjectId = (id) => new mongoose.Types.ObjectId(id);
+const toObjectId = (id) => {
+  try {
+    return new mongoose.Types.ObjectId(id);
+  } catch (_) {
+    return null;
+  }
+};
 
 // TTL constants (seconds)
 const TTL_HOT_POSTS = 15 * 60;       // 15 phút
@@ -23,18 +29,21 @@ const emptySuggestData = () => ({
 async function withCache(key, ttl, queryFn) {
   try {
     const cached = await redisClient.get(key);
-    if (cached) return JSON.parse(cached);
-  } catch (_) {
-    // Redis lỗi thì bỏ qua, fallback query MongoDB
-  }
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Không dùng cache rỗng
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (_) {}
 
   const result = await queryFn();
 
   try {
-    await redisClient.setEx(key, ttl, JSON.stringify(result));
-  } catch (_) {
-    // Không cache được thì vẫn trả kết quả
-  }
+    // Chỉ cache nếu có data
+    if (Array.isArray(result) && result.length > 0) {
+      await redisClient.setEx(key, ttl, JSON.stringify(result));
+    }
+  } catch (_) {}
 
   return result;
 }
@@ -60,10 +69,15 @@ module.exports.getSuggestSummary = async (req, res) => {
 
     const excludedIds = [userId, ...followingIds, ...pendingIds]
       .filter(Boolean)
-      .map((id) => toObjectId(id));
+      .map((id) => toObjectId(id))
+      .filter(Boolean); // lọc null nếu convert thất bại
+
+    console.log("[Suggest] userId:", userId);
+    console.log("[Suggest] excludedIds count:", excludedIds.length);
+    console.log("[Suggest] followingIds count:", followingIds.length);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Chạy song song: cached queries + per-user queries
     const [hotPosts, trendingHashtags, suggestedQuiz, peopleToFollowRaw, activeLearnerUsers] =
@@ -75,7 +89,7 @@ module.exports.getSuggestSummary = async (req, res) => {
               $match: {
                 status: "active",
                 visibility: "public",
-                createdAt: { $gte: threeDaysAgo },
+                createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
               },
             },
             {
@@ -90,7 +104,7 @@ module.exports.getSuggestSummary = async (req, res) => {
               },
             },
             { $sort: { score: -1, createdAt: -1 } },
-            { $limit: 5 },
+            { $limit: 3 },
             {
               $lookup: {
                 from: "users",
@@ -102,7 +116,7 @@ module.exports.getSuggestSummary = async (req, res) => {
                 ],
               },
             },
-            { $unwind: { path: "$authorData", preserveNullAndEmpty: true } },
+            { $unwind: { path: "$authorData", preserveNullAndEmptyArrays: true } },
             {
               $project: {
                 caption: 1,
@@ -132,7 +146,7 @@ module.exports.getSuggestSummary = async (req, res) => {
               $match: {
                 status: "active",
                 visibility: "public",
-                createdAt: { $gte: sevenDaysAgo },
+                createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
                 hashtags: { $exists: true, $ne: [] },
               },
             },
@@ -150,7 +164,7 @@ module.exports.getSuggestSummary = async (req, res) => {
               },
             },
             { $sort: { count: -1 } },
-            { $limit: 8 },
+            { $limit: 5 },
             {
               $project: {
                 _id: 0,
@@ -193,7 +207,7 @@ module.exports.getSuggestSummary = async (req, res) => {
                 ],
               },
             },
-            { $unwind: { path: "$authorData", preserveNullAndEmpty: true } },
+            { $unwind: { path: "$authorData", preserveNullAndEmptyArrays: true } },
             {
               $project: {
                 caption: 1,
@@ -279,6 +293,8 @@ module.exports.getSuggestSummary = async (req, res) => {
               .lean()
           : [],
       ]);
+
+    console.log("[Suggest] peopleToFollowRaw count:", peopleToFollowRaw.length);
 
     // Map response
     const mappedPeopleToFollow = peopleToFollowRaw.map((u) => ({

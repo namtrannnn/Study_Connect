@@ -82,6 +82,23 @@ export const toggleLikePost = async (postId) => {
     return res.data;
 };
 
+// [POST] /api/v1/post/save/toggle/:postId
+export const toggleSavePost = async (postId) => {
+    const res = await httpRequest.post(`/post/save/toggle/${postId}`);
+    return res.data;
+};
+
+// [GET] /api/v1/post/save/all
+export const getAllSavedPosts = async ({ cursor, limit = 10 } = {}) => {
+    const res = await httpRequest.get('/post/save/all', { params: { cursor, limit } });
+    return res.data;
+};
+
+// [GET] /api/v1/post/save/liked
+export const getLikedPosts = async ({ cursor, limit = 10 } = {}) => {
+    const res = await httpRequest.get('/post/save/liked', { params: { cursor, limit } });
+    return res.data;
+};
 // [GET] /api/v1/post/likes/:postId?page=1&limit=10&search=
 export const getPostLikes = async ({ postId, page = 1, limit = 10, search = '' }) => {
     const res = await httpRequest.get(`/post/likes/${postId}`, {

@@ -8,9 +8,15 @@ const routerApiVer1 = require("./api/v1/routes/index");
 
 const http = require("http");
 const { Server } = require("socket.io");
-const { connectRedis } = require("./config/redis");
+const { connectRedis, redisClient } = require("./config/redis");
 db.connect();
-connectRedis();
+connectRedis().then(async () => {
+  // Xóa suggest cache cũ khi server khởi động
+  try {
+    await redisClient.del("suggest:hotPosts", "suggest:trendingHashtags", "suggest:suggestedQuiz");
+    console.log("Suggest cache cleared on startup");
+  } catch (_) {}
+});
 
 const app = express();
 const allowedOrigins = [

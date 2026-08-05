@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import {
     BadgeCheck,
@@ -106,7 +106,19 @@ function PeopleToFollow({ people = [] }) {
 
     return (
         <Card className="p-4">
-            <SectionTitle icon={Users} label="Gợi ý kết bạn" />
+            <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="text-[13px] font-bold text-gray-800 dark:text-white">Gợi ý kết bạn</span>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => navigate('/ban-be', { state: { tab: 'suggested' } })}
+                    className="text-[11px] font-semibold text-primary transition hover:text-blue-700 dark:hover:text-blue-300"
+                >
+                    Xem tất cả
+                </button>
+            </div>
             {people.length === 0 ? (
                 <EmptyHint text="Không có gợi ý nào" />
             ) : (
