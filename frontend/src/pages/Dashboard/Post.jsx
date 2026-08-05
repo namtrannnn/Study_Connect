@@ -32,8 +32,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import * as PostServices from '../../services/posts.services';
-import { joinPostCommentRoom, leavePostCommentRoom } from '../../sockets/postComment.socket';
+import * as PostServices from '../../services/posts.services';import { joinPostCommentRoom, leavePostCommentRoom } from '../../sockets/postComment.socket';
 
 import PostDetailModal from './PostDetailModal';
 import LikesModal from './LikesModal';
@@ -561,8 +560,9 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
     );
 }
 
-export default function Post({ post, currentUser, onLike, onComment, onEdit, onDelete }) {
+export default function Post({ post, currentUser, onLike, onComment, onEdit, onDelete, onSave }) {
     const [isLiked, setIsLiked] = useState(!!post?.isLiked);
+    const [isSaved, setIsSaved] = useState(!!post?.isSaved);
     const [localLikesCount, setLocalLikesCount] = useState(post?.likesCount ?? post?.likes ?? 0);
     const [openLikes, setOpenLikes] = useState(false);
     const [openDetail, setOpenDetail] = useState(false);
@@ -703,7 +703,19 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
         }
     };
 
-    const handleSavePost = () => toast('Đã lưu bài viết');
+    const handleSavePost = async () => {
+        const prevSaved = isSaved;
+        setIsSaved(!prevSaved);
+        try {
+            await PostServices.toggleSavePost(postId);
+            const next = !prevSaved;
+            toast(next ? 'Đã lưu bài viết' : 'Đã bỏ lưu bài viết');
+            onSave?.(next);
+        } catch {
+            setIsSaved(prevSaved);
+            toast.error('Không thể thực hiện thao tác này');
+        }
+    };
 
     const handleCopyLink = async () => {
         try {
@@ -873,8 +885,8 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                                         onClick={handleSavePost}
                                         className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
                                     >
-                                        <Bookmark className="h-4 w-4" />
-                                        Lưu bài viết
+                                        <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current text-primary' : ''}`} />
+                                        {isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết'}
                                     </DropdownMenuItem>
 
                                     <DropdownMenuItem
@@ -980,10 +992,14 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                     <button
                         type="button"
                         onClick={handleSavePost}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition ${
+                            isSaved
+                                ? 'bg-blue-50 text-primary dark:bg-primary/20 dark:text-blue-300'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15'
+                        }`}
                         aria-label="Save"
                     >
-                        <Bookmark className="h-4 w-4" />
+                        <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
                     </button>
                 </div>
             </div>

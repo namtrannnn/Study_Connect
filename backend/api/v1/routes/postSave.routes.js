@@ -59,4 +59,11 @@ router.patch(
   postSaveController.movePostToCollection,
 );
 
+// GET LIKED POSTS
+router.get(
+  "/liked",
+  userMiddleware.requireUser,
+  postSaveController.getLikedPosts,
+);
+
 module.exports = router;
