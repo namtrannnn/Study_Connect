@@ -17,6 +17,7 @@ import {
     FileText,
     Video,
     Bookmark,
+    Heart,
     Grid3x3,
     Film,
     ArrowLeft,
@@ -28,6 +29,7 @@ import UnfollowConfirmModal from '../../../components/UnfollowConfirmModal';
 import { LoadingProfile } from '../../../components/Loading';
 import * as ProfileServices from '../../../services/ProfileServices';
 import * as FriendServices from '../../../services/friend.services';
+import * as PostServices from '../../../services/posts.services';
 import httpRequest from '../../../config/axios';
 
 /* ────────────────────────── Main Component ────────────────────────── */
@@ -40,15 +42,26 @@ export default function ProfilePage() {
     const [profileData, setProfileData] = useState(null);
 
     // Posts & Tabs States
-    const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'videos' | 'saved'
+    const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'videos' | 'saved' | 'liked'
     const [posts, setPosts] = useState([]);
+
+    // Saved posts state
     const [savedPosts, setSavedPosts] = useState([]);
+    const [savedCursor, setSavedCursor] = useState(null);
+    const [hasMoreSaved, setHasMoreSaved] = useState(false);
+
+    // Liked posts state
+    const [likedPosts, setLikedPosts] = useState([]);
+    const [likedCursor, setLikedCursor] = useState(null);
+    const [hasMoreLiked, setHasMoreLiked] = useState(false);
+
     const [nextCursor, setNextCursor] = useState(null);
     const [hasMorePosts, setHasMorePosts] = useState(false);
 
     const [loading, setLoading] = useState(true);
     const [postLoading, setPostLoading] = useState(false);
     const [savedLoading, setSavedLoading] = useState(false);
+    const [likedLoading, setLikedLoading] = useState(false);
 
     // Modals & Action States
     const [error, setError] = useState('');
@@ -61,7 +74,6 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         fullName: '',
         username: '',
-        bio: '',
         isPrivate: false,
         avatar: '',
         avatarFile: null,
@@ -87,7 +99,15 @@ export default function ProfilePage() {
         if (currentProfileUserId) {
             loadUserPosts({ reset: true, targetUserId: currentProfileUserId });
             if (isOwnProfile) {
-                loadSavedPosts();
+                // Reset state trước khi load lại
+                setSavedPosts([]);
+                setSavedCursor(null);
+                setHasMoreSaved(false);
+                setLikedPosts([]);
+                setLikedCursor(null);
+                setHasMoreLiked(false);
+                loadSavedPosts({ reset: true });
+                loadLikedPosts({ reset: true });
             }
         }
     }, [currentProfileUserId]); // eslint-disable-line
@@ -98,9 +118,9 @@ export default function ProfilePage() {
         }
     }, [relation]);
 
-    const loadProfile = async () => {
+    const loadProfile = async ({ silent = false } = {}) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             setError('');
             const res = profileIdentifier
                 ? await ProfileServices.getProfileByUserId(profileIdentifier)
@@ -109,7 +129,7 @@ export default function ProfilePage() {
         } catch (err) {
             setError(err?.response?.data?.message || 'Không thể tải trang cá nhân');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -136,18 +156,41 @@ export default function ProfilePage() {
         }
     };
 
-    // Load Saved Posts for own profile
-    const loadSavedPosts = async () => {
+    // Load Saved Posts with pagination
+    const loadSavedPosts = async ({ reset = false } = {}) => {
         try {
             setSavedLoading(true);
-            const res = await httpRequest.get('/post/save/all');
-            if (res.data?.success && res.data?.data?.posts) {
-                setSavedPosts(res.data.data.posts.filter(Boolean));
+            const cursor = reset ? null : savedCursor;
+            const res = await PostServices.getAllSavedPosts({ cursor, limit: 10 });
+            if (res?.success) {
+                const newPosts = (res.data?.posts || []).filter(Boolean);
+                setSavedPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]));
+                setSavedCursor(res.nextCursor || null);
+                setHasMoreSaved(Boolean(res.hasMore));
             }
         } catch (err) {
             console.log('Load saved posts error:', err);
         } finally {
             setSavedLoading(false);
+        }
+    };
+
+    // Load Liked Posts with pagination
+    const loadLikedPosts = async ({ reset = false } = {}) => {
+        try {
+            setLikedLoading(true);
+            const cursor = reset ? null : likedCursor;
+            const res = await PostServices.getLikedPosts({ cursor, limit: 10 });
+            if (res?.success) {
+                const newPosts = (res.data?.posts || []).filter(Boolean);
+                setLikedPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]));
+                setLikedCursor(res.nextCursor || null);
+                setHasMoreLiked(Boolean(res.hasMore));
+            }
+        } catch (err) {
+            console.log('Load liked posts error:', err);
+        } finally {
+            setLikedLoading(false);
         }
     };
 
@@ -196,7 +239,7 @@ export default function ProfilePage() {
             }
             if (res?.data?.relationStatus) setRelationStatus(res.data.relationStatus);
             setShowUnfollowModal(false);
-            await loadProfile();
+            await loadProfile({ silent: true });
         } catch (err) {
             toast.error(err?.response?.data?.message || 'Lỗi thao tác theo dõi');
         } finally {
@@ -239,7 +282,6 @@ export default function ProfilePage() {
         setFormData({
             fullName: user.fullName || '',
             username: user.username || '',
-            bio: user.bio || '',
             isPrivate: !!user.isPrivate,
             avatar: user.avatar || '',
             avatarFile: null,
@@ -253,7 +295,6 @@ export default function ProfilePage() {
             const payload = new FormData();
             payload.append('fullName', formData.fullName);
             payload.append('username', formData.username);
-            payload.append('bio', formData.bio);
             payload.append('isPrivate', String(formData.isPrivate));
             if (formData.avatarFile) payload.append('avatar', formData.avatarFile);
 
@@ -275,6 +316,7 @@ export default function ProfilePage() {
     const handleDeletePost = (deletedPostId) => {
         setPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedPostId));
         setSavedPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedPostId));
+        setLikedPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedPostId));
     };
 
     const handleGoFollowers = () => {
@@ -365,7 +407,7 @@ export default function ProfilePage() {
                             )}
                         </div>
 
-                        {/* Name, Username & Bio on RIGHT */}
+                        {/* Name & Username on RIGHT */}
                         <div className="min-w-0 flex-1 pt-1">
                             <h1 className="text-xl font-extrabold leading-tight text-gray-900 dark:text-white sm:text-2xl">
                                 {user.fullName}
@@ -373,12 +415,6 @@ export default function ProfilePage() {
                             <p className="mt-0.5 text-sm font-semibold text-gray-500 dark:text-gray-400">
                                 @{user.username || 'username'}
                             </p>
-
-                            {user.bio && (
-                                <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-                                    {user.bio}
-                                </p>
-                            )}
 
                             {/* Meta items */}
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
@@ -521,7 +557,7 @@ export default function ProfilePage() {
                             }`}
                         >
                             <FileText className="h-4 w-4" />
-                            Bài viết ({posts.length})
+                            Bài viết
                         </button>
 
                         <button
@@ -534,7 +570,7 @@ export default function ProfilePage() {
                             }`}
                         >
                             <Video className="h-4 w-4" />
-                            Video ({videoPosts.length})
+                            Video
                         </button>
 
                         {isOwnProfile && (
@@ -548,7 +584,21 @@ export default function ProfilePage() {
                                 }`}
                             >
                                 <Bookmark className="h-4 w-4" />
-                                Đã lưu ({savedPosts.length})
+                                Đã lưu
+                            </button>
+                        )}
+                        {isOwnProfile && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('liked')}
+                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
+                                    activeTab === 'liked'
+                                        ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                }`}
+                            >
+                                <Heart className="h-4 w-4" />
+                                Đã thích
                             </button>
                         )}
                     </div>
@@ -625,7 +675,7 @@ export default function ProfilePage() {
                             ))}
                         </div>
                     )
-                ) : (
+                ) : activeTab === 'saved' ? (
                     /* Saved Tab */
                     savedLoading && savedPosts.length === 0 ? (
                         <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center text-sm font-medium text-gray-400 dark:border-white/10 dark:bg-[#18181b]">
@@ -638,16 +688,64 @@ export default function ProfilePage() {
                             description="Những bài viết bạn lưu lại để xem sau sẽ hiển thị ở đây."
                         />
                     ) : (
-                        <div className="space-y-4">
-                            {savedPosts.map((postItem) => (
-                                <Post
-                                    key={postItem._id || postItem.id}
-                                    post={postItem}
-                                    currentUser={currentUser}
-                                    onDelete={handleDeletePost}
-                                />
-                            ))}
+                        <InfiniteScroll
+                            dataLength={savedPosts.length}
+                            next={() => loadSavedPosts({ reset: false })}
+                            hasMore={hasMoreSaved}
+                            loader={
+                                <div className="py-4 text-center text-xs font-semibold text-gray-400">
+                                    Đang tải thêm...
+                                </div>
+                            }
+                            scrollableTarget="social-scroll-container"
+                        >
+                            <div className="space-y-4">
+                                {savedPosts.map((postItem) => (
+                                    <Post
+                                        key={postItem._id || postItem.id}
+                                        post={postItem}
+                                        currentUser={currentUser}
+                                        onDelete={handleDeletePost}
+                                    />
+                                ))}
+                            </div>
+                        </InfiniteScroll>
+                    )
+                ) : (
+                    /* Liked Tab */
+                    likedLoading && likedPosts.length === 0 ? (
+                        <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center text-sm font-medium text-gray-400 dark:border-white/10 dark:bg-[#18181b]">
+                            Đang tải bài viết đã thích...
                         </div>
+                    ) : likedPosts.length === 0 ? (
+                        <EmptyState
+                            icon={<Heart className="h-7 w-7" />}
+                            title="Chưa thích bài viết nào"
+                            description="Những bài viết bạn đã thích sẽ hiển thị ở đây."
+                        />
+                    ) : (
+                        <InfiniteScroll
+                            dataLength={likedPosts.length}
+                            next={() => loadLikedPosts({ reset: false })}
+                            hasMore={hasMoreLiked}
+                            loader={
+                                <div className="py-4 text-center text-xs font-semibold text-gray-400">
+                                    Đang tải thêm...
+                                </div>
+                            }
+                            scrollableTarget="social-scroll-container"
+                        >
+                            <div className="space-y-4">
+                                {likedPosts.map((postItem) => (
+                                    <Post
+                                        key={postItem._id || postItem.id}
+                                        post={postItem}
+                                        currentUser={currentUser}
+                                        onDelete={handleDeletePost}
+                                    />
+                                ))}
+                            </div>
+                        </InfiniteScroll>
                     )
                 )}
             </div>

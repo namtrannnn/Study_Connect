@@ -498,7 +498,7 @@ module.exports.getReceivedRequests = async (req, res) => {
       deleted: false,
     }).populate({
       path: "pendingFollowRequests",
-      select: "_id fullName username avatar isVerified bio",
+      select: "_id fullName username avatar isVerified",
       match: {
         status: "active",
         deleted: false,
@@ -524,7 +524,6 @@ module.exports.getReceivedRequests = async (req, res) => {
         username: user.username,
         avatar: user.avatar,
         isVerified: user.isVerified,
-        bio: user.bio,
       }));
 
     const hasMore = skip + requests.length < totalRequests;
@@ -567,7 +566,7 @@ module.exports.getFollowingList = async (req, res) => {
       deleted: false,
     }).populate({
       path: "following",
-      select: "_id fullName username avatar isVerified bio",
+      select: "_id fullName username avatar isVerified",
       match: {
         status: "active",
         deleted: false,
@@ -627,7 +626,7 @@ module.exports.getFollowersList = async (req, res) => {
       deleted: false,
     }).populate({
       path: "followers",
-      select: "_id fullName username avatar isVerified bio",
+      select: "_id fullName username avatar isVerified",
       match: {
         status: "active",
         deleted: false,
@@ -687,7 +686,7 @@ module.exports.getSuggestedUsers = async (req, res) => {
     const totalUsers = await User.countDocuments(filter);
 
     const suggestedUsers = await User.find(filter)
-      .select("_id fullName username avatar isVerified bio followersCount isPrivate")
+      .select("_id fullName username avatar isVerified followersCount isPrivate")
       .skip(skip)
       .limit(limit);
 
