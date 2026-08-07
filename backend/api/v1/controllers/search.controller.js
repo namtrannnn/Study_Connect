@@ -111,7 +111,6 @@ module.exports.globalSearch = async (req, res) => {
           { fullName: normalizedRegex },
           { username: normalizedRegex },
           { email: normalizedRegex },
-          { bio: normalizedRegex },
         ],
       };
 
@@ -119,7 +118,7 @@ module.exports.globalSearch = async (req, res) => {
 
       const foundUsers = await User.find(userFilter)
         .select(
-          "fullName username avatar isVerified bio followersCount followingCount pendingFollowRequests isPrivate",
+          "fullName username avatar isVerified followersCount followingCount pendingFollowRequests isPrivate",
         )
         .skip(skip)
         .limit(limit)
@@ -131,7 +130,6 @@ module.exports.globalSearch = async (req, res) => {
         username: targetUser.username,
         avatar: targetUser.avatar,
         isVerified: targetUser.isVerified,
-        bio: targetUser.bio || "",
         isPrivate: targetUser.isPrivate,
         relationStatus: getRelationStatus(viewer, targetUser),
       }));

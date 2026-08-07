@@ -268,13 +268,19 @@ export default function Slider({
             >
                 <div className="flex h-full flex-col">
                     <div className={`px-3 pb-4 pt-5 ${collapsed ? 'flex justify-center' : ''}`}>
-                        {/* {collapsed ? (
-                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl hover:bg-muted transition">
-                                <Instagram className="h-7 w-7" />
-                            </div>
+                        {collapsed ? (
+                            <img src="/nexus-logo.svg" alt="Nexus" className="h-11 w-11" />
                         ) : (
-                            <div className="px-3 py-2 text-2xl font-bold tracking-tight">Instagram</div>
-                        )} */}
+                            <div className="flex items-center gap-2.5 px-1 py-1">
+                                <img src="/nexus-logo.svg" alt="Nexus" className="h-11 w-11" />
+                                <span
+                                    className="text-[28px] tracking-wide text-gray-900 dark:text-white"
+                                    style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontWeight: 700 }}
+                                >
+                                    Nexus
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex-1 space-y-1 px-3 pt-2">{navItems.map((item) => renderItem(item))}</div>

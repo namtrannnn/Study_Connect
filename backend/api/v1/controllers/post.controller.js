@@ -1,6 +1,7 @@
 const Post = require("../models/post.model");
 const User = require("../models/user.model");
 const Like = require("../models/postLike.model");
+const PostSave = require("../models/postsave.model");
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { deleteMultipleFromCloudinary } = uploadStreamToCloudinary;
 const mongoose = require("mongoose");
@@ -739,16 +740,18 @@ module.exports.getFeedPosts = async (req, res) => {
 
     const postIds = finalPostsSlice.map((post) => post._id);
 
-    const likedPosts = await Like.find({
-      user: user._id,
-      post: { $in: postIds },
-    }).select("post");
+    const [likedPosts, savedPosts] = await Promise.all([
+      Like.find({ user: user._id, post: { $in: postIds } }).select("post"),
+      PostSave.find({ user: user._id, post: { $in: postIds } }).select("post"),
+    ]);
 
     const likedSet = new Set(likedPosts.map((item) => item.post.toString()));
+    const savedSet = new Set(savedPosts.map((item) => item.post.toString()));
 
     const finalPosts = finalPostsSlice.map((post) => ({
       ...post,
       isLiked: likedSet.has(post._id.toString()),
+      isSaved: savedSet.has(post._id.toString()),
     }));
 
     // 11. Trả kết quả
@@ -817,13 +820,14 @@ module.exports.detailPost = async (req, res) => {
       });
     }
 
-    const liked = await Like.exists({
-      post: post._id,
-      user: viewerId,
-    });
+    const [liked, saved] = await Promise.all([
+      Like.exists({ post: post._id, user: viewerId }),
+      PostSave.exists({ post: post._id, user: viewerId }),
+    ]);
 
     const postData = post.toObject();
     postData.isLiked = !!liked;
+    postData.isSaved = !!saved;
 
     return res.status(200).json({
       code: 200,
@@ -957,21 +961,24 @@ module.exports.getPostsByUser = async (req, res) => {
     const allPosts = [...pinnedPosts, ...normalPosts];
     const postIds = allPosts.map((p) => p._id);
 
-    const likedPosts = await Like.find({
-      user: viewerId,
-      post: { $in: postIds },
-    }).select("post");
+    const [likedPosts, savedPosts] = await Promise.all([
+      Like.find({ user: viewerId, post: { $in: postIds } }).select("post"),
+      PostSave.find({ user: viewerId, post: { $in: postIds } }).select("post"),
+    ]);
 
     const likedSet = new Set(likedPosts.map((i) => i.post.toString()));
+    const savedSet = new Set(savedPosts.map((i) => i.post.toString()));
 
     const pinnedPostsWithLike = pinnedPosts.map((post) => ({
       ...post.toObject(),
       isLiked: likedSet.has(post._id.toString()),
+      isSaved: savedSet.has(post._id.toString()),
     }));
 
     const normalPostsWithLike = normalPosts.map((post) => ({
       ...post.toObject(),
       isLiked: likedSet.has(post._id.toString()),
+      isSaved: savedSet.has(post._id.toString()),
     }));
 
     return res.status(200).json({
@@ -1005,16 +1012,18 @@ module.exports.getMyPosts = async (req, res) => {
       .sort({ createdAt: -1 });
     const postIds = posts.map((p) => p._id);
 
-    const likedPosts = await Like.find({
-      user: user._id,
-      post: { $in: postIds },
-    }).select("post");
+    const [likedPosts, savedPosts] = await Promise.all([
+      Like.find({ user: user._id, post: { $in: postIds } }).select("post"),
+      PostSave.find({ user: user._id, post: { $in: postIds } }).select("post"),
+    ]);
 
     const likedSet = new Set(likedPosts.map((i) => i.post.toString()));
+    const savedSet = new Set(savedPosts.map((i) => i.post.toString()));
 
     const finalPosts = posts.map((post) => ({
       ...post.toObject(),
       isLiked: likedSet.has(post._id.toString()),
+      isSaved: savedSet.has(post._id.toString()),
     }));
     return res.status(200).json({
       code: 200,

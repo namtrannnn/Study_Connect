@@ -1,0 +1,65 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shadow -->
+  <ellipse cx="60" cy="113" rx="26" ry="5" fill="#00000018"/>
+
+  <!-- Body -->
+  <ellipse cx="60" cy="76" rx="28" ry="32" fill="#1E293B"/>
+
+  <!-- Belly -->
+  <ellipse cx="60" cy="80" rx="17" ry="22" fill="#F0F9FF"/>
+
+  <!-- Head -->
+  <circle cx="60" cy="38" r="23" fill="#1E293B"/>
+
+  <!-- Face patch -->
+  <ellipse cx="60" cy="40" rx="14" ry="16" fill="#F0F9FF"/>
+
+  <!-- Left eye white -->
+  <circle cx="51" cy="33" r="5" fill="white"/>
+  <!-- Left pupil -->
+  <circle cx="51" cy="33" r="3" fill="#0F172A"/>
+  <!-- Left shine -->
+  <circle cx="52.2" cy="31.8" r="1.1" fill="white"/>
+
+  <!-- Right eye white -->
+  <circle cx="69" cy="33" r="5" fill="white"/>
+  <!-- Right pupil -->
+  <circle cx="69" cy="33" r="3" fill="#0F172A"/>
+  <!-- Right shine -->
+  <circle cx="70.2" cy="31.8" r="1.1" fill="white"/>
+
+  <!-- Blush left -->
+  <ellipse cx="45" cy="40" rx="5" ry="3" fill="#FCA5A5" opacity="0.55"/>
+  <!-- Blush right -->
+  <ellipse cx="75" cy="40" rx="5" ry="3" fill="#FCA5A5" opacity="0.55"/>
+
+  <!-- Beak upper -->
+  <ellipse cx="60" cy="47" rx="6" ry="3" fill="#F97316"/>
+  <!-- Beak lower -->
+  <ellipse cx="60" cy="50" rx="5" ry="2.5" fill="#EA580C"/>
+
+  <!-- Left wing -->
+  <ellipse cx="29" cy="76" rx="9" ry="21" fill="#1E293B" transform="rotate(-8 29 76)"/>
+
+  <!-- Right wing -->
+  <ellipse cx="91" cy="76" rx="9" ry="21" fill="#1E293B" transform="rotate(8 91 76)"/>
+
+  <!-- Scarf body -->
+  <rect x="34" y="56" width="52" height="10" rx="5" fill="#3B82F6"/>
+  <!-- Scarf tail -->
+  <rect x="34" y="56" width="10" height="18" rx="4" fill="#2563EB"/>
+  <!-- Scarf stripe -->
+  <rect x="34" y="61" width="52" height="3" rx="1.5" fill="#60A5FA" opacity="0.5"/>
+
+  <!-- Left foot -->
+  <ellipse cx="47" cy="108" rx="11" ry="4.5" fill="#F97316"/>
+  <!-- Left toes -->
+  <ellipse cx="38" cy="109" rx="5" ry="3" fill="#F97316"/>
+  <ellipse cx="56" cy="109" rx="5" ry="3" fill="#F97316"/>
+
+  <!-- Right foot -->
+  <ellipse cx="73" cy="108" rx="11" ry="4.5" fill="#F97316"/>
+  <!-- Right toes -->
+  <ellipse cx="64" cy="109" rx="5" ry="3" fill="#F97316"/>
+  <ellipse cx="82" cy="109" rx="5" ry="3" fill="#F97316"/>
+</svg>

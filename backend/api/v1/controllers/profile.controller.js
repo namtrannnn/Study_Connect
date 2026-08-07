@@ -2,8 +2,9 @@ const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const Post = require("../models/post.model");
 const Like = require("../models/postLike.model");
+const PostSave = require("../models/postsave.model");
 const userSelect =
-  "_id fullName username avatar bio isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
+  "_id fullName username avatar isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
 
@@ -317,19 +318,20 @@ module.exports.getUserPostFeed = async (req, res) => {
 
     const postIds = visiblePosts.map((post) => post._id);
 
-    const likedPosts = await Like.find({
-      user: viewerId,
-      post: { $in: postIds },
-    }).select("post");
+    const [likedPosts, savedPosts] = await Promise.all([
+      Like.find({ user: viewerId, post: { $in: postIds } }).select("post"),
+      PostSave.find({ user: viewerId, post: { $in: postIds } }).select("post"),
+    ]);
 
     const likedSet = new Set(likedPosts.map((item) => item.post.toString()));
+    const savedSet = new Set(savedPosts.map((item) => item.post.toString()));
 
     const data = visiblePosts.map((post) => {
       const obj = post.toObject();
-
       return {
         ...obj,
         isLiked: likedSet.has(post._id.toString()),
+        isSaved: savedSet.has(post._id.toString()),
       };
     });
 
@@ -356,7 +358,7 @@ module.exports.getUserPostFeed = async (req, res) => {
 // [PATCH] /api/v1/profile/update
 module.exports.updateProfile = async (req, res) => {
   try {
-    const allowFields = ["fullName", "username", "bio", "isPrivate"];
+    const allowFields = ["fullName", "username", "isPrivate"];
     const updateData = {};
 
     allowFields.forEach((field) => {

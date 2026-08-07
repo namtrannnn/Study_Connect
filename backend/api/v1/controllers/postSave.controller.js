@@ -1,6 +1,7 @@
 const PostSave = require("../models/postsave.model");
 const Post = require("../models/post.model");
 const Collection = require("../models/collection.model");
+const PostLike = require("../models/postLike.model");
 
 exports.getSavedOverview = async (req, res) => {
   try {
@@ -201,38 +202,40 @@ exports.getPostsByCollection = async (req, res) => {
 exports.getAllSavedPosts = async (req, res) => {
   try {
     const userId = req.user.id;
+    const limit = Math.min(Number(req.query.limit) || 10, 20);
+    const cursor = req.query.cursor;
 
-    const saves = await PostSave.find({
-      user: userId,
-    })
+    const filter = { user: userId };
+    if (cursor) {
+      filter.createdAt = { $lt: new Date(cursor) };
+    }
+
+    const saves = await PostSave.find(filter)
       .populate({
         path: "post",
-        populate: {
-          path: "author",
-          select: "username avatar",
-        },
+        populate: { path: "author", select: "fullName username avatar isVerified" },
       })
       .sort({ createdAt: -1 })
+      .limit(limit + 1)
       .lean();
 
-    const posts = saves.map((item) => item.post);
+    const hasMore = saves.length > limit;
+    const items = hasMore ? saves.slice(0, limit) : saves;
+    const posts = items.map((item) => {
+      if (!item.post) return null;
+      const p = item.post;
+      return { ...p, isSaved: true };
+    }).filter(Boolean);
 
     return res.json({
       success: true,
-      data: {
-        collection: {
-          _id: null,
-          name: "All posts",
-        },
-        posts,
-      },
+      data: { posts },
+      nextCursor: items.length > 0 ? items[items.length - 1].createdAt : null,
+      hasMore,
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -364,5 +367,43 @@ exports.movePostToCollection = async (req, res) => {
       success: false,
       message: "Server error",
     });
+  }
+};
+
+exports.getLikedPosts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = Math.min(Number(req.query.limit) || 10, 20);
+    const cursor = req.query.cursor;
+
+    const filter = { user: userId };
+    if (cursor) {
+      filter.createdAt = { $lt: new Date(cursor) };
+    }
+
+    const likes = await PostLike.find(filter)
+      .populate({
+        path: "post",
+        populate: { path: "author", select: "fullName username avatar isVerified" },
+      })
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
+      .lean();
+
+    const hasMore = likes.length > limit;
+    const items = hasMore ? likes.slice(0, limit) : likes;
+    const posts = items
+      .map((item) => (item.post ? { ...item.post, isLiked: true, isSaved: false } : null))
+      .filter(Boolean);
+
+    return res.json({
+      success: true,
+      data: { posts },
+      nextCursor: items.length > 0 ? items[items.length - 1].createdAt : null,
+      hasMore,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };

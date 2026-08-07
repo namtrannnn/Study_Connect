@@ -1,89 +1,47 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
-import { Button } from '../../../components/ui/button';
 import {
-    BookOpen,
-    Code2,
+    BadgeCheck,
+    Brain,
     Flame,
-    GraduationCap,
-    HelpCircle,
-    Lightbulb,
-    MessageCircleQuestion,
-    Rocket,
+    Hash,
+    Heart,
+    MessageCircle,
     TrendingUp,
     UserPlus,
     Users,
     Zap,
+    GraduationCap,
 } from 'lucide-react';
-
 import { getSuggestSummary } from '../../../services/suggest.services';
 import { followUser } from '../../../services/friend.services';
 import { toast } from 'react-toastify';
 
-const topicIcons = {
-    react: Code2,
-    reactjs: Code2,
-    node: Zap,
-    nodejs: Zap,
-    ai: Lightbulb,
-    technology: Code2,
-    education: GraduationCap,
-    science: Lightbulb,
-};
-
-function SectionCard({ children, className = '' }) {
-    return (
-        <div
-            className={`rounded-3xl border border-blue-100/80 bg-white/90 p-4 shadow-brand-soft backdrop-blur-xl transition dark:border-white/10 dark:bg-[#20232b]/90 ${className}`}
-        >
-            {children}
-        </div>
-    );
-}
-
-function SectionHeader({ icon: Icon, title, action }) {
-    return (
-        <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-brand-50 text-primary dark:bg-white/10 dark:text-brand-300">
-                    <Icon className="h-4 w-4" />
-                </div>
-                <h3 className="text-sm font-bold text-gray-800 dark:text-white">{title}</h3>
-            </div>
-
-            {action && (
-                <button
-                    type="button"
-                    className="text-xs font-semibold text-primary transition hover:text-brand-700 dark:text-brand-300"
-                >
-                    {action}
-                </button>
-            )}
-        </div>
-    );
-}
-
-function EmptyText({ children = 'Chưa có dữ liệu' }) {
-    return (
-        <div className="rounded-2xl bg-gray-50 px-3 py-4 text-center text-xs font-medium text-gray-400 dark:bg-white/5 dark:text-gray-500">
-            {children}
-        </div>
-    );
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+function SkeletonLine({ className = '' }) {
+    return <div className={`animate-pulse rounded-full bg-gray-200 dark:bg-white/8 ${className}`} />;
 }
 
 function SuggestSkeleton() {
     return (
-        <div className="space-y-4 pb-6">
-            {[1, 2, 3, 4].map((item) => (
+        <div className="space-y-3 pb-6">
+            {[80, 60, 90, 70].map((w, i) => (
                 <div
-                    key={item}
-                    className="rounded-3xl border border-blue-100/80 bg-white/90 p-4 shadow-brand-soft dark:border-white/10 dark:bg-[#20232b]/90"
+                    key={i}
+                    className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-white/8 dark:bg-[#1c1f27]"
                 >
-                    <div className="mb-4 h-5 w-32 animate-pulse rounded-full bg-gray-200 dark:bg-white/10" />
+                    <SkeletonLine className="mb-4 h-4 w-28" />
                     <div className="space-y-3">
-                        <div className="h-10 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/10" />
-                        <div className="h-10 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/10" />
-                        <div className="h-10 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/10" />
+                        {[1, 2, 3].map((j) => (
+                            <div key={j} className="flex items-center gap-3">
+                                <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-white/8" />
+                                <div className="flex-1 space-y-1.5">
+                                    <SkeletonLine className={`h-3 w-[${w}%]`} />
+                                    <SkeletonLine className="h-2.5 w-3/4" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             ))}
@@ -91,322 +49,405 @@ function SuggestSkeleton() {
     );
 }
 
+// ─── Shared UI ───────────────────────────────────────────────────────────────
+function Card({ children, className = '' }) {
+    return (
+        <div
+            className={`rounded-2xl border border-gray-100 bg-white dark:border-white/8 dark:bg-[#1c1f27] ${className}`}
+        >
+            {children}
+        </div>
+    );
+}
+
+function SectionTitle({ icon: Icon, label, color = 'text-primary' }) {
+    return (
+        <div className="mb-3 flex items-center gap-2">
+            <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+            <span className="text-[13px] font-bold text-gray-800 dark:text-white">{label}</span>
+        </div>
+    );
+}
+
+function EmptyHint({ text = 'Chưa có dữ liệu' }) {
+    return (
+        <p className="rounded-xl bg-gray-50 py-3 text-center text-xs text-gray-400 dark:bg-white/5 dark:text-gray-500">
+            {text}
+        </p>
+    );
+}
+
+function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'Vừa xong';
+    if (m < 60) return `${m} phút trước`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} giờ trước`;
+    return `${Math.floor(h / 24)} ngày trước`;
+}
+
+// ─── People to follow ────────────────────────────────────────────────────────
+function PeopleToFollow({ people = [] }) {
+    const navigate = useNavigate();
+    const [followed, setFollowed] = useState({});
+
+    const handleFollow = async (user) => {
+        if (followed[user._id]) return;
+        try {
+            await followUser(user._id);
+            setFollowed((prev) => ({ ...prev, [user._id]: true }));
+            toast.success(`Đã theo dõi ${user.fullName}`);
+        } catch {
+            toast.error('Không thể theo dõi');
+        }
+    };
+
+    return (
+        <Card className="p-4">
+            <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="text-[13px] font-bold text-gray-800 dark:text-white">Gợi ý kết bạn</span>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => navigate('/ban-be', { state: { tab: 'suggested' } })}
+                    className="text-[11px] font-semibold text-primary transition hover:text-blue-700 dark:hover:text-blue-300"
+                >
+                    Xem tất cả
+                </button>
+            </div>
+            {people.length === 0 ? (
+                <EmptyHint text="Không có gợi ý nào" />
+            ) : (
+                <div className="space-y-1">
+                    {people.map((user) => (
+                        <div
+                            key={user._id}
+                            className="group flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-gray-50 dark:hover:bg-white/5"
+                        >
+                            {/* Avatar */}
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/profile/${user.username}`)}
+                                className="shrink-0"
+                            >
+                                <Avatar className="h-10 w-10 ring-2 ring-gray-100 dark:ring-white/10">
+                                    <AvatarImage src={user.avatar} />
+                                    <AvatarFallback className="text-sm font-bold">
+                                        {user.fullName?.charAt(0) || 'U'}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </button>
+
+                            {/* Info */}
+                            <div className="min-w-0 flex-1">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/profile/${user.username}`)}
+                                    className="block"
+                                >
+                                    <div className="flex items-center gap-1">
+                                        <span className="truncate text-sm font-semibold text-gray-900 group-hover:text-primary dark:text-white dark:group-hover:text-primary">
+                                            {user.fullName}
+                                        </span>
+                                        {user.followersCount > 100 && (
+                                            <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                        )}
+                                    </div>
+                                    <div className="truncate text-xs text-gray-400 dark:text-gray-500">
+                                        {user.mutualCount > 0
+                                            ? `${user.mutualCount} bạn chung`
+                                            : `@${user.username}`}
+                                    </div>
+                                </button>
+                            </div>
+
+                            {/* Follow button */}
+                            <button
+                                type="button"
+                                onClick={() => handleFollow(user)}
+                                disabled={!!followed[user._id]}
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition ${
+                                    followed[user._id]
+                                        ? 'bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500'
+                                        : 'bg-primary/10 text-primary hover:bg-primary hover:text-white dark:bg-primary/20 dark:hover:bg-primary'
+                                }`}
+                            >
+                                <UserPlus className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Card>
+    );
+}
+
+// ─── Trending Hashtags ───────────────────────────────────────────────────────
+function TrendingHashtags({ hashtags = [] }) {
+    const maxCount = hashtags[0]?.count || 1;
+
+    return (
+        <Card className="p-4">
+            <SectionTitle icon={TrendingUp} label="Đang thịnh hành" color="text-orange-500" />
+            {hashtags.length === 0 ? (
+                <EmptyHint text="Chưa có hashtag nổi bật" />
+            ) : (
+                <div className="space-y-2">
+                    {hashtags.map((tag, i) => {
+                        const pct = Math.round((tag.count / maxCount) * 100);
+                        return (
+                            <button
+                                key={tag.name}
+                                type="button"
+                                className="group w-full text-left"
+                            >
+                                <div className="flex items-center justify-between text-xs mb-1">
+                                    <div className="flex items-center gap-1.5">
+                                        {i === 0 && <Flame className="h-3.5 w-3.5 text-orange-500" />}
+                                        {i !== 0 && <Hash className="h-3.5 w-3.5 text-gray-400" />}
+                                        <span className="font-semibold text-gray-800 group-hover:text-primary dark:text-gray-200 dark:group-hover:text-primary transition">
+                                            #{tag.name}
+                                        </span>
+                                    </div>
+                                    <span className="text-gray-400 dark:text-gray-500">{tag.count} bài</span>
+                                </div>
+                                <div className="h-1 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/8">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${
+                                            i === 0
+                                                ? 'bg-orange-400'
+                                                : 'bg-primary/50'
+                                        }`}
+                                        style={{ width: `${pct}%` }}
+                                    />
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </Card>
+    );
+}
+
+// ─── Hot Posts ───────────────────────────────────────────────────────────────
+function HotPosts({ posts = [] }) {
+    const navigate = useNavigate();
+
+    return (
+        <Card className="p-4">
+            <SectionTitle icon={Flame} label="Bài viết nổi bật" color="text-rose-500" />
+            {posts.length === 0 ? (
+                <EmptyHint text="Chưa có bài viết nổi bật" />
+            ) : (
+                <div className="space-y-3">
+                    {posts.map((post) => (
+                        <button
+                            key={post._id}
+                            type="button"
+                            onClick={() => navigate(`/posts/${post._id}`)}
+                            className="group w-full rounded-xl p-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/5"
+                        >
+                            <div className="flex gap-3">
+                                {/* Thumbnail */}
+                                <div className="relative shrink-0">
+                                    {post.thumbnail ? (
+                                        <img
+                                            src={post.thumbnail}
+                                            alt=""
+                                            className="h-14 w-14 rounded-xl object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 dark:from-primary/30 dark:to-primary/10">
+                                            <Flame className="h-6 w-6 text-primary/60" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="min-w-0 flex-1">
+                                    {/* Author */}
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <Avatar className="h-4 w-4">
+                                            <AvatarImage src={post.author?.avatar} />
+                                            <AvatarFallback className="text-[8px]">
+                                                {post.author?.fullName?.charAt(0)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                                            {post.author?.fullName}
+                                        </span>
+                                        <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                            {timeAgo(post.createdAt)}
+                                        </span>
+                                    </div>
+
+                                    {/* Caption */}
+                                    <p className="line-clamp-2 text-xs font-medium leading-4 text-gray-700 group-hover:text-primary dark:text-gray-300 dark:group-hover:text-primary transition">
+                                        {post.caption || 'Bài viết không có nội dung'}
+                                    </p>
+
+                                    {/* Stats */}
+                                    <div className="mt-1.5 flex items-center gap-3">
+                                        <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                            <Heart className="h-3 w-3" />
+                                            {post.likesCount || 0}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                            <MessageCircle className="h-3 w-3" />
+                                            {post.commentsCount || 0}
+                                        </span>
+                                        {post.hashtags?.slice(0, 1).map((tag) => (
+                                            <span
+                                                key={tag}
+                                                className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary dark:bg-primary/15"
+                                            >
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </Card>
+    );
+}
+
+// ─── Suggested Quiz ──────────────────────────────────────────────────────────
+function SuggestedQuiz({ quizzes = [] }) {
+    const navigate = useNavigate();
+
+    return (
+        <Card className="p-4">
+            <SectionTitle icon={Brain} label="Quiz nổi bật" color="text-violet-500" />
+            {quizzes.length === 0 ? (
+                <EmptyHint text="Chưa có quiz nào" />
+            ) : (
+                <div className="space-y-2">
+                    {quizzes.map((quiz) => (
+                        <button
+                            key={quiz._id}
+                            type="button"
+                            onClick={() => navigate(`/posts/${quiz._id}`)}
+                            className="group flex w-full items-start gap-3 rounded-xl p-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/5"
+                        >
+                            {/* Icon */}
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-500/10">
+                                <Zap className="h-5 w-5 text-violet-500" />
+                            </div>
+
+                            {/* Info */}
+                            <div className="min-w-0 flex-1">
+                                <p className="line-clamp-2 text-xs font-semibold leading-4 text-gray-800 group-hover:text-violet-600 dark:text-gray-200 dark:group-hover:text-violet-400 transition">
+                                    {quiz.caption || 'Quiz không có tiêu đề'}
+                                </p>
+                                <div className="mt-1 flex items-center gap-2">
+                                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+                                        {quiz.optionsCount} lựa chọn
+                                    </span>
+                                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                                        {quiz.totalAnswers} lượt làm
+                                    </span>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </Card>
+    );
+}
+
+// ─── Active Learners ─────────────────────────────────────────────────────────
+function ActiveLearners({ learners = [] }) {
+    const navigate = useNavigate();
+
+    if (learners.length === 0) return null;
+
+    return (
+        <Card className="p-4">
+            <SectionTitle icon={GraduationCap} label="Đang online" color="text-emerald-500" />
+            <div className="flex flex-wrap gap-3">
+                {learners.map((user) => (
+                    <button
+                        key={user._id}
+                        type="button"
+                        onClick={() => navigate(`/profile/${user.username}`)}
+                        className="group flex flex-col items-center gap-1"
+                        title={user.fullName}
+                    >
+                        <div className="relative">
+                            <Avatar className="h-11 w-11 ring-2 ring-white dark:ring-[#1c1f27]">
+                                <AvatarImage src={user.avatar} />
+                                <AvatarFallback className="text-sm font-bold">
+                                    {user.fullName?.charAt(0) || 'U'}
+                                </AvatarFallback>
+                            </Avatar>
+                            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1c1f27]" />
+                        </div>
+                        <span className="max-w-[52px] truncate text-[10px] text-gray-500 group-hover:text-primary dark:text-gray-400 transition">
+                            {user.fullName?.split(' ').pop()}
+                        </span>
+                    </button>
+                ))}
+            </div>
+        </Card>
+    );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 export default function Suggest() {
-    const [suggestData, setSuggestData] = useState({
-        studyPartners: [],
-        trendingTopics: [],
-        featuredProjects: [],
-        openQuestions: [],
+    const [data, setData] = useState({
+        peopleToFollow: [],
+        trendingHashtags: [],
+        hotPosts: [],
+        suggestedQuiz: [],
         activeLearners: [],
     });
-
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchSuggest = async () => {
-            try {
-                setLoading(true);
-
-                const res = await getSuggestSummary();
-
-                setSuggestData({
-                    studyPartners: res?.data?.studyPartners || [],
-                    trendingTopics: res?.data?.trendingTopics || [],
-                    featuredProjects: res?.data?.featuredProjects || [],
-                    openQuestions: res?.data?.openQuestions || [],
-                    activeLearners: res?.data?.activeLearners || [],
-                });
-            } catch (error) {
-                console.log('Fetch suggest error:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchSuggest();
+        getSuggestSummary()
+            .then((res) => {
+                if (res?.data) setData(res.data);
+            })
+            .catch(() => {})
+            .finally(() => setLoading(false));
     }, []);
 
-    const { studyPartners, trendingTopics, featuredProjects, openQuestions, activeLearners } = suggestData;
+    if (loading) return <SuggestSkeleton />;
 
-    if (loading) {
-        return <SuggestSkeleton />;
-    }
+    const { peopleToFollow, trendingHashtags, hotPosts, suggestedQuiz, activeLearners } = data;
 
     return (
-        <div className="space-y-4 pb-6">
-            {/* Intro StudyConnect */}
-            <div className="relative overflow-hidden rounded-[28px] bg-brand-gradient p-4 text-white shadow-brand">
-                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
-                <div className="absolute -bottom-10 -left-10 h-28 w-28 rounded-full bg-cyan-300/30 blur-2xl" />
+        <div className="space-y-3 pb-6">
+            {/* Active Learners - compact row */}
+            <ActiveLearners learners={activeLearners} />
 
-                <div className="relative">
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
-                        <Rocket className="h-5 w-5" />
-                    </div>
+            {/* People to follow */}
+            <PeopleToFollow people={peopleToFollow} />
 
-                    <h2 className="text-base font-bold">StudyConnect Hub</h2>
-                    <p className="mt-1 text-xs leading-5 text-white/85">
-                        Kết nối bạn học, chia sẻ dự án và tìm câu trả lời nhanh hơn.
-                    </p>
+            {/* Trending hashtags */}
+            <TrendingHashtags hashtags={trendingHashtags} />
 
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                        <div className="rounded-2xl bg-white/15 p-2 text-center backdrop-blur">
-                            <div className="text-sm font-bold">{studyPartners.length}</div>
-                            <div className="text-[10px] text-white/75">Bạn học</div>
-                        </div>
+            {/* Hot posts */}
+            <HotPosts posts={hotPosts} />
 
-                        <div className="rounded-2xl bg-white/15 p-2 text-center backdrop-blur">
-                            <div className="text-sm font-bold">{featuredProjects.length}</div>
-                            <div className="text-[10px] text-white/75">Dự án</div>
-                        </div>
+            {/* Suggested quiz */}
+            <SuggestedQuiz quizzes={suggestedQuiz} />
 
-                        <div className="rounded-2xl bg-white/15 p-2 text-center backdrop-blur">
-                            <div className="text-sm font-bold">{openQuestions.length}</div>
-                            <div className="text-[10px] text-white/75">Câu hỏi</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Suggested Study Partners */}
-            <SectionCard>
-                <SectionHeader icon={Users} title="Gợi ý học cùng" action="Xem tất cả" />
-
-                {studyPartners.length === 0 ? (
-                    <EmptyText>Chưa có gợi ý học cùng</EmptyText>
-                ) : (
-                    <div className="space-y-3">
-                        {studyPartners.map((user) => (
-                            <div
-                                key={user._id}
-                                className="group flex items-center gap-3 rounded-2xl p-2 transition hover:bg-brand-50 dark:hover:bg-white/5"
-                            >
-                                <Avatar className="h-11 w-11 cursor-pointer ring-2 ring-blue-100 dark:ring-white/10">
-                                    <AvatarImage src={user.avatar} />
-                                    <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
-                                </Avatar>
-
-                                <div className="min-w-0 flex-1">
-                                    <div className="cursor-pointer truncate text-sm font-bold text-gray-800 group-hover:text-primary dark:text-white">
-                                        {user.name}
-                                    </div>
-
-                                    <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {user.role || 'Người học StudyConnect'}
-                                    </div>
-
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                        {(user.skills || []).slice(0, 2).map((skill) => (
-                                            <span
-                                                key={skill}
-                                                className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-primary dark:bg-white/10 dark:text-brand-300"
-                                            >
-                                                {skill}
-                                            </span>
-                                        ))}
-
-                                        {(!user.skills || user.skills.length === 0) && (
-                                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-primary dark:bg-white/10 dark:text-brand-300">
-                                                Study
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <Button
-                                    size="sm"
-                                    className="h-9 w-9 shrink-0 rounded-2xl bg-primary p-0 text-white shadow-brand-soft hover:bg-brand-700"
-                                    onClick={async () => {
-                                        try {
-                                            await followUser(user._id);
-                                            toast.success(`Đã theo dõi ${user.name}`);
-                                        } catch (e) {
-                                            toast.error('Không thể theo dõi');
-                                        }
-                                    }}
-                                >
-                                    <UserPlus className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </SectionCard>
-
-            {/* Trending Topics */}
-            <SectionCard>
-                <SectionHeader icon={TrendingUp} title="Chủ đề nổi bật" action="Khám phá" />
-
-                {trendingTopics.length === 0 ? (
-                    <EmptyText>Chưa có chủ đề nổi bật</EmptyText>
-                ) : (
-                    <div className="space-y-2">
-                        {trendingTopics.map((topic, index) => {
-                            const key = String(topic.name || '').toLowerCase();
-                            const Icon = topicIcons[key] || TrendingUp;
-
-                            return (
-                                <button
-                                    key={topic.name}
-                                    type="button"
-                                    className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-brand-50 dark:hover:bg-white/5"
-                                >
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-50 to-accent-50 text-primary dark:from-white/10 dark:to-white/5 dark:text-brand-300">
-                                        <Icon className="h-4 w-4" />
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate text-sm font-bold text-gray-800 dark:text-white">
-                                            #{topic.name}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                            {topic.posts || 0} bài viết
-                                        </div>
-                                    </div>
-
-                                    {index === 0 && (
-                                        <span className="flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 text-[10px] font-bold text-orange-500 dark:bg-orange-500/10">
-                                            <Flame className="h-3 w-3" />
-                                            Hot
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </SectionCard>
-
-            {/* Featured Projects */}
-            <SectionCard>
-                <SectionHeader icon={Rocket} title="Dự án nổi bật" action="Xem thêm" />
-
-                {featuredProjects.length === 0 ? (
-                    <EmptyText>Chưa có dự án nổi bật</EmptyText>
-                ) : (
-                    <div className="space-y-3">
-                        {featuredProjects.map((project) => (
-                            <div
-                                key={project._id}
-                                className="rounded-3xl border border-blue-100 bg-brand-gradient-soft p-3 transition hover:-translate-y-0.5 hover:shadow-brand-soft dark:border-white/10 dark:bg-none dark:bg-white/5"
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-white shadow-brand-soft">
-                                        <BookOpen className="h-5 w-5" />
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        <h4 className="truncate text-sm font-bold text-gray-900 dark:text-white">
-                                            {project.title}
-                                        </h4>
-                                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                                            {project.desc}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="mt-3 flex flex-wrap gap-1">
-                                    {(project.techs || []).slice(0, 4).map((tech) => (
-                                        <span
-                                            key={tech}
-                                            className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-primary shadow-sm dark:bg-white/10 dark:text-brand-300"
-                                        >
-                                            {tech}
-                                        </span>
-                                    ))}
-                                </div>
-
-                                <div className="mt-3">
-                                    <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-                                        <span>Tiến độ</span>
-                                        <span>{project.progress || 0}%</span>
-                                    </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-blue-100 dark:bg-white/10">
-                                        <div
-                                            className="h-full rounded-full bg-brand-gradient"
-                                            style={{ width: `${project.progress || 0}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </SectionCard>
-
-            {/* Open Questions */}
-            <SectionCard>
-                <SectionHeader icon={MessageCircleQuestion} title="Câu hỏi cần hỗ trợ" action="Trả lời" />
-
-                {openQuestions.length === 0 ? (
-                    <EmptyText>Chưa có câu hỏi cần hỗ trợ</EmptyText>
-                ) : (
-                    <div className="space-y-2">
-                        {openQuestions.map((question) => (
-                            <button
-                                key={question._id}
-                                type="button"
-                                className="w-full rounded-2xl border border-transparent p-3 text-left transition hover:border-blue-100 hover:bg-brand-50 dark:hover:border-white/10 dark:hover:bg-white/5"
-                            >
-                                <div className="flex gap-3">
-                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-accent-50 text-accent-700 dark:bg-cyan-400/10 dark:text-cyan-300">
-                                        <HelpCircle className="h-4 w-4" />
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        <h4 className="line-clamp-2 text-sm font-bold leading-5 text-gray-800 dark:text-white">
-                                            {question.title}
-                                        </h4>
-
-                                        <div className="mt-2 flex items-center justify-between">
-                                            <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-primary dark:bg-white/10 dark:text-brand-300">
-                                                {question.tag}
-                                            </span>
-                                            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-                                                {question.answers || 0} trả lời
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </SectionCard>
-
-            {/* Active Learners */}
-            <SectionCard>
-                <SectionHeader icon={GraduationCap} title="Bạn học đang hoạt động" />
-
-                {activeLearners.length === 0 ? (
-                    <EmptyText>Chưa có bạn học nào online</EmptyText>
-                ) : (
-                    <div className="space-y-1">
-                        {activeLearners.map((user) => (
-                            <button
-                                key={user._id}
-                                type="button"
-                                className="flex w-full items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-brand-50 dark:hover:bg-white/5"
-                            >
-                                <div className="relative">
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarImage src={user.avatar} />
-                                        <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
-                                    </Avatar>
-                                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500 dark:border-[#20232b]" />
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                    <div className="truncate text-sm font-bold text-gray-800 dark:text-white">
-                                        {user.name}
-                                    </div>
-                                    <div className="text-xs text-green-500">Đang học online</div>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </SectionCard>
+            {/* Footer */}
+            <p className="px-2 text-center text-[11px] text-gray-300 dark:text-gray-600">
+                StudyConnect · {new Date().getFullYear()}
+            </p>
         </div>
     );
 }
