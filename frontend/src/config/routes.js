@@ -22,7 +22,13 @@ export const routes = {
     search: '/search',
 
     // admin
+    admin_root: '/admin',
     admin: '/admin/dashboard',
     admin_users: '/admin/users',
     admin_posts: '/admin/posts',
+    admin_comments: '/admin/comments',
+    admin_reports: '/admin/reports',
+    admin_hashtags: '/admin/hashtags',
+    admin_analytics: '/admin/analytics',
+    admin_logs: '/admin/logs',
 };

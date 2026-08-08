@@ -1,7 +1,7 @@
-import LayoutAdmin from "../../layout/Admin";
+import { Navigate } from 'react-router-dom';
 
 function Admin() {
-  return <LayoutAdmin />;
+  return <Navigate to="/admin/dashboard" replace />;
 }
 
 export default Admin;

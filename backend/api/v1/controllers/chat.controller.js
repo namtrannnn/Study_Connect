@@ -64,19 +64,22 @@ module.exports.getMessagesByRoom = async (req, res) => {
 
     const lastMessage = orderedMessages[orderedMessages.length - 1];
 
-    await RoomChat.updateOne(
-      {
-        _id: roomId,
-        "users.user_id": userId,
-      },
-      {
-        $set: {
-          "users.$.lastReadMessage": lastMessage?._id || null,
-          "users.$.lastReadAt": new Date(),
-          "users.$.unreadCount": 0,
+    if (lastMessage && lastMessage._id) {
+      await RoomChat.updateOne(
+        {
+          _id: roomId,
+          "users.user_id": userId,
         },
-      },
-    );
+        {
+          $set: {
+            "users.$.lastReadMessage": lastMessage._id,
+            "users.$.lastReadAt": new Date(),
+            "users.$.unreadCount": 0,
+          },
+        },
+      ).catch((err) => console.log("RoomChat.updateOne read error:", err));
+    }
+
     return res.status(200).json({
       code: 200,
       message: "Lấy tin nhắn thành công",
@@ -90,7 +93,8 @@ module.exports.getMessagesByRoom = async (req, res) => {
   } catch (error) {
     console.error("getMessagesByRoom error:", error);
     return res.status(500).json({
-      message: "FAILED!",
+      code: 500,
+      message: error.message || "Không thể lấy danh sách tin nhắn",
     });
   }
 };

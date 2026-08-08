@@ -12,7 +12,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 import {
@@ -49,6 +49,7 @@ import NewChatModal from './components/NewChatModal';
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
     const onlineUsers = useSelector((state) => state.presence?.onlineUsers || []);
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const roomIdFromUrl = searchParams.get('roomId');
 
@@ -163,15 +164,23 @@ function Messenger() {
         };
     }, [selectedRoom, otherUser, onlineUsers, currentUser?._id]);
 
+    const hasRealMessage = (room) => Boolean(room?.lastMessage && (room.lastMessage.message_id || room.lastMessage._id));
+
     const filteredRooms = useMemo(() => {
+        const selectedId = selectedRoomId;
+        const activeRooms = rooms.filter(
+            (room) => hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId,
+        );
+
         const kw = searchKeyword.trim().toLowerCase();
-        if (!kw) return rooms;
-        return rooms.filter((room) => {
+        if (!kw) return activeRooms;
+
+        return activeRooms.filter((room) => {
             if (room.typeRoom === 'group') return (room.title || '').toLowerCase().includes(kw);
             const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id)?.user;
             return (friend?.fullName || '').toLowerCase().includes(kw);
         });
-    }, [rooms, searchKeyword, currentUser?._id]);
+    }, [rooms, searchKeyword, selectedRoomId, currentUser?._id]);
 
     function getRoomDisplay(room) {
         if (room.typeRoom === 'group') {
@@ -213,9 +222,8 @@ function Messenger() {
     }
 
     function getLastMessageText(room, display) {
+        if (!hasRealMessage(room)) return display.sub || 'Bắt đầu trò chuyện';
         const lm = room.lastMessage;
-
-        if (!lm) return display.sub || 'Bắt đầu trò chuyện';
 
         if (lm.type === 'system') {
             return lm.content || 'Tin nhắn hệ thống';
@@ -242,7 +250,8 @@ function Messenger() {
     }
 
     function getLastMessageTime(room) {
-        const timeValue = room.lastMessage?.createdAt || room.updatedAt;
+        if (!hasRealMessage(room)) return '';
+        const timeValue = room.lastMessage.createdAt;
         if (!timeValue) return '';
 
         const date = new Date(timeValue);
@@ -523,17 +532,19 @@ function Messenger() {
         setOpenRoomMenuId(null);
 
         setRooms((prev) =>
-            prev.map((r) =>
-                getRoomId(r) !== roomId
-                    ? r
-                    : {
-                          ...r,
-                          currentUserRoomState: {
-                              ...(r.currentUserRoomState || {}),
-                              unreadCount: 0,
+            prev
+                .filter((r) => hasRealMessage(r) || r.typeRoom === 'group' || getRoomId(r) === roomId)
+                .map((r) =>
+                    getRoomId(r) !== roomId
+                        ? r
+                        : {
+                              ...r,
+                              currentUserRoomState: {
+                                  ...(r.currentUserRoomState || {}),
+                                  unreadCount: 0,
+                              },
                           },
-                      },
-            ),
+                ),
         );
 
         markRoomAsRead(room);
@@ -625,8 +636,10 @@ function Messenger() {
     };
     const markRoomAsRead = async (room) => {
         const roomId = getRoomId(room);
-
         if (!roomId) return;
+
+        // Don't call markAsRead for rooms with no real messages
+        if (!hasRealMessage(room)) return;
 
         const lastMessageId = room?.lastMessage?.message_id || room?.lastMessage?._id;
 
@@ -659,9 +672,11 @@ function Messenger() {
             const data = await getOrCreateFriendRoom(userId);
             const room = data?._id ? data : data?.data || data;
             if (!room?._id) return;
+            setShowNewChat(false);
             setRooms((prev) => {
-                const exists = prev.some((r) => getRoomId(r) === room._id);
-                return exists ? prev.map((r) => (getRoomId(r) === room._id ? { ...r, ...room } : r)) : [room, ...prev];
+                const cleaned = prev.filter((r) => hasRealMessage(r) || r.typeRoom === 'group' || getRoomId(r) === room._id);
+                const exists = cleaned.some((r) => getRoomId(r) === room._id);
+                return exists ? cleaned.map((r) => (getRoomId(r) === room._id ? { ...r, ...room } : r)) : [room, ...cleaned];
             });
             setSelectedRoom(room);
             setHasAutoSelected(true);
@@ -674,12 +689,14 @@ function Messenger() {
 
     const handleDeleteRoomFromSidebar = async (e, roomId) => {
         e.stopPropagation();
+        setOpenRoomMenuId(null);
         try {
             await roomChatApi.deleteForMe(roomId);
             handleLeaveOrDelete(roomId);
             toast.success('Đã xóa đoạn chat');
-        } catch {
-            toast.error('Xóa thất bại');
+        } catch (err) {
+            console.log('deleteRoom error:', err);
+            toast.error(err?.response?.data?.message || 'Xóa thất bại');
         }
     };
     const shouldShowTimeDivider = (currentMessage, previousMessage) => {
@@ -720,10 +737,10 @@ function Messenger() {
     };
     const handleViewProfileFromSidebar = (e, room) => {
         e.stopPropagation();
+        setOpenRoomMenuId(null);
 
         if (room.typeRoom === 'group') {
             toast.info('Nhóm chat chưa có trang cá nhân');
-            setOpenRoomMenuId(null);
             return;
         }
 
@@ -731,11 +748,10 @@ function Messenger() {
 
         if (!friend?._id) {
             toast.error('Không tìm thấy người dùng');
-            setOpenRoomMenuId(null);
             return;
         }
 
-        window.location.href = `/profile/${friend._id}`;
+        navigate(`/profile/${friend.username || friend._id}`);
     };
     return (
         <div className="h-full overflow-hidden bg-[#f4f7fb] p-3 text-gray-900 dark:bg-[#0f1117] dark:text-white">
@@ -753,7 +769,7 @@ function Messenger() {
                         <div className="flex items-center justify-between gap-2">
                             <div>
                                 <h1 className="text-xl font-bold">Tin nhắn</h1>
-                                <p className="text-xs text-gray-400">{rooms.length} đoạn chat</p>
+                                <p className="text-xs text-gray-400">{filteredRooms.length} đoạn chat</p>
                             </div>
                             <div className="flex gap-1">
                                 <button
