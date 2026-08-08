@@ -1,32 +1,41 @@
-//config
 import config from '../config';
-import Error from '../pages/Error';
-import ProtectedRoute from '../components/ProtectedRoute';
 
+// pages
 import Home from '../pages/Home';
+
+import DashboardPage from '../pages/Dashboard';
+import PostPage from '../pages/Post';
+
 import Login from '../pages/Auth/login';
 import Register from '../pages/Auth/register';
-
-// [LAYOUT]
-import StudyConnectLayout from '../layout/StudyConnectLayout';
-
-// dashboard
-import DashboardPage from '../pages/Dashboard';
-
-// messenger
-import MessengerLayout from '../layout/Messenger/MessengerLayout';
-import Messenger from '../pages/Messenger/Messenger';
 
 // friend
 import Friends from '../pages/Friends/FriendsPage';
 
+// chat
+import Messenger from '../pages/Messenger/Messenger';
+
 // user
 import ProfilePage from '../pages/User/ProfilePage';
 
-// admin
+// Layout
+import StudyConnectLayout from '../layout/StudyConnectLayout';
+import MessengerLayout from '../layout/Messenger/MessengerLayout';
+
+// Protection
+import ProtectedRoute from '../components/ProtectedRoute';
+
+import Error from '../pages/Error';
+
+// admin pages
 import AdminDashboard from '../pages/Admin/Dashboard/dashboard.admin';
 import AdminUsers from '../pages/Admin/Users/users.admin';
 import AdminPosts from '../pages/Admin/Post/posts.admin';
+import AdminComments from '../pages/Admin/Comments/comments.admin';
+import AdminReports from '../pages/Admin/Reports/reports.admin';
+import AdminHashtags from '../pages/Admin/Hashtags/hashtags.admin';
+import AdminAnalytics from '../pages/Admin/Analytics/analytics.admin';
+import AdminLogs from '../pages/Admin/Logs/logs.admin';
 
 const publicRoute = [
     { path: config.routes.home, component: Home, layout: null },
@@ -80,9 +89,15 @@ const publicRoute = [
 ];
 
 const privateRoute = [
+    { path: config.routes.admin_root, component: AdminDashboard },
     { path: config.routes.admin, component: AdminDashboard },
     { path: config.routes.admin_users, component: AdminUsers },
     { path: config.routes.admin_posts, component: AdminPosts },
+    { path: config.routes.admin_comments, component: AdminComments },
+    { path: config.routes.admin_reports, component: AdminReports },
+    { path: config.routes.admin_hashtags, component: AdminHashtags },
+    { path: config.routes.admin_analytics, component: AdminAnalytics },
+    { path: config.routes.admin_logs, component: AdminLogs },
 ];
 
 export { publicRoute, privateRoute };
