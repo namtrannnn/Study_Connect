@@ -20,6 +20,13 @@ router.post(
   controller.getOrCreateFriend,
 );
 
+// POST /api/v1/room-chat/create-private/:userId  (alias dùng từ ProfilePage)
+router.post(
+  "/create-private/:userId",
+  userMiddleware.requireUser,
+  controller.createPrivateFromProfile,
+);
+
 // PATCH /api/v1/room-chat/:roomId/mute
 router.patch("/:roomId/mute", userMiddleware.requireUser, controller.muteRoom);
 

@@ -1,8 +1,8 @@
 import httpRequest from '../config/axios';
 
-export const getListFriendChat = async (query) => {
+export const getListFriendChat = async () => {
     try {
-        const res = await httpRequest.get('/chat');
+        const res = await httpRequest.get('/room-chat');
         return res.data;
     } catch (error) {}
 };

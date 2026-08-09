@@ -1,21 +1,56 @@
 import { useEffect, useState } from 'react';
 import { X, Search, Loader2 } from 'lucide-react';
 import { getMyFriends } from '../../../services/friendServices';
+import { searchStudyConnect } from '../../../services/SearchServices';
+import useDebounce from '../../../hooks/useDebounce';
 import Avatar from './Avatar';
 
 function NewChatModal({ onClose, onSelect, loading }) {
-    const [friends, setFriends] = useState([]);
+    const [initialUsers, setInitialUsers] = useState([]);
+    const [searchResults, setSearchResults] = useState([]);
     const [fetching, setFetching] = useState(true);
     const [search, setSearch] = useState('');
+    const debouncedSearch = useDebounce(search.trim(), 350);
 
+    // Initial load: fetch friends/following users
     useEffect(() => {
         getMyFriends()
-            .then((res) => setFriends(res?.data?.friends || res?.data || []))
+            .then((res) => setInitialUsers(res?.data?.friends || res?.data || []))
             .catch(() => {})
             .finally(() => setFetching(false));
     }, []);
 
-    const filtered = friends.filter((f) => (f.fullName || '').toLowerCase().includes(search.toLowerCase()));
+    // Search globally across all users when searching
+    useEffect(() => {
+        if (!debouncedSearch) {
+            setSearchResults([]);
+            return;
+        }
+
+        let isMounted = true;
+        setFetching(true);
+
+        searchStudyConnect({ keyword: debouncedSearch, type: 'users', limit: 15 })
+            .then((res) => {
+                if (isMounted) {
+                    setSearchResults(res?.data?.users || []);
+                }
+            })
+            .catch(() => {
+                if (isMounted) setSearchResults([]);
+            })
+            .finally(() => {
+                if (isMounted) setFetching(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [debouncedSearch]);
+
+    const displayList = debouncedSearch
+        ? searchResults
+        : initialUsers.filter((f) => (f.fullName || '').toLowerCase().includes(search.toLowerCase()));
 
     return (
         <div
@@ -41,7 +76,7 @@ function NewChatModal({ onClose, onSelect, loading }) {
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Tìm bạn bè..."
+                        placeholder="Tìm tên, @username bất kỳ..."
                         className="h-10 w-full rounded-2xl border border-blue-100 bg-blue-50/60 pl-9 pr-4 text-sm outline-none focus:border-primary dark:border-white/10 dark:bg-white/5"
                     />
                 </div>
@@ -50,10 +85,10 @@ function NewChatModal({ onClose, onSelect, loading }) {
                         <div className="flex justify-center py-6">
                             <Loader2 className="h-5 w-5 animate-spin text-primary" />
                         </div>
-                    ) : filtered.length === 0 ? (
-                        <p className="py-4 text-center text-sm text-gray-400">Không tìm thấy bạn bè</p>
+                    ) : displayList.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-gray-400">Không tìm thấy người dùng</p>
                     ) : (
-                        filtered.map((f) => (
+                        displayList.map((f) => (
                             <button
                                 key={f._id}
                                 type="button"
