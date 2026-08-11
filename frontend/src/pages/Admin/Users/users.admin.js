@@ -11,10 +11,19 @@ import {
     ChevronRight,
     UserCheck,
     UserX,
+    Eye,
+    X,
+    Mail,
+    Calendar,
+    FileText,
+    Users as UsersIcon,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getAdminUsers, updateUserStatus, updateUserRole, softDeleteAdminUser } from '../../../services/adminServices';
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
+import useDebounce from '../../../hooks/useDebounce';
+
+import ConfirmModal from '../../../components/ConfirmModal';
 
 function UsersAdmin() {
     const { isDark } = useAdminTheme();
@@ -25,12 +34,17 @@ function UsersAdmin() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
     const [actionLoadingId, setActionLoadingId] = useState('');
+    const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false });
+
+    // Apply existing useDebounce hook
+    const debouncedKeyword = useDebounce(keyword.trim(), 400);
 
     const fetchUsers = async (page = 1) => {
         try {
             setLoading(true);
             const res = await getAdminUsers({
-                keyword,
+                keyword: debouncedKeyword,
                 status: statusFilter,
                 role: roleFilter,
                 page,
@@ -51,66 +65,103 @@ function UsersAdmin() {
     };
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchUsers(1);
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [keyword, statusFilter, roleFilter]);
+        fetchUsers(1);
+    }, [debouncedKeyword, statusFilter, roleFilter]);
 
-    const handleToggleStatus = async (user) => {
-        const newStatus = user.status === 'blocked' ? 'active' : 'blocked';
-        const confirmMsg = newStatus === 'blocked' ? `Bạn có chắc muốn KHÓA tài khoản ${user.fullName}?` : `MỞ KHÓA tài khoản ${user.fullName}?`;
-        if (!window.confirm(confirmMsg)) return;
+    const handleToggleStatus = (user) => {
+        const isBlocking = user.status !== 'blocked';
+        const newStatus = isBlocking ? 'blocked' : 'active';
 
-        try {
-            setActionLoadingId(user._id);
-            const res = await updateUserStatus(user._id, newStatus);
-            if (res?.code === 200) {
-                toast.success(res.message);
-                setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, status: newStatus } : u)));
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
-        } finally {
-            setActionLoadingId('');
-        }
+        setConfirmModal({
+            isOpen: true,
+            title: isBlocking ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
+            message: isBlocking
+                ? `Bạn có chắc chắn muốn KHÓA tài khoản "${user.fullName}" (@${user.username})? Người dùng này sẽ không thể đăng nhập.`
+                : `MỞ KHÓA tài khoản "${user.fullName}" (@${user.username})?`,
+            confirmText: isBlocking ? 'Khóa ngay' : 'Mở khóa',
+            type: isBlocking ? 'danger' : 'info',
+            onConfirm: async () => {
+                try {
+                    setActionLoadingId(user._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await updateUserStatus(user._id, newStatus);
+                    if (res?.code === 200) {
+                        toast.success(res.message);
+                        setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, status: newStatus } : u)));
+                        if (selectedUserDetail?._id === user._id) {
+                            setSelectedUserDetail((prev) => (prev ? { ...prev, status: newStatus } : null));
+                        }
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+                } finally {
+                    setActionLoadingId('');
+                }
+            },
+        });
     };
 
-    const handleToggleRole = async (user) => {
-        const newRole = user.role === 'admin' ? 'user' : 'admin';
-        const confirmMsg = newRole === 'admin' ? `Cấp quyền ADMIN cho ${user.fullName}?` : `Hạ quyền xuống USER cho ${user.fullName}?`;
-        if (!window.confirm(confirmMsg)) return;
+    const handleToggleRole = (user) => {
+        const isPromoting = user.role !== 'admin';
+        const newRole = isPromoting ? 'admin' : 'user';
 
-        try {
-            setActionLoadingId(user._id);
-            const res = await updateUserRole(user._id, newRole);
-            if (res?.code === 200) {
-                toast.success(res.message);
-                setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
-        } finally {
-            setActionLoadingId('');
-        }
+        setConfirmModal({
+            isOpen: true,
+            title: isPromoting ? 'Cấp quyền Admin' : 'Hạ quyền xuống Member',
+            message: isPromoting
+                ? `Cấp quyền ADMIN cho tài khoản "${user.fullName}" (@${user.username})? người này sẽ có full quyền quản trị.`
+                : `Hạ quyền xuống MEMBER cho tài khoản "${user.fullName}"?`,
+            confirmText: isPromoting ? 'Cấp quyền Admin' : 'Hạ quyền',
+            type: 'warning',
+            onConfirm: async () => {
+                try {
+                    setActionLoadingId(user._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await updateUserRole(user._id, newRole);
+                    if (res?.code === 200) {
+                        toast.success(res.message);
+                        setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
+                        if (selectedUserDetail?._id === user._id) {
+                            setSelectedUserDetail((prev) => (prev ? { ...prev, role: newRole } : null));
+                        }
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+                } finally {
+                    setActionLoadingId('');
+                }
+            },
+        });
     };
 
-    const handleDeleteUser = async (user) => {
-        if (!window.confirm(`Xóa mềm tài khoản ${user.fullName}?`)) return;
-
-        try {
-            setActionLoadingId(user._id);
-            const res = await softDeleteAdminUser(user._id);
-            if (res?.code === 200) {
-                toast.success(res.message);
-                setUsers((prev) => prev.filter((u) => u._id !== user._id));
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Không thể xóa tài khoản');
-        } finally {
-            setActionLoadingId('');
-        }
+    const handleDeleteUser = (user) => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Xóa mềm tài khoản',
+            message: `Xóa mềm tài khoản "${user.fullName}" (@${user.username}) khỏi hệ thống?`,
+            confirmText: 'Xóa mềm',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    setActionLoadingId(user._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await softDeleteAdminUser(user._id);
+                    if (res?.code === 200) {
+                        toast.success(res.message);
+                        setUsers((prev) => prev.filter((u) => u._id !== user._id));
+                        if (selectedUserDetail?._id === user._id) {
+                            setSelectedUserDetail(null);
+                        }
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Không thể xóa tài khoản');
+                } finally {
+                    setActionLoadingId('');
+                }
+            },
+        });
     };
+
 
     return (
         <div className="space-y-6">
@@ -120,7 +171,7 @@ function UsersAdmin() {
                     isDark ? 'border-white/10 bg-[#0f172a]/80' : 'border-slate-200 bg-white shadow-sm'
                 }`}
             >
-                {/* Search Bar */}
+                {/* Search Bar with useDebounce */}
                 <div className="relative min-w-[280px] flex-1 max-w-md">
                     <Search className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${isDark ? 'text-gray-400' : 'text-slate-400'}`} />
                     <input
@@ -195,6 +246,7 @@ function UsersAdmin() {
                                 <th className="px-6 py-4">Người dùng</th>
                                 <th className="px-6 py-4">Email</th>
                                 <th className="px-6 py-4">Followers</th>
+                                <th className="px-6 py-4">Bài viết</th>
                                 <th className="px-6 py-4">Vai trò</th>
                                 <th className="px-6 py-4">Trạng thái</th>
                                 <th className="px-6 py-4">Ngày tham gia</th>
@@ -204,14 +256,14 @@ function UsersAdmin() {
                         <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="py-12 text-center text-gray-400">
+                                    <td colSpan="8" className="py-12 text-center text-gray-400">
                                         <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-500" />
                                         <p className="mt-2 font-medium">Đang tải danh sách người dùng...</p>
                                     </td>
                                 </tr>
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="py-12 text-center text-gray-400">
+                                    <td colSpan="8" className="py-12 text-center text-gray-400">
                                         Không tìm thấy người dùng nào phù hợp.
                                     </td>
                                 </tr>
@@ -222,7 +274,11 @@ function UsersAdmin() {
                                     const isProcessing = actionLoadingId === u._id;
 
                                     return (
-                                        <tr key={u._id} className={`transition ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}>
+                                        <tr
+                                            key={u._id}
+                                            onClick={() => setSelectedUserDetail(u)}
+                                            className={`cursor-pointer transition ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}
+                                        >
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <img
@@ -241,6 +297,10 @@ function UsersAdmin() {
 
                                             <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                                                 <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{u.followers?.length || 0}</span> followers
+                                            </td>
+
+                                            <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                                                <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{u.postCount || 0}</span> bài
                                             </td>
 
                                             <td className="px-6 py-4">
@@ -277,10 +337,25 @@ function UsersAdmin() {
                                                 {isProcessing ? (
                                                     <Loader2 className="ml-auto h-5 w-5 animate-spin text-indigo-500" />
                                                 ) : (
-                                                    <div className="flex items-center justify-end gap-1.5">
+                                                    <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleToggleRole(u)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedUserDetail(u);
+                                                            }}
+                                                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500 transition hover:bg-indigo-500/20"
+                                                            title="Xem chi tiết"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleRole(u);
+                                                            }}
                                                             className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 transition hover:bg-amber-500/20"
                                                             title={isAdmin ? 'Hạ quyền xuống User' : 'Nâng quyền Admin'}
                                                         >
@@ -289,7 +364,10 @@ function UsersAdmin() {
 
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleToggleStatus(u)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleStatus(u);
+                                                            }}
                                                             className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
                                                                 isBlocked
                                                                     ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
@@ -302,7 +380,10 @@ function UsersAdmin() {
 
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleDeleteUser(u)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteUser(u);
+                                                            }}
                                                             className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/10 text-red-500 transition hover:bg-red-500/20"
                                                             title="Xóa mềm"
                                                         >
@@ -347,8 +428,145 @@ function UsersAdmin() {
                     </div>
                 )}
             </div>
+
+            {/* USER DETAIL MODAL */}
+            {selectedUserDetail && (
+                <div
+                    onClick={() => setSelectedUserDetail(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in"
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`relative w-full max-w-lg overflow-hidden rounded-3xl border p-6 shadow-2xl space-y-6 ${isDark ? 'border-white/10 bg-[#0f172a] text-white' : 'border-slate-200 bg-white text-slate-900'}`}
+                    >
+
+                        {/* Header & Close */}
+                        <div className="flex items-center justify-between border-b pb-4 border-white/10">
+                            <div className="flex items-center gap-2 font-bold text-sm text-indigo-500">
+                                <Shield className="h-4 w-4" /> Chi tiết Người dùng
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedUserDetail(null)}
+                                className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${isDark ? 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {/* User Profile Overview Card */}
+                        <div className="flex items-center gap-4">
+                            <img
+                                src={selectedUserDetail.avatar || 'https://via.placeholder.com/150'}
+                                alt="Avatar"
+                                className="h-16 w-16 shrink-0 rounded-3xl object-cover ring-2 ring-indigo-500/50 shadow-lg"
+                            />
+                            <div className="min-w-0 flex-1">
+                                <h3 className="text-base font-extrabold truncate">{selectedUserDetail.fullName}</h3>
+                                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>@{selectedUserDetail.username || 'user'}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <span
+                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                                            selectedUserDetail.role === 'admin'
+                                                ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                                                : 'bg-indigo-500/20 text-indigo-500 border border-indigo-500/30'
+                                        }`}
+                                    >
+                                        <Shield className="h-3 w-3" />
+                                        {selectedUserDetail.role === 'admin' ? 'Administrator' : 'Member'}
+                                    </span>
+
+                                    <span
+                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                                            selectedUserDetail.status === 'blocked'
+                                                ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30'
+                                                : 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
+                                        }`}
+                                    >
+                                        {selectedUserDetail.status === 'blocked' ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                                        {selectedUserDetail.status === 'blocked' ? 'Đã bị khóa' : 'Hoạt động'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Detailed Metrics Grid */}
+                        <div className="grid grid-cols-3 gap-3 text-center">
+                            <div className={`rounded-2xl border p-3 ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                <div className="text-lg font-extrabold text-indigo-500">{selectedUserDetail.postCount || 0}</div>
+                                <div className={`text-[11px] font-medium flex items-center justify-center gap-1 mt-0.5 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                                    <FileText className="h-3 w-3" /> Bài viết
+                                </div>
+                            </div>
+                            <div className={`rounded-2xl border p-3 ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                <div className="text-lg font-extrabold text-indigo-500">{selectedUserDetail.followers?.length || 0}</div>
+                                <div className={`text-[11px] font-medium flex items-center justify-center gap-1 mt-0.5 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                                    <UsersIcon className="h-3 w-3" /> Followers
+                                </div>
+                            </div>
+                            <div className={`rounded-2xl border p-3 ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                <div className="text-lg font-extrabold text-indigo-500">{selectedUserDetail.following?.length || 0}</div>
+                                <div className={`text-[11px] font-medium flex items-center justify-center gap-1 mt-0.5 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                                    <UsersIcon className="h-3 w-3" /> Following
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Additional Information */}
+                        <div className={`rounded-2xl border p-4 space-y-2 text-xs ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                            <div className="flex items-center gap-2">
+                                <Mail className={`h-4 w-4 ${isDark ? 'text-gray-400' : 'text-slate-400'}`} />
+                                <span className={`font-semibold ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>Email:</span>
+                                <span className="font-bold text-indigo-400">{selectedUserDetail.email}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Calendar className={`h-4 w-4 ${isDark ? 'text-gray-400' : 'text-slate-400'}`} />
+                                <span className={`font-semibold ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>Ngày tham gia:</span>
+                                <span>{new Date(selectedUserDetail.createdAt).toLocaleString('vi-VN')}</span>
+                            </div>
+                        </div>
+
+                        {/* Quick Actions Footer */}
+                        <div className={`flex flex-wrap items-center justify-end gap-2 border-t pt-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                            <button
+                                type="button"
+                                onClick={() => handleToggleRole(selectedUserDetail)}
+                                className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-500 transition hover:bg-amber-500/20"
+                            >
+                                <ShieldCheck className="h-4 w-4" />
+                                {selectedUserDetail.role === 'admin' ? 'Hạ xuống User' : 'Nâng Admin'}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handleToggleStatus(selectedUserDetail)}
+                                className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
+                                    selectedUserDetail.status === 'blocked'
+                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                                        : 'border-rose-500/30 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
+                                }`}
+                            >
+                                {selectedUserDetail.status === 'blocked' ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                {selectedUserDetail.status === 'blocked' ? 'Mở khóa' : 'Khóa tài khoản'}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteUser(selectedUserDetail)}
+                                className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-bold text-red-500 transition hover:bg-red-500/20"
+                            >
+                                <Trash2 className="h-4 w-4" /> Xóa mềm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CONFIRMATION MODAL */}
+            <ConfirmModal {...confirmModal} onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))} />
         </div>
     );
 }
+
 
 export default UsersAdmin;

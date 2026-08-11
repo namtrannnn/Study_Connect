@@ -47,8 +47,8 @@ module.exports.getOverviewStats = async (req, res) => {
       User.countDocuments({ deleted: false, status: "active" }),
       User.countDocuments({ deleted: false, status: "blocked" }),
       User.countDocuments({ deleted: false, createdAt: { $gte: startOfToday } }),
-      Post.countDocuments({ deleted: false }),
-      Post.countDocuments({ deleted: false, createdAt: { $gte: startOfToday } }),
+      Post.countDocuments({ status: { $ne: "deleted" } }),
+      Post.countDocuments({ status: { $ne: "deleted" }, createdAt: { $gte: startOfToday } }),
       RoomChat.countDocuments({ deleted: false }),
       PostLike.countDocuments({}),
       PostComment.countDocuments({ deleted: false }),
@@ -67,7 +67,7 @@ module.exports.getOverviewStats = async (req, res) => {
 
       const [userCount, postCount] = await Promise.all([
         User.countDocuments({ deleted: false, createdAt: { $gte: d, $lt: nextD } }),
-        Post.countDocuments({ deleted: false, createdAt: { $gte: d, $lt: nextD } }),
+        Post.countDocuments({ status: { $ne: "deleted" }, createdAt: { $gte: d, $lt: nextD } }),
       ]);
 
       const label = d.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric", month: "numeric" });
@@ -75,11 +75,11 @@ module.exports.getOverviewStats = async (req, res) => {
     }
 
     // Top Hashtags Extraction
-    const allPosts = await Post.find({ deleted: false }).select("content title hashtags").lean();
+    const allPosts = await Post.find({ status: { $ne: "deleted" } }).select("caption title hashtags").lean();
     const hashtagMap = {};
     allPosts.forEach((p) => {
       const tags = p.hashtags || [];
-      const text = (p.title || "") + " " + (p.content || "");
+      const text = (p.title || "") + " " + (p.caption || "");
       const matches = text.match(/#[^\s#]+/g) || [];
       [...tags, ...matches].forEach((rawTag) => {
         const tag = rawTag.replace(/^#/, "").toLowerCase().trim();
@@ -99,12 +99,19 @@ module.exports.getOverviewStats = async (req, res) => {
       .limit(5)
       .lean();
 
-    const recentPosts = await Post.find({ deleted: false })
-      .select("_id title content images user_id type status createdAt likesCount commentsCount")
-      .populate("user_id", "_id fullName username avatar")
+    const recentPostsRaw = await Post.find({ status: { $ne: "deleted" } })
+      .select("_id title caption media author postType status createdAt likesCount commentsCount")
+      .populate("author", "_id fullName username avatar")
       .sort({ createdAt: -1 })
       .limit(5)
       .lean();
+
+    const recentPosts = recentPostsRaw.map((p) => ({
+      ...p,
+      user_id: p.author,
+      content: p.caption,
+      images: p.media || [],
+    }));
 
     return res.status(200).json({
       code: 200,
@@ -128,6 +135,7 @@ module.exports.getOverviewStats = async (req, res) => {
         recentPosts,
       },
     });
+
   } catch (error) {
     console.error("getOverviewStats error:", error);
     return res.status(500).json({ code: 500, message: "Không thể lấy thống kê tổng quan" });
@@ -259,28 +267,60 @@ module.exports.softDeleteUser = async (req, res) => {
 // 3. [GET] /api/v1/admin/posts - Post Management
 module.exports.getPosts = async (req, res) => {
   try {
-    const { keyword, postType, status, page = 1, limit = 9 } = req.query;
-    const find = { deleted: false };
+    const { keyword, postType, status, timeRange, sortBy, page = 1, limit = 9 } = req.query;
+    const find = { status: { $ne: "deleted" } };
 
     if (postType && postType !== "all") find.postType = postType;
     if (status && status !== "all") find.status = status;
 
     if (keyword && keyword.trim()) {
       const regex = new RegExp(keyword.trim(), "i");
-      find.$or = [{ title: regex }, { content: regex }];
+      find.$or = [{ title: regex }, { caption: regex }];
     }
+
+    // Time range filter
+    if (timeRange && timeRange !== "all") {
+      const now = new Date();
+      let startDate;
+      switch (timeRange) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        default:
+          break;
+      }
+      if (startDate) find.createdAt = { $gte: startDate };
+    }
+
+    // Sort order
+    let sortOption = { createdAt: -1 }; // default: newest first
+    if (sortBy === "oldest") sortOption = { createdAt: 1 };
+    else if (sortBy === "popular") sortOption = { likesCount: -1, commentsCount: -1, createdAt: -1 };
 
     const currentPage = Math.max(1, parseInt(page, 10));
     const limitNum = Math.max(1, parseInt(limit, 10));
     const skip = (currentPage - 1) * limitNum;
 
     const total = await Post.countDocuments(find);
-    const posts = await Post.find(find)
-      .populate("user_id", "_id fullName username avatar")
-      .sort({ createdAt: -1 })
+    const postsRaw = await Post.find(find)
+      .populate("author", "_id fullName username avatar")
+      .sort(sortOption)
       .skip(skip)
       .limit(limitNum)
       .lean();
+
+    const posts = postsRaw.map((p) => ({
+      ...p,
+      user_id: p.author,
+      content: p.caption,
+      images: p.media || [],
+    }));
 
     return res.status(200).json({
       code: 200,
@@ -294,6 +334,8 @@ module.exports.getPosts = async (req, res) => {
     return res.status(500).json({ message: "Không thể lấy danh sách bài viết" });
   }
 };
+
+
 
 // [PATCH] /api/v1/admin/posts/:id/status
 module.exports.updatePostStatus = async (req, res) => {
@@ -324,7 +366,7 @@ module.exports.softDeletePost = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Post ID không hợp lệ" });
 
-    const post = await Post.findOneAndUpdate({ _id: id }, { $set: { deleted: true, deletedAt: new Date() } }, { new: true });
+    const post = await Post.findOneAndUpdate({ _id: id }, { $set: { status: "deleted" } }, { new: true });
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài viết" });
 
     await logAdminActivity(adminId, "delete_post", "post", post._id, `Xóa vĩnh viễn bài viết khỏi hệ thống`);
