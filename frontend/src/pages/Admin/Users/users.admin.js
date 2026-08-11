@@ -23,6 +23,8 @@ import { getAdminUsers, updateUserStatus, updateUserRole, softDeleteAdminUser } 
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
 import useDebounce from '../../../hooks/useDebounce';
 
+import ConfirmModal from '../../../components/ConfirmModal';
+
 function UsersAdmin() {
     const { isDark } = useAdminTheme();
     const [loading, setLoading] = useState(true);
@@ -33,6 +35,7 @@ function UsersAdmin() {
     const [roleFilter, setRoleFilter] = useState('all');
     const [actionLoadingId, setActionLoadingId] = useState('');
     const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
     // Apply existing useDebounce hook
     const debouncedKeyword = useDebounce(keyword.trim(), 400);
@@ -65,69 +68,100 @@ function UsersAdmin() {
         fetchUsers(1);
     }, [debouncedKeyword, statusFilter, roleFilter]);
 
-    const handleToggleStatus = async (user) => {
-        const newStatus = user.status === 'blocked' ? 'active' : 'blocked';
-        const confirmMsg = newStatus === 'blocked' ? `Bạn có chắc muốn KHÓA tài khoản ${user.fullName}?` : `MỞ KHÓA tài khoản ${user.fullName}?`;
-        if (!window.confirm(confirmMsg)) return;
+    const handleToggleStatus = (user) => {
+        const isBlocking = user.status !== 'blocked';
+        const newStatus = isBlocking ? 'blocked' : 'active';
 
-        try {
-            setActionLoadingId(user._id);
-            const res = await updateUserStatus(user._id, newStatus);
-            if (res?.code === 200) {
-                toast.success(res.message);
-                setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, status: newStatus } : u)));
-                if (selectedUserDetail?._id === user._id) {
-                    setSelectedUserDetail((prev) => (prev ? { ...prev, status: newStatus } : null));
+        setConfirmModal({
+            isOpen: true,
+            title: isBlocking ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
+            message: isBlocking
+                ? `Bạn có chắc chắn muốn KHÓA tài khoản "${user.fullName}" (@${user.username})? Người dùng này sẽ không thể đăng nhập.`
+                : `MỞ KHÓA tài khoản "${user.fullName}" (@${user.username})?`,
+            confirmText: isBlocking ? 'Khóa ngay' : 'Mở khóa',
+            type: isBlocking ? 'danger' : 'info',
+            onConfirm: async () => {
+                try {
+                    setActionLoadingId(user._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await updateUserStatus(user._id, newStatus);
+                    if (res?.code === 200) {
+                        toast.success(res.message);
+                        setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, status: newStatus } : u)));
+                        if (selectedUserDetail?._id === user._id) {
+                            setSelectedUserDetail((prev) => (prev ? { ...prev, status: newStatus } : null));
+                        }
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+                } finally {
+                    setActionLoadingId('');
                 }
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
-        } finally {
-            setActionLoadingId('');
-        }
+            },
+        });
     };
 
-    const handleToggleRole = async (user) => {
-        const newRole = user.role === 'admin' ? 'user' : 'admin';
-        const confirmMsg = newRole === 'admin' ? `Cấp quyền ADMIN cho ${user.fullName}?` : `Hạ quyền xuống USER cho ${user.fullName}?`;
-        if (!window.confirm(confirmMsg)) return;
+    const handleToggleRole = (user) => {
+        const isPromoting = user.role !== 'admin';
+        const newRole = isPromoting ? 'admin' : 'user';
 
-        try {
-            setActionLoadingId(user._id);
-            const res = await updateUserRole(user._id, newRole);
-            if (res?.code === 200) {
-                toast.success(res.message);
-                setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
-                if (selectedUserDetail?._id === user._id) {
-                    setSelectedUserDetail((prev) => (prev ? { ...prev, role: newRole } : null));
+        setConfirmModal({
+            isOpen: true,
+            title: isPromoting ? 'Cấp quyền Admin' : 'Hạ quyền xuống Member',
+            message: isPromoting
+                ? `Cấp quyền ADMIN cho tài khoản "${user.fullName}" (@${user.username})? người này sẽ có full quyền quản trị.`
+                : `Hạ quyền xuống MEMBER cho tài khoản "${user.fullName}"?`,
+            confirmText: isPromoting ? 'Cấp quyền Admin' : 'Hạ quyền',
+            type: 'warning',
+            onConfirm: async () => {
+                try {
+                    setActionLoadingId(user._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await updateUserRole(user._id, newRole);
+                    if (res?.code === 200) {
+                        toast.success(res.message);
+                        setUsers((prev) => prev.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
+                        if (selectedUserDetail?._id === user._id) {
+                            setSelectedUserDetail((prev) => (prev ? { ...prev, role: newRole } : null));
+                        }
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+                } finally {
+                    setActionLoadingId('');
                 }
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
-        } finally {
-            setActionLoadingId('');
-        }
+            },
+        });
     };
 
-    const handleDeleteUser = async (user) => {
-        if (!window.confirm(`Xóa mềm tài khoản ${user.fullName}?`)) return;
-
-        try {
-            setActionLoadingId(user._id);
-            const res = await softDeleteAdminUser(user._id);
-            if (res?.code === 200) {
-                toast.success(res.message);
-                setUsers((prev) => prev.filter((u) => u._id !== user._id));
-                if (selectedUserDetail?._id === user._id) {
-                    setSelectedUserDetail(null);
+    const handleDeleteUser = (user) => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Xóa mềm tài khoản',
+            message: `Xóa mềm tài khoản "${user.fullName}" (@${user.username}) khỏi hệ thống?`,
+            confirmText: 'Xóa mềm',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    setActionLoadingId(user._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await softDeleteAdminUser(user._id);
+                    if (res?.code === 200) {
+                        toast.success(res.message);
+                        setUsers((prev) => prev.filter((u) => u._id !== user._id));
+                        if (selectedUserDetail?._id === user._id) {
+                            setSelectedUserDetail(null);
+                        }
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Không thể xóa tài khoản');
+                } finally {
+                    setActionLoadingId('');
                 }
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Không thể xóa tài khoản');
-        } finally {
-            setActionLoadingId('');
-        }
+            },
+        });
     };
+
 
     return (
         <div className="space-y-6">
@@ -527,8 +561,12 @@ function UsersAdmin() {
                     </div>
                 </div>
             )}
+
+            {/* CONFIRMATION MODAL */}
+            <ConfirmModal {...confirmModal} onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))} />
         </div>
     );
 }
+
 
 export default UsersAdmin;
