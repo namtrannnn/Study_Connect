@@ -5,6 +5,8 @@ import { getAdminComments, deleteAdminComment } from '../../../services/adminSer
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
 import useDebounce from '../../../hooks/useDebounce';
 
+import ConfirmModal from '../../../components/ConfirmModal';
+
 function CommentsAdmin() {
     const { isDark } = useAdminTheme();
     const [loading, setLoading] = useState(true);
@@ -12,6 +14,7 @@ function CommentsAdmin() {
     const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1, total: 0 });
     const [keyword, setKeyword] = useState('');
     const [deletingId, setDeletingId] = useState('');
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
     const debouncedKeyword = useDebounce(keyword.trim(), 400);
 
@@ -36,23 +39,32 @@ function CommentsAdmin() {
         fetchComments(1);
     }, [debouncedKeyword]);
 
-
-    const handleDelete = async (comment) => {
-        if (!window.confirm(`Xóa bình luận này của ${comment.user_id?.fullName || 'người dùng'}?`)) return;
-
-        try {
-            setDeletingId(comment._id);
-            const res = await deleteAdminComment(comment._id);
-            if (res?.code === 200) {
-                toast.success('Đã xóa bình luận vi phạm');
-                setComments((prev) => prev.filter((c) => c._id !== comment._id));
-            }
-        } catch (err) {
-            toast.error(err?.response?.data?.message || 'Xóa bình luận thất bại');
-        } finally {
-            setDeletingId('');
-        }
+    const handleDelete = (comment) => {
+        const userName = comment.user_id?.fullName || 'người dùng';
+        setConfirmModal({
+            isOpen: true,
+            title: 'Xóa bình luận vi phạm',
+            message: `Xóa bình luận này của "${userName}"? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xóa bình luận',
+            type: 'danger',
+            onConfirm: async () => {
+                try {
+                    setDeletingId(comment._id);
+                    setConfirmModal({ isOpen: false });
+                    const res = await deleteAdminComment(comment._id);
+                    if (res?.code === 200) {
+                        toast.success('Đã xóa bình luận vi phạm');
+                        setComments((prev) => prev.filter((c) => c._id !== comment._id));
+                    }
+                } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Xóa bình luận thất bại');
+                } finally {
+                    setDeletingId('');
+                }
+            },
+        });
     };
+
 
     return (
         <div className="space-y-6">
@@ -173,8 +185,12 @@ function CommentsAdmin() {
                     </div>
                 )}
             </div>
+
+            {/* CONFIRMATION MODAL */}
+            <ConfirmModal {...confirmModal} onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))} />
         </div>
     );
 }
+
 
 export default CommentsAdmin;
