@@ -15,6 +15,7 @@ import {
 import { toast } from 'react-toastify';
 import { getAdminPosts, updatePostStatus, softDeleteAdminPost } from '../../../services/adminServices';
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
+import useDebounce from '../../../hooks/useDebounce';
 
 function PostsAdmin() {
     const { isDark } = useAdminTheme();
@@ -26,11 +27,13 @@ function PostsAdmin() {
     const [selectedPost, setSelectedPost] = useState(null);
     const [actionLoadingId, setActionLoadingId] = useState('');
 
+    const debouncedKeyword = useDebounce(keyword.trim(), 400);
+
     const fetchPosts = async (page = 1) => {
         try {
             setLoading(true);
             const res = await getAdminPosts({
-                keyword,
+                keyword: debouncedKeyword,
                 status: statusFilter,
                 page,
                 limit: 9,
@@ -50,11 +53,9 @@ function PostsAdmin() {
     };
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchPosts(1);
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [keyword, statusFilter]);
+        fetchPosts(1);
+    }, [debouncedKeyword, statusFilter]);
+
 
     const handleToggleStatus = async (post) => {
         const newStatus = post.status === 'hidden' ? 'active' : 'hidden';
@@ -283,8 +284,15 @@ function PostsAdmin() {
 
             {/* Post Detail Viewer Modal */}
             {selectedPost && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-                    <div className={`relative w-full max-w-2xl overflow-hidden rounded-3xl border p-6 shadow-2xl space-y-4 ${isDark ? 'border-white/10 bg-[#0f172a] text-white' : 'border-slate-200 bg-white text-slate-900'}`}>
+                <div
+                    onClick={() => setSelectedPost(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`relative w-full max-w-2xl overflow-hidden rounded-3xl border p-6 shadow-2xl space-y-4 ${isDark ? 'border-white/10 bg-[#0f172a] text-white' : 'border-slate-200 bg-white text-slate-900'}`}
+                    >
+
                         <div className={`flex items-center justify-between border-b pb-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                             <div className="flex items-center gap-3">
                                 <img
