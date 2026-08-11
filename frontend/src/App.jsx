@@ -10,6 +10,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 
 import DefaultLayoutAdmin from './layout/Admin/index';
+import AdminProtectedRoute from './components/AdminProtectedRoute';
 import { publicRoute, privateRoute } from './Routes';
 
 import Cookies from 'js-cookie';
@@ -94,6 +95,7 @@ function App() {
                     })}
 
                     {privateRoute.map((route, index) => {
+
                         let Layout = DefaultLayoutAdmin;
                         const Page = route.component;
 
@@ -108,13 +110,16 @@ function App() {
                                 key={index}
                                 path={route.path}
                                 element={
-                                    <Layout>
-                                        <Page />
-                                    </Layout>
+                                    <AdminProtectedRoute>
+                                        <Layout>
+                                            <Page />
+                                        </Layout>
+                                    </AdminProtectedRoute>
                                 }
                             />
                         );
                     })}
+
                 </Routes>
             </div>
         </Router>
