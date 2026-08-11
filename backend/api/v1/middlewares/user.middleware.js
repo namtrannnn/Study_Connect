@@ -45,3 +45,14 @@ module.exports.requireUser = async (req, res, next) => {
     });
   }
 };
+
+module.exports.requireAdmin = async (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({
+      code: 403,
+      message: "Bạn không có quyền truy cập trang Quản trị (Admin)!",
+    });
+  }
+  next();
+};
+

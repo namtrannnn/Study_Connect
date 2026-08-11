@@ -3,6 +3,7 @@ import { Search, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react
 import { toast } from 'react-toastify';
 import { getAdminComments, deleteAdminComment } from '../../../services/adminServices';
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
+import useDebounce from '../../../hooks/useDebounce';
 
 function CommentsAdmin() {
     const { isDark } = useAdminTheme();
@@ -12,10 +13,12 @@ function CommentsAdmin() {
     const [keyword, setKeyword] = useState('');
     const [deletingId, setDeletingId] = useState('');
 
+    const debouncedKeyword = useDebounce(keyword.trim(), 400);
+
     const fetchComments = async (page = 1) => {
         try {
             setLoading(true);
-            const res = await getAdminComments({ keyword, page, limit: 10 });
+            const res = await getAdminComments({ keyword: debouncedKeyword, page, limit: 10 });
             if (res?.code === 200) {
                 setComments(res.data.comments || []);
                 setPagination(res.data.pagination || { page: 1, limit: 10, totalPages: 1, total: 0 });
@@ -30,11 +33,9 @@ function CommentsAdmin() {
     };
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchComments(1);
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [keyword]);
+        fetchComments(1);
+    }, [debouncedKeyword]);
+
 
     const handleDelete = async (comment) => {
         if (!window.confirm(`Xóa bình luận này của ${comment.user_id?.fullName || 'người dùng'}?`)) return;

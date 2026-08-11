@@ -3,8 +3,9 @@ const router = express.Router();
 const controller = require("../controllers/admin.controller");
 const userMiddleware = require("../middlewares/user.middleware");
 
-// Require user authentication
+// Require user authentication & admin role
 router.use(userMiddleware.requireUser);
+router.use(userMiddleware.requireAdmin);
 
 // 1. Overview Stats
 router.get("/stats", controller.getOverviewStats);
