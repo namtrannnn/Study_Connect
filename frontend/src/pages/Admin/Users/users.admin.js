@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
+
     Search,
     Shield,
     ShieldCheck,
@@ -22,8 +24,8 @@ import { toast } from 'react-toastify';
 import { getAdminUsers, updateUserStatus, updateUserRole, softDeleteAdminUser } from '../../../services/adminServices';
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
 import useDebounce from '../../../hooks/useDebounce';
-
 import ConfirmModal from '../../../components/ConfirmModal';
+import AdminPagination from '../../../components/AdminPagination';
 
 function UsersAdmin() {
     const { isDark } = useAdminTheme();
@@ -400,40 +402,20 @@ function UsersAdmin() {
                     </table>
                 </div>
 
-                {pagination.totalPages > 1 && (
-                    <div className={`flex items-center justify-between border-t px-6 py-4 text-xs font-semibold ${isDark ? 'border-white/10 text-gray-400' : 'border-slate-200 text-slate-500'}`}>
-                        <span>Trang {pagination.page} / {pagination.totalPages} (Tổng {pagination.total} người dùng)</span>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                disabled={pagination.page <= 1 || loading}
-                                onClick={() => fetchUsers(pagination.page - 1)}
-                                className={`flex h-8 w-8 items-center justify-center rounded-xl border transition ${
-                                    isDark ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10' : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                } disabled:opacity-30`}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <button
-                                type="button"
-                                disabled={pagination.page >= pagination.totalPages || loading}
-                                onClick={() => fetchUsers(pagination.page + 1)}
-                                className={`flex h-8 w-8 items-center justify-center rounded-xl border transition ${
-                                    isDark ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10' : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                } disabled:opacity-30`}
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <AdminPagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    total={pagination.total}
+                    limit={pagination.limit}
+                    onPageChange={(p) => fetchUsers(p)}
+                />
             </div>
 
             {/* USER DETAIL MODAL */}
-            {selectedUserDetail && (
+            {selectedUserDetail && createPortal(
                 <div
                     onClick={() => setSelectedUserDetail(null)}
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in"
+                    className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
@@ -559,8 +541,10 @@ function UsersAdmin() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
+
 
             {/* CONFIRMATION MODAL */}
             <ConfirmModal {...confirmModal} onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))} />
