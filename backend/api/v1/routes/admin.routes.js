@@ -23,7 +23,9 @@ router.delete("/posts/:id", controller.softDeletePost);
 
 // 4. Comments Management
 router.get("/comments", controller.getComments);
+router.patch("/comments/:id/status", controller.updateCommentStatus);
 router.delete("/comments/:id", controller.deleteComment);
+
 
 // 5. Reports & AI Moderation
 router.get("/reports", controller.getReports);

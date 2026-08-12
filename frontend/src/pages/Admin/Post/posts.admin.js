@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
+
     Search,
     FileText,
     Heart,
@@ -450,11 +452,11 @@ function PostsAdmin() {
                 </div>
             )}
 
-            {/* =================== POST DETAIL MODAL =================== */}
-            {selectedPost && (
+            {/* POST DETAIL VIEWER MODAL */}
+            {selectedPost && createPortal(
                 <div
                     onClick={() => setSelectedPost(null)}
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+                    className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
@@ -590,7 +592,8 @@ function PostsAdmin() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* CONFIRMATION MODAL */}

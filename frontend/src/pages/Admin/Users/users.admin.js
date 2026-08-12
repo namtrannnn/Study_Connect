@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
+
     Search,
     Shield,
     ShieldCheck,
@@ -430,10 +432,10 @@ function UsersAdmin() {
             </div>
 
             {/* USER DETAIL MODAL */}
-            {selectedUserDetail && (
+            {selectedUserDetail && createPortal(
                 <div
                     onClick={() => setSelectedUserDetail(null)}
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in"
+                    className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
@@ -559,8 +561,10 @@ function UsersAdmin() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
+
 
             {/* CONFIRMATION MODAL */}
             <ConfirmModal {...confirmModal} onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))} />
