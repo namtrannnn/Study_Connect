@@ -18,12 +18,17 @@ router.delete("/users/:id", controller.softDeleteUser);
 
 // 3. Posts Management
 router.get("/posts", controller.getPosts);
+router.get("/posts/:id/comments", controller.getPostCommentsForAdmin);
+router.get("/posts/:id/likes", controller.getPostLikesForAdmin);
 router.patch("/posts/:id/status", controller.updatePostStatus);
 router.delete("/posts/:id", controller.softDeletePost);
 
+
 // 4. Comments Management
 router.get("/comments", controller.getComments);
+router.patch("/comments/:id/status", controller.updateCommentStatus);
 router.delete("/comments/:id", controller.deleteComment);
+
 
 // 5. Reports & AI Moderation
 router.get("/reports", controller.getReports);

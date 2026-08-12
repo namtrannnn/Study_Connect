@@ -43,11 +43,25 @@ export const softDeleteAdminPost = async (postId) => {
     const res = await httpRequest.delete(`/admin/posts/${postId}`);
     return res.data;
 };
-export const deleteAdminPost = softDeleteAdminPost;
+export const getAdminPostComments = async (postId, params = {}) => {
+    const res = await httpRequest.get(`/admin/posts/${postId}/comments`, { params });
+    return res.data;
+};
+
+export const getAdminPostLikes = async (postId, params = {}) => {
+    const res = await httpRequest.get(`/admin/posts/${postId}/likes`, { params });
+    return res.data;
+};
 
 // 4. Comments Management
+
 export const getAdminComments = async (params = {}) => {
     const res = await httpRequest.get('/admin/comments', { params });
+    return res.data;
+};
+
+export const updateCommentStatus = async (commentId, status) => {
+    const res = await httpRequest.patch(`/admin/comments/${commentId}/status`, { status });
     return res.data;
 };
 
@@ -55,6 +69,7 @@ export const deleteAdminComment = async (commentId) => {
     const res = await httpRequest.delete(`/admin/comments/${commentId}`);
     return res.data;
 };
+
 
 // 5. Reports & AI Moderation
 export const getAdminReports = async (params = {}) => {
