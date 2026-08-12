@@ -26,6 +26,8 @@ import { getAdminComments, updateCommentStatus, deleteAdminComment, updatePostSt
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
 import useDebounce from '../../../hooks/useDebounce';
 import ConfirmModal from '../../../components/ConfirmModal';
+import AdminPostDetailModal from '../../../components/AdminPostDetailModal';
+
 
 function CommentsAdmin() {
     const { isDark } = useAdminTheme();
@@ -541,15 +543,28 @@ function CommentsAdmin() {
                             </div>
                         </div>
 
-                        {/* Reply context info */}
+                        {/* Parent comment indicator if it's a reply */}
                         {selectedCommentDetail.parentComment && (
-                            <div className={`rounded-2xl border p-3.5 text-xs space-y-1 ${isDark ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 text-indigo-900'}`}>
-                                <div className="flex items-center gap-1.5 font-bold">
-                                    <CornerDownRight className="h-4 w-4" />
-                                    <span>Phản hồi {selectedCommentDetail.replyToUser?.fullName ? `@${selectedCommentDetail.replyToUser.username}` : 'bình luận'}:</span>
+                            <div className="rounded-2xl bg-indigo-500/10 border border-indigo-500/20 p-3.5 space-y-2 text-xs text-indigo-300">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 font-bold text-indigo-400">
+                                        <CornerDownRight className="h-4 w-4 shrink-0" />
+                                        <span>Đang phản hồi bình luận của:</span>
+                                    </div>
+                                    {selectedCommentDetail.parentComment?.user && (
+                                        <div className="flex items-center gap-1.5 font-bold text-white text-[11px]">
+                                            <img
+                                                src={selectedCommentDetail.parentComment.user.avatar || 'https://via.placeholder.com/150'}
+                                                alt=""
+                                                className="h-5 w-5 rounded-full object-cover"
+                                            />
+                                            <span>{selectedCommentDetail.parentComment.user.fullName}</span>
+                                            <span className="text-gray-400 font-normal">@{selectedCommentDetail.parentComment.user.username}</span>
+                                        </div>
+                                    )}
                                 </div>
                                 {selectedCommentDetail.parentComment?.content && (
-                                    <p className="line-clamp-2 italic opacity-80 pl-5 border-l-2 border-indigo-400/40 ml-1">
+                                    <p className="line-clamp-3 italic opacity-90 pl-4 border-l-2 border-indigo-400/40 ml-1 text-slate-200">
                                         "{selectedCommentDetail.parentComment.content}"
                                     </p>
                                 )}
@@ -559,12 +574,56 @@ function CommentsAdmin() {
                         {/* Content */}
                         <div className="space-y-1">
                             <label className={`text-[11px] font-extrabold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                                Nội dung bình luận:
+                                Nội dung bình luận đang xem:
                             </label>
                             <div className={`rounded-2xl border p-4 text-xs font-medium leading-relaxed whitespace-pre-wrap ${isDark ? 'border-white/5 bg-white/[0.02] text-gray-200' : 'border-slate-100 bg-slate-50 text-slate-800'}`}>
                                 {selectedCommentDetail.content}
                             </div>
                         </div>
+
+                        {/* Child Replies List if any */}
+                        {selectedCommentDetail.replies && selectedCommentDetail.replies.length > 0 && (
+                            <div className="space-y-2">
+                                <label className={`text-[11px] font-extrabold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                                    Các câu trả lời bên dưới bình luận này ({selectedCommentDetail.replies.length}):
+                                </label>
+                                <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pr-1">
+                                    {selectedCommentDetail.replies.map((reply) => (
+                                        <div key={reply._id} className={`rounded-xl p-3 border space-y-1.5 ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <img src={reply.user?.avatar || 'https://via.placeholder.com/150'} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                                    <span className="font-bold text-xs">{reply.user?.fullName}</span>
+                                                    <span className="text-[10px] text-gray-400">@{reply.user?.username}</span>
+                                                    {reply.status === 'hidden' && (
+                                                        <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-bold text-amber-500 border border-amber-500/30">Đã ẩn</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleStatus(reply)}
+                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
+                                                            reply.status === 'hidden' ? 'text-amber-500 bg-amber-500/10' : 'text-gray-400 hover:text-amber-400'
+                                                        }`}
+                                                    >
+                                                        {reply.status === 'hidden' ? 'Hiện' : 'Ẩn'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(reply)}
+                                                        className="text-[10px] font-bold text-rose-500 px-2 py-0.5 rounded hover:bg-rose-500/10 transition"
+                                                    >
+                                                        Xóa
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>{reply.content}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Belong to post - Interactive Button */}
                         {selectedCommentDetail.post_id && (
@@ -642,146 +701,15 @@ function CommentsAdmin() {
                 document.body
             )}
 
-            {/* ================= POST DETAIL VIEWER MODAL ================= */}
-            {selectedPostDetail && (() => {
-                const postAuthor = getPostAuthor(selectedPostDetail);
-                const postImages = getPostImages(selectedPostDetail);
-                const hasTextContent = (selectedPostDetail.title && selectedPostDetail.title.trim()) || (selectedPostDetail.content && selectedPostDetail.content.trim()) || (selectedPostDetail.caption && selectedPostDetail.caption.trim());
+            {/* REUSABLE POST DETAIL VIEWER MODAL */}
+            <AdminPostDetailModal
+                post={selectedPostDetail}
+                onClose={() => setSelectedPostDetail(null)}
+                onUpdatePost={(updatedPost) => {
+                    setSelectedPostDetail(updatedPost);
+                }}
+            />
 
-                return createPortal(
-                    <div
-                        onClick={() => setSelectedPostDetail(null)}
-                        className="fixed inset-0 z-[9995] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in"
-                    >
-                        <div
-                            onClick={(e) => e.stopPropagation()}
-                            className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar rounded-3xl border p-6 shadow-2xl space-y-5 ${
-                                isDark ? 'border-white/10 bg-[#0f172a] text-white' : 'border-slate-200 bg-white text-slate-900'
-                            }`}
-                        >
-                            {/* Header */}
-                            <div className={`flex items-center justify-between border-b pb-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                                <div className="flex items-center gap-3">
-                                    <img
-                                        src={postAuthor?.avatar || 'https://via.placeholder.com/150'}
-                                        alt="Avatar"
-                                        className="h-11 w-11 rounded-2xl object-cover ring-2 ring-indigo-500/50 shadow-lg"
-                                    />
-                                    <div>
-                                        <h4 className="font-bold text-sm">{postAuthor?.fullName || 'Tác giả'}</h4>
-                                        <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>@{postAuthor?.username || 'user'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {selectedPostDetail.status === 'hidden' && (
-                                        <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-500 border border-amber-500/30">Đã ẩn</span>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedPostDetail(null)}
-                                        className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${isDark ? 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Title */}
-                            {selectedPostDetail.title && <h3 className="text-base font-bold text-indigo-500">{selectedPostDetail.title}</h3>}
-
-                            {/* Content */}
-                            {selectedPostDetail.content && selectedPostDetail.content.trim() ? (
-                                <div className={`text-xs leading-relaxed font-medium whitespace-pre-wrap ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
-                                    {selectedPostDetail.content}
-                                </div>
-                            ) : !hasTextContent && postImages.length > 0 ? (
-                                <div className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-400 border border-indigo-500/20">
-                                    <ImageIconSimple className="h-4 w-4" />
-                                    Bài viết chỉ bao gồm hình ảnh ({postImages.length} ảnh)
-                                </div>
-                            ) : null}
-
-                            {/* Images Gallery */}
-                            {postImages.length > 0 && (
-                                <div className="space-y-3">
-                                    <div className="overflow-hidden rounded-2xl border border-black/10 bg-black/40">
-                                        <img
-                                            src={postImages[modalImageIdx]?.url || postImages[modalImageIdx]}
-                                            alt="Post Image"
-                                            className="w-full max-h-80 object-contain mx-auto"
-                                        />
-                                    </div>
-                                    {postImages.length > 1 && (
-                                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                                            {postImages.map((img, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    onClick={() => setModalImageIdx(idx)}
-                                                    className={`shrink-0 h-14 w-14 rounded-xl overflow-hidden border-2 transition ${
-                                                        modalImageIdx === idx ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-transparent opacity-60 hover:opacity-100'
-                                                    }`}
-                                                >
-                                                    <img src={img?.url || img} alt="" className="h-full w-full object-cover" />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Stats */}
-                            <div className={`grid grid-cols-2 gap-3 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                                <div className={`rounded-2xl border p-3 text-center ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                                    <div className="flex items-center justify-center gap-1 text-rose-500 font-extrabold text-lg">
-                                        <Heart className="h-4 w-4" /> {selectedPostDetail.likesCount || 0}
-                                    </div>
-                                    <div className="text-[11px] font-medium mt-0.5">Lượt thích</div>
-                                </div>
-                                <div className={`rounded-2xl border p-3 text-center ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                                    <div className="flex items-center justify-center gap-1 text-blue-500 font-extrabold text-lg">
-                                        <MessageSquare className="h-4 w-4" /> {selectedPostDetail.commentsCount || 0}
-                                    </div>
-                                    <div className="text-[11px] font-medium mt-0.5">Bình luận</div>
-                                </div>
-                            </div>
-
-                            {/* Meta */}
-                            <div className={`flex items-center gap-2 text-xs ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
-                                <Calendar className="h-3.5 w-3.5" />
-                                <span>
-                                    Đăng vào: {selectedPostDetail.createdAt ? new Date(selectedPostDetail.createdAt).toLocaleString('vi-VN') : 'Không rõ'}
-                                </span>
-                            </div>
-
-                            {/* Actions Footer */}
-                            <div className={`flex flex-wrap items-center justify-end gap-2 border-t pt-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                                <button
-                                    type="button"
-                                    onClick={() => handleTogglePostStatus(selectedPostDetail)}
-                                    className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
-                                        selectedPostDetail.status === 'hidden'
-                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                                            : 'border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
-                                    }`}
-                                >
-                                    <EyeOff className="h-4 w-4" />
-                                    {selectedPostDetail.status === 'hidden' ? 'Hiện bài viết' : 'Ẩn bài viết'}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => handleDeletePost(selectedPostDetail)}
-                                    className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-bold text-red-500 transition hover:bg-red-500/20"
-                                >
-                                    <Trash2 className="h-4 w-4" /> Xóa bài viết
-                                </button>
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
-                );
-            })()}
 
 
             {/* CONFIRMATION MODAL */}

@@ -378,6 +378,112 @@ module.exports.softDeletePost = async (req, res) => {
   }
 };
 
+// [GET] /api/v1/admin/posts/:id/comments
+module.exports.getPostCommentsForAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const currentPage = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.max(1, parseInt(limit, 10));
+    const skip = (currentPage - 1) * limitNum;
+
+    // Fetch root comments for the post
+    const find = { post: id, parentComment: null, status: { $ne: "deleted" } };
+
+    const total = await PostComment.countDocuments(find);
+    const parentComments = await PostComment.find(find)
+      .populate("user", "_id fullName username avatar")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Fetch replies for these parent comments
+    const parentIds = parentComments.map((c) => c._id);
+    let repliesMap = {};
+    if (parentIds.length > 0) {
+      const replies = await PostComment.find({
+        parentComment: { $in: parentIds },
+        status: { $ne: "deleted" },
+      })
+        .populate("user", "_id fullName username avatar")
+        .populate("replyToUser", "_id fullName username")
+        .sort({ createdAt: 1 })
+        .lean();
+
+      replies.forEach((r) => {
+        const pId = String(r.parentComment);
+        if (!repliesMap[pId]) repliesMap[pId] = [];
+        repliesMap[pId].push(r);
+      });
+    }
+
+    const comments = parentComments.map((p) => ({
+      ...p,
+      replies: repliesMap[String(p._id)] || [],
+    }));
+
+    return res.status(200).json({
+      code: 200,
+      data: {
+        comments,
+        pagination: {
+          total,
+          page: currentPage,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasMore: currentPage * limitNum < total,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("getPostCommentsForAdmin error:", error);
+    return res.status(500).json({ message: "Không thể lấy danh sách bình luận của bài viết" });
+  }
+};
+
+
+// [GET] /api/v1/admin/posts/:id/likes
+module.exports.getPostLikesForAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 15 } = req.query;
+
+    const currentPage = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.max(1, parseInt(limit, 10));
+    const skip = (currentPage - 1) * limitNum;
+
+    const find = { post: id };
+
+    const total = await PostLike.countDocuments(find);
+    const likesRaw = await PostLike.find(find)
+      .populate("user", "_id fullName username avatar email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    return res.status(200).json({
+      code: 200,
+      data: {
+        likes: likesRaw,
+        pagination: {
+          total,
+          page: currentPage,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasMore: currentPage * limitNum < total,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("getPostLikesForAdmin error:", error);
+    return res.status(500).json({ message: "Không thể lấy danh sách lượt thích của bài viết" });
+  }
+};
+
+
 // 4. [GET] /api/v1/admin/comments - Comment Management
 module.exports.getComments = async (req, res) => {
   try {
@@ -434,11 +540,34 @@ module.exports.getComments = async (req, res) => {
       })
 
       .populate("replyToUser", "_id fullName username")
-      .populate("parentComment", "_id content")
+      .populate({
+        path: "parentComment",
+        select: "_id content user createdAt",
+        populate: { path: "user", select: "_id fullName username avatar" },
+      })
       .sort(sortOption)
       .skip(skip)
       .limit(limitNum)
       .lean();
+
+    const commentIds = commentsRaw.map((c) => c._id);
+    let childRepliesMap = {};
+    if (commentIds.length > 0) {
+      const childReplies = await PostComment.find({
+        parentComment: { $in: commentIds },
+        status: { $ne: "deleted" },
+      })
+        .populate("user", "_id fullName username avatar")
+        .populate("replyToUser", "_id fullName username")
+        .sort({ createdAt: 1 })
+        .lean();
+
+      childReplies.forEach((r) => {
+        const pId = String(r.parentComment);
+        if (!childRepliesMap[pId]) childRepliesMap[pId] = [];
+        childRepliesMap[pId].push(r);
+      });
+    }
 
     const comments = commentsRaw.map((c) => {
       const postObj = c.post
@@ -455,8 +584,10 @@ module.exports.getComments = async (req, res) => {
         ...c,
         user_id: c.user,
         post_id: postObj,
+        replies: childRepliesMap[String(c._id)] || [],
       };
     });
+
 
 
 
