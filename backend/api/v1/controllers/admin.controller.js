@@ -381,25 +381,84 @@ module.exports.softDeletePost = async (req, res) => {
 // 4. [GET] /api/v1/admin/comments - Comment Management
 module.exports.getComments = async (req, res) => {
   try {
-    const { keyword, page = 1, limit = 10 } = req.query;
-    const find = { deleted: false };
+    const { keyword, type, status, timeRange, sortBy, page = 1, limit = 10 } = req.query;
+    const find = { status: { $ne: "deleted" } };
 
+    // Status filter
+    if (status && status !== "all") find.status = status;
+
+    // Type filter: root comments vs replies
+    if (type === "root") find.parentComment = null;
+    else if (type === "reply") find.parentComment = { $ne: null };
+
+    // Keyword search
     if (keyword && keyword.trim()) {
       find.content = new RegExp(keyword.trim(), "i");
     }
+
+    // Time range filter
+    if (timeRange && timeRange !== "all") {
+      const now = new Date();
+      let startDate;
+      switch (timeRange) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        default:
+          break;
+      }
+      if (startDate) find.createdAt = { $gte: startDate };
+    }
+
+    // Sort order
+    let sortOption = { createdAt: -1 };
+    if (sortBy === "oldest") sortOption = { createdAt: 1 };
+    else if (sortBy === "popular") sortOption = { likesCount: -1, repliesCount: -1, createdAt: -1 };
 
     const currentPage = Math.max(1, parseInt(page, 10));
     const limitNum = Math.max(1, parseInt(limit, 10));
     const skip = (currentPage - 1) * limitNum;
 
     const total = await PostComment.countDocuments(find);
-    const comments = await PostComment.find(find)
-      .populate("user_id", "_id fullName username avatar")
-      .populate("post_id", "_id title content")
-      .sort({ createdAt: -1 })
+    const commentsRaw = await PostComment.find(find)
+      .populate("user", "_id fullName username avatar")
+      .populate({
+        path: "post",
+        populate: { path: "author", select: "_id fullName username avatar" },
+      })
+
+      .populate("replyToUser", "_id fullName username")
+      .populate("parentComment", "_id content")
+      .sort(sortOption)
       .skip(skip)
       .limit(limitNum)
       .lean();
+
+    const comments = commentsRaw.map((c) => {
+      const postObj = c.post
+        ? {
+            ...c.post,
+            user_id: c.post.author || c.post.user_id,
+            author: c.post.author || c.post.user_id,
+            content: c.post.caption || c.post.content || "",
+            images: c.post.media || c.post.images || [],
+          }
+        : null;
+
+      return {
+        ...c,
+        user_id: c.user,
+        post_id: postObj,
+      };
+    });
+
+
 
     return res.status(200).json({
       code: 200,
@@ -414,6 +473,28 @@ module.exports.getComments = async (req, res) => {
   }
 };
 
+// [PATCH] /api/v1/admin/comments/:id/status
+module.exports.updateCommentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const adminId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Comment ID không hợp lệ" });
+    if (!["active", "hidden"].includes(status)) return res.status(400).json({ message: "Trạng thái không hợp lệ" });
+
+    const comment = await PostComment.findOneAndUpdate({ _id: id }, { $set: { status } }, { new: true });
+    if (!comment) return res.status(404).json({ message: "Không tìm thấy bình luận" });
+
+    await logAdminActivity(adminId, status === "hidden" ? "hide_comment" : "unhide_comment", "comment", comment._id, `Chuyển trạng thái bình luận thành ${status}`);
+
+    return res.status(200).json({ code: 200, message: `Đã ${status === "hidden" ? "ẩn" : "hiện"} bình luận`, data: comment });
+  } catch (error) {
+    console.error("updateCommentStatus error:", error);
+    return res.status(500).json({ message: "Cập nhật bình luận thất bại" });
+  }
+};
+
 // [DELETE] /api/v1/admin/comments/:id
 module.exports.deleteComment = async (req, res) => {
   try {
@@ -422,10 +503,10 @@ module.exports.deleteComment = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Comment ID không hợp lệ" });
 
-    const comment = await PostComment.findOneAndUpdate({ _id: id }, { $set: { deleted: true } }, { new: true });
+    const comment = await PostComment.findOneAndUpdate({ _id: id }, { $set: { status: "deleted" } }, { new: true });
     if (!comment) return res.status(404).json({ message: "Không tìm thấy bình luận" });
 
-    await logAdminActivity(adminId, "delete_comment", "comment", comment._id, `Xóa bình luận vi phạm: "${comment.content?.slice(0, 30)}..."`);
+    await logAdminActivity(adminId, "delete_comment", "comment", comment._id, `Xóa bình luận vi phạm: "${comment.content?.slice(0, 30)}"`);
 
     return res.status(200).json({ code: 200, message: "Đã xóa bình luận vi phạm", data: { id: comment._id } });
   } catch (error) {
@@ -434,7 +515,11 @@ module.exports.deleteComment = async (req, res) => {
   }
 };
 
+
+
 // 5. [GET] /api/v1/admin/reports & [POST] AI Analysis & [PATCH] Resolve
+
+
 module.exports.getReports = async (req, res) => {
   try {
     const { status = "all", page = 1, limit = 10 } = req.query;

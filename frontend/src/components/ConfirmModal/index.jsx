@@ -1,6 +1,6 @@
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Info, Trash2, X } from 'lucide-react';
 import { useAdminTheme } from '../../layout/Admin/index.jsx';
-
 
 function ConfirmModal({
     isOpen,
@@ -43,10 +43,10 @@ function ConfirmModal({
 
     const styles = getTypeStyles();
 
-    return (
+    return createPortal(
         <div
             onClick={onClose}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in"
         >
             <div
                 onClick={(e) => e.stopPropagation()}
@@ -104,7 +104,8 @@ function ConfirmModal({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
