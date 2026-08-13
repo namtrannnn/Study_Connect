@@ -88,13 +88,18 @@ export const resolveReport = async (reportId, action) => {
 };
 
 // 7. Hashtags & Blacklist
-export const getAdminHashtags = async () => {
-    const res = await httpRequest.get('/admin/hashtags');
+export const getAdminHashtags = async (params = {}) => {
+    const res = await httpRequest.get('/admin/hashtags', { params });
     return res.data;
 };
 
-export const addBlacklistHashtag = async (tag) => {
-    const res = await httpRequest.post('/admin/hashtags/blacklist', { tag });
+export const getHashtagPosts = async (tag, params = {}) => {
+    const res = await httpRequest.get(`/admin/hashtags/${tag}/posts`, { params });
+    return res.data;
+};
+
+export const addBlacklistHashtag = async (tag, reason = '') => {
+    const res = await httpRequest.post('/admin/hashtags/blacklist', { tag, reason });
     return res.data;
 };
 
@@ -102,6 +107,7 @@ export const deleteBlacklistHashtag = async (id) => {
     const res = await httpRequest.delete(`/admin/hashtags/blacklist/${id}`);
     return res.data;
 };
+
 
 // 8. Interaction Analytics
 export const getAdminInteractionAnalytics = async () => {

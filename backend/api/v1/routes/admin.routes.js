@@ -37,8 +37,10 @@ router.patch("/reports/:id/resolve", controller.resolveReport);
 
 // 7. Hashtags & Blacklist
 router.get("/hashtags", controller.getHashtags);
+router.get("/hashtags/:tag/posts", controller.getHashtagPosts);
 router.post("/hashtags/blacklist", controller.addBlacklistHashtag);
 router.delete("/hashtags/blacklist/:id", controller.deleteBlacklistHashtag);
+
 
 // 8. Interaction Analytics
 router.get("/analytics/interactions", controller.getInteractionAnalytics);
