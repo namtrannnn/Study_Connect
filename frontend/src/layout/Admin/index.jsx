@@ -118,51 +118,59 @@ function AdminLayout({ children }) {
             >
                 {/* Sidebar */}
                 <aside
-                    className={`relative flex flex-col border-r backdrop-blur-xl transition-all duration-300 ${
-                        collapsed ? 'w-20' : 'w-72'
-                    } ${isDark ? 'border-white/10 bg-[#0f172a]/90' : 'border-slate-200 bg-white/90 shadow-sm'}`}
+                    className={`group/sidebar relative flex flex-col border-r transition-all duration-300 ${
+                        collapsed ? 'w-[76px]' : 'w-72'
+                    } ${isDark
+                        ? 'border-white/[0.06] bg-gradient-to-b from-[#0c1222] via-[#0f172a] to-[#0c1222]'
+                        : 'border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-white shadow-xl shadow-slate-200/50'
+                    }`}
                 >
+                    {/* Subtle gradient glow line on the right edge */}
+                    <div className={`absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-indigo-500/30 to-transparent ${isDark ? 'opacity-100' : 'opacity-0'}`} />
+
                     {/* Logo Header */}
-                    <div className={`flex h-20 items-center justify-between border-b px-5 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                    <div className={`flex h-[72px] items-center justify-between px-5 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} border-b`}>
                         {!collapsed ? (
                             <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/30">
+                                <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/30">
                                     <Shield className="h-5 w-5 text-white" />
+                                    <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0c1222] animate-pulse" />
                                 </div>
                                 <div>
-                                    <h1 className={`flex items-center gap-1.5 text-base font-bold tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                    <h1 className={`flex items-center gap-1.5 text-[15px] font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                         StudyConnect
-                                        <span className="rounded-md bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-500 border border-indigo-500/30">
-                                            ADMIN
+                                        <span className="rounded-md bg-gradient-to-r from-indigo-500/20 to-violet-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">
+                                            Admin
                                         </span>
                                     </h1>
-                                    <p className={`text-[11px] ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>Control Panel v2.0</p>
+                                    <p className={`text-[10px] font-medium ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>Control Panel v2.0</p>
                                 </div>
                             </div>
                         ) : (
-                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/30">
+                            <div className="mx-auto relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/30">
                                 <Shield className="h-5 w-5 text-white" />
+                                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0c1222] animate-pulse" />
                             </div>
                         )}
 
                         <button
                             type="button"
                             onClick={() => setCollapsed(!collapsed)}
-                            className={`hidden md:flex h-8 w-8 items-center justify-center rounded-xl border transition ${
+                            className={`hidden md:flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-200 ${
                                 isDark
-                                    ? 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                                    : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                                    ? 'border-white/[0.08] bg-white/[0.04] text-gray-500 hover:bg-white/[0.08] hover:text-gray-300'
+                                    : 'border-slate-200 bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600'
                             }`}
                             title={collapsed ? 'Mở rộng' : 'Thu gọn'}
                         >
-                            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                            {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
                         </button>
                     </div>
 
                     {/* Nav items */}
-                    <div className="no-scrollbar flex-1 overflow-y-auto p-4 space-y-1.5">
+                    <div className="no-scrollbar flex-1 overflow-y-auto px-3 py-4 space-y-1">
                         {!collapsed && (
-                            <p className={`px-3 text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
+                            <p className={`px-3 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] ${isDark ? 'text-gray-600' : 'text-slate-400'}`}>
                                 Phân vùng Quản trị
                             </p>
                         )}
@@ -171,38 +179,61 @@ function AdminLayout({ children }) {
                             const Icon = item.icon;
                             const isActive = location.pathname === item.path;
 
+                            // Assign distinct accent colors per nav item
+                            const accentColors = {
+                                '/admin/dashboard': { bg: 'bg-sky-500/15', text: 'text-sky-400', glow: 'shadow-sky-500/20' },
+                                '/admin/users': { bg: 'bg-violet-500/15', text: 'text-violet-400', glow: 'shadow-violet-500/20' },
+                                '/admin/posts': { bg: 'bg-blue-500/15', text: 'text-blue-400', glow: 'shadow-blue-500/20' },
+                                '/admin/comments': { bg: 'bg-teal-500/15', text: 'text-teal-400', glow: 'shadow-teal-500/20' },
+                                '/admin/reports': { bg: 'bg-indigo-500/15', text: 'text-indigo-400', glow: 'shadow-indigo-500/20' },
+                                '/admin/hashtags': { bg: 'bg-pink-500/15', text: 'text-pink-400', glow: 'shadow-pink-500/20' },
+                                '/admin/analytics': { bg: 'bg-amber-500/15', text: 'text-amber-400', glow: 'shadow-amber-500/20' },
+                                '/admin/logs': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', glow: 'shadow-emerald-500/20' },
+                            };
+                            const accent = accentColors[item.path] || { bg: 'bg-indigo-500/15', text: 'text-indigo-400', glow: 'shadow-indigo-500/20' };
+
                             return (
                                 <Link
                                     key={item.path}
                                     to={item.path}
-                                    className={`group relative flex items-center gap-3.5 rounded-2xl px-3.5 py-2.5 text-xs font-medium transition-all duration-200 ${
+                                    className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-xs font-medium transition-all duration-200 ${
                                         isActive
-                                            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25'
+                                            ? `bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25`
                                             : isDark
-                                            ? 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                            : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600'
+                                            ? 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-200'
+                                            : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-800'
                                     }`}
                                     title={collapsed ? item.label : undefined}
                                 >
-                                    <Icon
-                                        className={`h-4.5 w-4.5 shrink-0 transition-transform group-hover:scale-110 ${
-                                            isActive
-                                                ? 'text-white'
-                                                : isDark
-                                                ? 'text-gray-400 group-hover:text-indigo-400'
-                                                : 'text-slate-500 group-hover:text-indigo-600'
-                                        }`}
-                                    />
+                                    {/* Active indicator bar */}
+                                    {isActive && (
+                                        <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-gradient-to-b from-indigo-400 to-violet-500 shadow-lg shadow-indigo-500/50" />
+                                    )}
+
+                                    {/* Icon with colored badge background */}
+                                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${
+                                        isActive
+                                            ? 'bg-white/20 shadow-inner'
+                                            : isDark
+                                            ? `${accent.bg} ${accent.glow} shadow-sm group-hover:shadow-md`
+                                            : `${accent.bg} group-hover:shadow-sm`
+                                    }`}>
+                                        <Icon
+                                            className={`h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${
+                                                isActive ? 'text-white' : accent.text
+                                            }`}
+                                        />
+                                    </span>
 
                                     {!collapsed && (
                                         <div className="min-w-0 flex-1">
-                                            <div className="truncate font-semibold">{item.label}</div>
+                                            <div className={`truncate font-semibold leading-tight ${isActive ? 'text-white' : ''}`}>{item.label}</div>
                                             <div
-                                                className={`truncate text-[10px] ${
+                                                className={`truncate text-[10px] mt-0.5 leading-tight ${
                                                     isActive
-                                                        ? 'text-indigo-100/70'
+                                                        ? 'text-indigo-100/60'
                                                         : isDark
-                                                        ? 'text-gray-500 group-hover:text-gray-400'
+                                                        ? 'text-gray-600 group-hover:text-gray-500'
                                                         : 'text-slate-400 group-hover:text-slate-500'
                                                 }`}
                                             >
@@ -210,36 +241,60 @@ function AdminLayout({ children }) {
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Collapsed mode tooltip */}
+                                    {collapsed && (
+                                        <span className={`pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-xl px-3 py-1.5 text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-xl ${
+                                            isDark
+                                                ? 'bg-[#1e293b] text-white border border-white/10'
+                                                : 'bg-white text-slate-900 border border-slate-200 shadow-slate-200/50'
+                                        }`}>
+                                            {item.label}
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}
 
-                        <div className={`my-3 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
+                        <div className={`my-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`} />
 
                         <Link
                             to="/trang-chu"
-                            className={`group flex items-center gap-3.5 rounded-2xl px-3.5 py-2.5 text-xs font-medium transition ${
+                            className={`group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-xs font-medium transition-all duration-200 ${
                                 isDark
-                                    ? 'text-gray-400 hover:bg-white/5 hover:text-white'
-                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    ? 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-200'
+                                    : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-800'
                             }`}
                             title={collapsed ? 'Về Trang chủ' : undefined}
                         >
-                            <Home className="h-4.5 w-4.5 shrink-0 text-emerald-500 transition-transform group-hover:scale-110" />
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-500/10'}`}>
+                                <Home className="h-4 w-4 text-emerald-400 transition-transform group-hover:scale-110" />
+                            </span>
                             {!collapsed && <span className="font-semibold">Trở về Trang chủ</span>}
+                            {collapsed && (
+                                <span className={`pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-xl px-3 py-1.5 text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-xl ${
+                                    isDark
+                                        ? 'bg-[#1e293b] text-white border border-white/10'
+                                        : 'bg-white text-slate-900 border border-slate-200'
+                                }`}>
+                                    Trở về Trang chủ
+                                </span>
+                            )}
                         </Link>
                     </div>
 
                     {/* Footer User */}
-                    <div className={`border-t p-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+                    <div className={`border-t p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                        <div className={`flex items-center gap-3 rounded-2xl p-2 transition ${
+                            isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'
+                        } ${collapsed ? 'justify-center' : ''}`}>
                             <div className="relative shrink-0">
                                 <img
                                     src={currentUser?.avatar || 'https://via.placeholder.com/150'}
                                     alt="Admin Avatar"
-                                    className="h-9 w-9 rounded-2xl object-cover ring-2 ring-indigo-500/50"
+                                    className="h-9 w-9 rounded-xl object-cover ring-2 ring-indigo-500/40"
                                 />
-                                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0f172a]" />
+                                <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ${isDark ? 'ring-[#0c1222]' : 'ring-white'}`} />
                             </div>
 
                             {!collapsed && (
@@ -247,7 +302,7 @@ function AdminLayout({ children }) {
                                     <h4 className={`truncate text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                                         {currentUser?.fullName || 'Administrator'}
                                     </h4>
-                                    <p className={`truncate text-[10px] ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                                    <p className={`truncate text-[10px] font-medium ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
                                         @{currentUser?.username || 'admin'}
                                     </p>
                                 </div>
@@ -255,6 +310,7 @@ function AdminLayout({ children }) {
                         </div>
                     </div>
                 </aside>
+
 
                 {/* Main Area */}
                 <div className="flex flex-1 flex-col overflow-hidden">
