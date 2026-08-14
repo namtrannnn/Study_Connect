@@ -38,6 +38,7 @@ import PostDetailModal from './PostDetailModal';
 import LikesModal from './LikesModal';
 import ShareModal from './ShareModal';
 import Modal from './Modal';
+import ReportModal from './ReportModal';
 
 /* eslint-disable no-unused-vars */
 const postTypeLabels = {
@@ -729,7 +730,8 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     };
 
     const handleHidePost = () => toast('Đã ẩn bài viết khỏi bảng tin');
-    const handleReport = () => toast('Đã gửi báo cáo');
+    const [showReportModal, setShowReportModal] = useState(false);
+    const handleReport = () => setShowReportModal(true);
 
     const displayedLikeCount = likeCount;
     function renderContentWithRealMentions(text = '', mentions = []) {
@@ -1016,6 +1018,15 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
 
             <LikesModal open={openLikes} onClose={() => setOpenLikes(false)} postId={post?._id || post?.id} />
             <ShareModal open={openShare} onClose={() => setOpenShare(false)} post={post} currentUser={currentUser} />
+
+            {/* Report Modal */}
+            {showReportModal && (
+                <ReportModal
+                    targetType="post"
+                    targetId={post?._id || post?.id}
+                    onClose={() => setShowReportModal(false)}
+                />
+            )}
 
             {/* Edit Modal — dùng chung Modal.jsx với mode="edit" */}
             {openEdit && (

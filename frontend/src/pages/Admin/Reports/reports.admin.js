@@ -176,7 +176,22 @@ function ReportsAdmin() {
                                                 <h4 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{report.reporter_id?.fullName || 'Người dùng'}</h4>
                                                 <span className={`text-[11px] ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>đã báo cáo đối tượng ({report.target_type})</span>
                                             </div>
-                                            <p className="text-xs text-rose-500 font-medium mt-0.5">Lý do: "{report.reason}"</p>
+                                            <p className="text-xs text-rose-500 font-medium mt-0.5">
+                                                Phân loại: "{
+                                                    {
+                                                        spam: 'Spam / Quảng cáo rác',
+                                                        violence: 'Nội dung bạo lực',
+                                                        harassment: 'Quấy rối / Bắt nạt',
+                                                        hate_speech: 'Ngôn từ thù địch',
+                                                        misinformation: 'Thông tin sai lệch',
+                                                        sexual_content: 'Nội dung 18+',
+                                                        other: 'Lý do khác',
+                                                    }[report.reasonCategory] || report.reasonCategory
+                                                }"
+                                                {report.reason && (
+                                                    <span className="text-gray-400 font-normal"> — {report.reason}</span>
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
 
