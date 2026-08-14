@@ -675,9 +675,9 @@ module.exports.getReports = async (req, res) => {
       reports.map(async (r) => {
         let targetDetails = null;
         if (r.target_type === "post") {
-          targetDetails = await Post.findById(r.target_id).populate("user_id", "_id fullName username avatar").lean();
+          targetDetails = await Post.findById(r.target_id).populate("author", "_id fullName username avatar").lean();
         } else if (r.target_type === "comment") {
-          targetDetails = await PostComment.findById(r.target_id).populate("user_id", "_id fullName username avatar").lean();
+          targetDetails = await PostComment.findById(r.target_id).populate("user", "_id fullName username avatar").lean();
         } else if (r.target_type === "user") {
           targetDetails = await User.findById(r.target_id).select("_id fullName username avatar email status").lean();
         }
@@ -715,7 +715,7 @@ module.exports.analyzeReportWithAI = async (req, res) => {
       textToAnalyze = comment ? comment.content : "";
     }
 
-    const aiResult = await analyzeContentWithAI(textToAnalyze, report.reason);
+    const aiResult = await analyzeContentWithAI(textToAnalyze, report.reason, report.reasonCategory);
 
     report.aiAnalysis = {
       ...aiResult,
