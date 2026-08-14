@@ -29,9 +29,13 @@ const suggestRoute = require("./suggest.route");
 // [ADMIN]
 const Admin = require("./admin.routes");
 
+// [REPORT]
+const Report = require("./report.routes");
+
 module.exports = (app) => {
   const version = "/api/v1";
   app.use(version + "/admin", Admin);
+  app.use(version + "/report", Report);
   app.use(version + "/user", User);
   app.use(version + "/search", Search);
   // app.use(version + "/slider-menu", SliderMenu);

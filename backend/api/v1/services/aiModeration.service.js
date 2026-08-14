@@ -1,18 +1,30 @@
 const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
-async function analyzeContentWithAI(content, reportReason = "") {
+const REASON_CATEGORY_LABELS = {
+  spam: "Spam / Quảng cáo rác",
+  violence: "Nội dung bạo lực",
+  harassment: "Quấy rối / Bắt nạt",
+  hate_speech: "Ngôn từ thù địch / Kỳ thị",
+  misinformation: "Thông tin sai lệch",
+  sexual_content: "Nội dung khiêu dâm / 18+",
+  other: "Khác",
+};
+
+async function analyzeContentWithAI(content, reportReason = "", reasonCategory = "") {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return getFallbackAnalysis(content, reportReason);
+      return getFallbackAnalysis(content, reportReason, reasonCategory);
     }
 
+    const categoryLabel = REASON_CATEGORY_LABELS[reasonCategory] || "Chưa phân loại";
     const prompt = `Bạn là hệ thống AI kiểm duyệt nội dung của ứng dụng mạng xã hội StudyConnect.
 Hãy phân tích nội dung sau đây cùng với lý do báo cáo vi phạm từ người dùng và trả về JSON thuần kết quả đánh giá.
 
 Nội dung bài viết/bình luận: "${content || "Không có nội dung văn bản"}"
-Lý do bị báo cáo: "${reportReason || "Chưa có lý do chi tiết"}"
+Phân loại vi phạm (do người dùng chọn): "${categoryLabel}"
+Mô tả thêm từ người báo cáo: "${reportReason || "Không có mô tả thêm"}"
 
 Trả về ĐÚNG 1 ĐỐI TƯỢNG JSON (không bọc trong markdown code block, không giải thích thêm):
 {
@@ -48,18 +60,35 @@ Trả về ĐÚNG 1 ĐỐI TƯỢNG JSON (không bọc trong markdown code block
     };
   } catch (error) {
     console.error("Gemini AI moderation error:", error);
-    return getFallbackAnalysis(content, reportReason);
+    return getFallbackAnalysis(content, reportReason, reasonCategory);
   }
 }
 
-function getFallbackAnalysis(content, reportReason) {
+function getFallbackAnalysis(content, reportReason, reasonCategory = "") {
   const text = (content + " " + reportReason).toLowerCase();
   let toxicScore = 20;
   let category = "normal";
   let suggestedAction = "dismiss";
   let summary = "Nội dung cần xem xét thêm bởi Quản trị viên.";
 
-  if (text.includes("chửi") || text.includes("đám") || text.includes("ngu") || text.includes("xúc phạm")) {
+  // Ưu tiên dùng reasonCategory nếu có
+  if (reasonCategory && reasonCategory !== "other") {
+    const categoryMap = {
+      spam: { score: 65, cat: "spam", action: "hide_post", msg: "Nội dung chứa dấu hiệu spam/quảng cáo rác." },
+      violence: { score: 80, cat: "violence", action: "hide_post", msg: "Nội dung bị báo cáo có liên quan đến bạo lực." },
+      harassment: { score: 75, cat: "harassment", action: "warn_user", msg: "Nội dung bị báo cáo có dấu hiệu quấy rối." },
+      hate_speech: { score: 80, cat: "hate_speech", action: "hide_post", msg: "Nội dung bị báo cáo có ngôn từ thù địch/kỳ thị." },
+      misinformation: { score: 60, cat: "normal", action: "hide_post", msg: "Nội dung bị báo cáo có thể chứa thông tin sai lệch." },
+      sexual_content: { score: 85, cat: "harassment", action: "hide_post", msg: "Nội dung bị báo cáo có yếu tố khiêu dâm/18+." },
+    };
+    const mapped = categoryMap[reasonCategory];
+    if (mapped) {
+      toxicScore = mapped.score;
+      category = mapped.cat;
+      suggestedAction = mapped.action;
+      summary = mapped.msg;
+    }
+  } else if (text.includes("chửi") || text.includes("đám") || text.includes("ngu") || text.includes("xúc phạm")) {
     toxicScore = 75;
     category = "hate_speech";
     suggestedAction = "hide_post";

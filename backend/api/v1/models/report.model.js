@@ -16,9 +16,22 @@ const reportSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
     },
+    reasonCategory: {
+      type: String,
+      enum: [
+        "spam",
+        "violence",
+        "harassment",
+        "hate_speech",
+        "misinformation",
+        "sexual_content",
+        "other",
+      ],
+      default: "other",
+    },
     reason: {
       type: String,
-      required: true,
+      default: "",
     },
     status: {
       type: String,

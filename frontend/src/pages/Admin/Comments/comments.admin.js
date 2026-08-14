@@ -28,6 +28,8 @@ import useDebounce from '../../../hooks/useDebounce';
 import ConfirmModal from '../../../components/ConfirmModal';
 import AdminPostDetailModal from '../../../components/AdminPostDetailModal';
 import AdminPagination from '../../../components/AdminPagination';
+import AdminSelect from '../../../components/AdminSelect';
+
 
 
 function CommentsAdmin() {
@@ -288,55 +290,30 @@ function CommentsAdmin() {
                     </div>
 
                     {/* Time Range Filter */}
-                    <div className={`flex items-center gap-1 rounded-2xl border p-1 text-xs ${isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-100'}`}>
-                        <Clock className={`h-3.5 w-3.5 ml-1.5 ${isDark ? 'text-gray-500' : 'text-slate-400'}`} />
-                        {[
-                            { id: 'all', label: 'Mọi lúc' },
-                            { id: 'today', label: 'Hôm nay' },
-                            { id: 'week', label: '7 ngày' },
-                            { id: 'month', label: 'Tháng này' },
-                        ].map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setTimeRange(item.id)}
-                                className={`rounded-xl px-2.5 py-1.5 font-semibold transition ${
-                                    timeRange === item.id
-                                        ? 'bg-violet-600 text-white shadow-md'
-                                        : isDark
-                                        ? 'text-gray-400 hover:text-white'
-                                        : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
-                    </div>
+                    <AdminSelect
+                        value={timeRange}
+                        onChange={(val) => setTimeRange(val)}
+                        icon={Clock}
+                        options={[
+                            { value: 'all', label: 'Mọi lúc' },
+                            { value: 'today', label: 'Hôm nay' },
+                            { value: 'week', label: '7 ngày qua' },
+                            { value: 'month', label: 'Tháng này' },
+                        ]}
+                    />
 
-                    {/* Sort By */}
-                    <div className={`flex items-center gap-1 rounded-2xl border p-1 text-xs ${isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-100'}`}>
-                        <ArrowUpDown className={`h-3.5 w-3.5 ml-1.5 ${isDark ? 'text-gray-500' : 'text-slate-400'}`} />
-                        {[
-                            { id: 'newest', label: 'Mới nhất' },
-                            { id: 'oldest', label: 'Cũ nhất' },
-                            { id: 'popular', label: 'Hot nhất' },
-                        ].map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setSortBy(item.id)}
-                                className={`rounded-xl px-2.5 py-1.5 font-semibold transition ${
-                                    sortBy === item.id
-                                        ? 'bg-emerald-600 text-white shadow-md'
-                                        : isDark
-                                        ? 'text-gray-400 hover:text-white'
-                                        : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Sort By Filter */}
+                    <AdminSelect
+                        value={sortBy}
+                        onChange={(val) => setSortBy(val)}
+                        icon={ArrowUpDown}
+                        options={[
+                            { value: 'newest', label: 'Mới nhất' },
+                            { value: 'oldest', label: 'Cũ nhất' },
+                            { value: 'popular', label: 'Hot nhất' },
+                        ]}
+                    />
+
                 </div>
             </div>
 

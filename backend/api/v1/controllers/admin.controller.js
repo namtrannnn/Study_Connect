@@ -675,9 +675,9 @@ module.exports.getReports = async (req, res) => {
       reports.map(async (r) => {
         let targetDetails = null;
         if (r.target_type === "post") {
-          targetDetails = await Post.findById(r.target_id).populate("user_id", "_id fullName username avatar").lean();
+          targetDetails = await Post.findById(r.target_id).populate("author", "_id fullName username avatar").lean();
         } else if (r.target_type === "comment") {
-          targetDetails = await PostComment.findById(r.target_id).populate("user_id", "_id fullName username avatar").lean();
+          targetDetails = await PostComment.findById(r.target_id).populate("user", "_id fullName username avatar").lean();
         } else if (r.target_type === "user") {
           targetDetails = await User.findById(r.target_id).select("_id fullName username avatar email status").lean();
         }
@@ -715,7 +715,7 @@ module.exports.analyzeReportWithAI = async (req, res) => {
       textToAnalyze = comment ? comment.content : "";
     }
 
-    const aiResult = await analyzeContentWithAI(textToAnalyze, report.reason);
+    const aiResult = await analyzeContentWithAI(textToAnalyze, report.reason, report.reasonCategory);
 
     report.aiAnalysis = {
       ...aiResult,
@@ -770,34 +770,219 @@ module.exports.resolveReport = async (req, res) => {
 // 7. [GET] /api/v1/admin/hashtags & Blacklist
 module.exports.getHashtags = async (req, res) => {
   try {
-    const allPosts = await Post.find({ deleted: false }).select("content title hashtags").lean();
+    const { keyword, tab = "all", sortBy = "count", page = 1, limit = 10 } = req.query;
+
+    const currentPage = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.max(1, parseInt(limit, 10));
+    const skip = (currentPage - 1) * limitNum;
+
+    // 1. Fetch Blacklist
+    const blacklistRaw = await HashtagBlacklist.find()
+      .populate("createdBy", "fullName username avatar")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const blacklistMap = {};
+    blacklistRaw.forEach((item) => {
+      blacklistMap[item.tag.toLowerCase()] = item;
+    });
+
+    // 2. Aggregate Hashtags from Posts
+    const allPosts = await Post.find({ status: { $ne: "deleted" } })
+      .select("content caption title hashtags likesCount commentsCount createdAt")
+      .lean();
+
     const hashtagMap = {};
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
     allPosts.forEach((p) => {
-      const tags = p.hashtags || [];
-      const text = (p.title || "") + " " + (p.content || "");
+      const tags = new Set();
+
+      // From hashtags array
+      if (Array.isArray(p.hashtags)) {
+        p.hashtags.forEach((t) => {
+          if (t) tags.add(t.replace(/^#/, "").toLowerCase().trim());
+        });
+      }
+
+      // From text caption/content/title
+      const text = `${p.title || ""} ${p.caption || ""} ${p.content || ""}`;
       const matches = text.match(/#[^\s#]+/g) || [];
-      [...tags, ...matches].forEach((rawTag) => {
-        const tag = rawTag.replace(/^#/, "").toLowerCase().trim();
-        if (tag) hashtagMap[tag] = (hashtagMap[tag] || 0) + 1;
+      matches.forEach((rawTag) => {
+        const clean = rawTag.replace(/^#/, "").toLowerCase().trim();
+        if (clean) tags.add(clean);
+      });
+
+      tags.forEach((tag) => {
+        if (!tag) return;
+        if (!hashtagMap[tag]) {
+          hashtagMap[tag] = {
+            tag,
+            count: 0,
+            likesCount: 0,
+            commentsCount: 0,
+            recentCount: 0,
+            firstUsed: p.createdAt,
+            lastUsed: p.createdAt,
+          };
+        }
+
+        hashtagMap[tag].count += 1;
+        hashtagMap[tag].likesCount += p.likesCount || 0;
+        hashtagMap[tag].commentsCount += p.commentsCount || 0;
+
+        if (new Date(p.createdAt) >= sevenDaysAgo) {
+          hashtagMap[tag].recentCount += 1;
+        }
+
+        if (new Date(p.createdAt) < new Date(hashtagMap[tag].firstUsed)) {
+          hashtagMap[tag].firstUsed = p.createdAt;
+        }
+        if (new Date(p.createdAt) > new Date(hashtagMap[tag].lastUsed)) {
+          hashtagMap[tag].lastUsed = p.createdAt;
+        }
       });
     });
 
-    const trending = Object.entries(hashtagMap)
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count);
+    // Also include blacklisted tags that have 0 posts currently
+    blacklistRaw.forEach((bl) => {
+      const tag = bl.tag.toLowerCase();
+      if (!hashtagMap[tag]) {
+        hashtagMap[tag] = {
+          tag,
+          count: 0,
+          likesCount: 0,
+          commentsCount: 0,
+          recentCount: 0,
+          firstUsed: bl.createdAt,
+          lastUsed: bl.createdAt,
+        };
+      }
+    });
 
-    const blacklist = await HashtagBlacklist.find().populate("createdBy", "fullName username").sort({ createdAt: -1 }).lean();
+    let combinedList = Object.values(hashtagMap).map((item) => {
+      const blInfo = blacklistMap[item.tag];
+      return {
+        ...item,
+        isBlacklisted: !!blInfo,
+        blacklistId: blInfo ? blInfo._id : null,
+        blacklistedAt: blInfo ? blInfo.createdAt : null,
+        blacklistedBy: blInfo ? blInfo.createdBy : null,
+        reason: blInfo ? blInfo.reason : null,
+      };
+    });
 
-    return res.status(200).json({ code: 200, data: { trending, blacklist } });
+    // Filter by keyword
+    if (keyword && keyword.trim()) {
+      const kw = keyword.trim().toLowerCase().replace(/^#/, "");
+      combinedList = combinedList.filter((item) => item.tag.includes(kw));
+    }
+
+    // Filter by Tab
+    if (tab === "trending") {
+      combinedList = combinedList.filter((item) => item.recentCount > 0 || item.count >= 2);
+    } else if (tab === "blacklist") {
+      combinedList = combinedList.filter((item) => item.isBlacklisted);
+    }
+
+    // Sort
+    if (sortBy === "count") {
+      combinedList.sort((a, b) => b.count - a.count);
+    } else if (sortBy === "interactions") {
+      combinedList.sort((a, b) => (b.likesCount + b.commentsCount) - (a.likesCount + a.commentsCount));
+    } else if (sortBy === "newest") {
+      combinedList.sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed));
+    } else if (sortBy === "alphabetical") {
+      combinedList.sort((a, b) => a.tag.localeCompare(b.tag));
+    }
+
+    const total = combinedList.length;
+    const paginatedHashtags = combinedList.slice(skip, skip + limitNum);
+
+    // Stats
+    const stats = {
+      totalHashtagsCount: Object.keys(hashtagMap).length,
+      blacklistCount: blacklistRaw.length,
+      trendingCount: Object.values(hashtagMap).filter((h) => h.recentCount > 0).length,
+    };
+
+    return res.status(200).json({
+      code: 200,
+      data: {
+        hashtags: paginatedHashtags,
+        stats,
+        pagination: {
+          total,
+          page: currentPage,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
+    });
   } catch (error) {
     console.error("getHashtags error:", error);
     return res.status(500).json({ message: "Không thể lấy danh sách hashtag" });
   }
 };
 
+// [GET] /api/v1/admin/hashtags/:tag/posts
+module.exports.getHashtagPosts = async (req, res) => {
+  try {
+    const { tag } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const currentPage = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.max(1, parseInt(limit, 10));
+    const skip = (currentPage - 1) * limitNum;
+
+    const cleanTag = tag.replace(/^#/, "").toLowerCase().trim();
+    const regex = new RegExp(`#${cleanTag}\\b`, "i");
+
+    const find = {
+      status: { $ne: "deleted" },
+      $or: [
+        { hashtags: cleanTag },
+        { caption: { $regex: regex } },
+        { content: { $regex: regex } },
+      ],
+    };
+
+    const total = await Post.countDocuments(find);
+    const postsRaw = await Post.find(find)
+      .populate("author", "_id fullName username avatar")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    const posts = postsRaw.map((p) => ({
+      ...p,
+      user_id: p.author,
+      content: p.caption || p.content || "",
+      images: p.media || p.images || [],
+    }));
+
+    return res.status(200).json({
+      code: 200,
+      data: {
+        posts,
+        pagination: {
+          total,
+          page: currentPage,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("getHashtagPosts error:", error);
+    return res.status(500).json({ message: "Không thể lấy bài viết theo hashtag" });
+  }
+};
+
 module.exports.addBlacklistHashtag = async (req, res) => {
   try {
-    const { tag } = req.body;
+    const { tag, reason } = req.body;
     const adminId = req.user._id;
 
     if (!tag || !tag.trim()) return res.status(400).json({ message: "Hashtag không được để trống" });
@@ -806,7 +991,12 @@ module.exports.addBlacklistHashtag = async (req, res) => {
     const existing = await HashtagBlacklist.findOne({ tag: cleanTag });
     if (existing) return res.status(400).json({ message: "Hashtag này đã nằm trong Blacklist" });
 
-    const item = await HashtagBlacklist.create({ tag: cleanTag, createdBy: adminId });
+    const item = await HashtagBlacklist.create({
+      tag: cleanTag,
+      createdBy: adminId,
+      reason: reason || "Từ khóa vi phạm tiêu chuẩn cộng đồng",
+    });
+
     await logAdminActivity(adminId, "blacklist_hashtag", "hashtag", cleanTag, `Thêm hashtag #${cleanTag} vào danh sách cấm`);
 
     return res.status(200).json({ code: 200, message: `Đã thêm #${cleanTag} vào Blacklist`, data: item });
@@ -832,6 +1022,7 @@ module.exports.deleteBlacklistHashtag = async (req, res) => {
     return res.status(500).json({ message: "Xóa blacklist thất bại" });
   }
 };
+
 
 // 8. [GET] /api/v1/admin/analytics/interactions
 module.exports.getInteractionAnalytics = async (req, res) => {
