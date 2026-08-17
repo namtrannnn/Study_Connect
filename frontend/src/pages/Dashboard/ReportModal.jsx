@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Flag, Loader2, ShieldAlert, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -21,10 +21,24 @@ const REASON_CATEGORIES = [
  * @param {string} props.targetId
  */
 function ReportModal({ onClose, targetType, targetId }) {
-    const [step, setStep] = useState(1); // 1: chọn category, 2: mô tả thêm + confirm
+    const [step, setStep] = useState(1);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Tạo portal container độc lập, tránh bị clip bởi overflow:hidden của layout
+    const [portalEl] = useState(() => {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;pointer-events:none;';
+        return el;
+    });
+
+    useEffect(() => {
+        document.body.appendChild(portalEl);
+        return () => {
+            document.body.removeChild(portalEl);
+        };
+    }, [portalEl]);
 
     const handleSelectCategory = (value) => {
         setSelectedCategory(value);
@@ -64,7 +78,8 @@ function ReportModal({ onClose, targetType, targetId }) {
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
+            className="fixed inset-0 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
+            style={{ pointerEvents: 'auto' }}
             onClick={onClose}
         >
             <div
@@ -190,7 +205,7 @@ function ReportModal({ onClose, targetType, targetId }) {
                 )}
             </div>
         </div>,
-        document.body,
+        portalEl,
     );
 }
 

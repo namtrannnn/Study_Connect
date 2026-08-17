@@ -607,7 +607,9 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
 
     const authorId = post?.author?.id || post?.author?._id || post?.author?.userId;
     const currentId = currentUser?.id || currentUser?._id || currentUser?.userId;
-    const isOwner = authorId && currentId ? authorId === currentId : post?.author?.name === currentUser?.fullName;
+    const isOwner = authorId && currentId
+        ? String(authorId) === String(currentId)
+        : post?.author?.name === currentUser?.fullName;
 
     // eslint-disable-next-line no-unused-vars
     const postType = post?.postType || 'normal';
@@ -910,7 +912,10 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                                     <div className="my-1 h-px bg-gray-100 dark:bg-white/10" />
 
                                     <DropdownMenuItem
-                                        onClick={handleReport}
+                                        onSelect={(e) => {
+                                            e.preventDefault();
+                                            handleReport();
+                                        }}
                                         className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/15"
                                     >
                                         <Flag className="h-4 w-4" />
