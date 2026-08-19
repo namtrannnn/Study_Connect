@@ -11,7 +11,7 @@ import {
     UserRound,
     Trash2,
 } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
@@ -45,9 +45,11 @@ import TypingIndicator from './components/TypingIndicator';
 import RoomInfoPanel from './components/RoomInfoPanel';
 import CreateGroupModal from './components/CreateGroupModal';
 import NewChatModal from './components/NewChatModal';
+import { setTotalUnread } from '../../redux/slices/chatSlice';
 
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
+    const dispatch = useDispatch();
     const onlineUsers = useSelector((state) => state.presence?.onlineUsers || []);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -347,6 +349,8 @@ function Messenger() {
 
     useEffect(() => {
         loadRooms();
+        // Reset badge khi vào Messenger
+        dispatch(setTotalUnread(0));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
