@@ -161,21 +161,46 @@ module.exports = (socket) => {
         images,
       });
 
-      // CẬP NHẬT TIN NHẮN CUỐI CHO ROOM
-      await RoomChat.updateOne(
-        { _id: roomChatId },
-        {
-          $set: {
-            lastMessage: {
-              message_id: chat._id,
-              sender: myUserId,
-              content: chat.content,
-              imagesCount: images.length,
-              createdAt: chat.createdAt,
+      // CẬP NHẬT TIN NHẮN CUỐI CHO ROOM + TĂNG unreadCount cho các member không phải sender
+      const bulkOps = [];
+
+      // Cập nhật lastMessage cho tất cả
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: roomChatId },
+          update: {
+            $set: {
+              lastMessage: {
+                message_id: chat._id,
+                sender: myUserId,
+                content: chat.content,
+                imagesCount: images.length,
+                createdAt: chat.createdAt,
+              },
             },
           },
         },
-      );
+      });
+
+      // Tăng unreadCount cho từng member isActive không phải sender
+      for (const member of room.users) {
+        if (!member.isActive) continue;
+        if (member.user_id.toString() === myUserId) continue;
+
+        bulkOps.push({
+          updateOne: {
+            filter: {
+              _id: roomChatId,
+              "users.user_id": member.user_id,
+            },
+            update: {
+              $inc: { "users.$.unreadCount": 1 },
+            },
+          },
+        });
+      }
+
+      await RoomChat.bulkWrite(bulkOps);
 
       const messageData = {
         _id: chat._id,
@@ -208,21 +233,53 @@ module.exports = (socket) => {
       // Trả tin nhắn mới về tất cả client đang ở room
       global._io.to(roomChatId).emit("SERVER_RETURN_MESSAGE", messageData);
 
-      // Báo cho từng user trong room cập nhật danh sách chat
-      room.users.forEach((member) => {
-        global._io
-          .to(member.user_id.toString())
-          .emit("SERVER_CHAT_LIST_UPDATED", {
-            roomId: roomChatId,
-            lastMessage: {
-              message_id: chat._id,
-              sender: myUserId,
-              content: chat.content,
-              imagesCount: images.length,
-              createdAt: chat.createdAt,
+      // Báo cho từng user trong room cập nhật danh sách chat + tổng unread
+      const updatedRoom = await RoomChat.findById(roomChatId).lean();
+
+      for (const member of room.users) {
+        if (!member.isActive) continue;
+
+        const memberId = member.user_id.toString();
+        const isSender = memberId === myUserId;
+
+        // Tính tổng unread của user này trên tất cả room
+        const allRooms = await RoomChat.find({
+          deleted: false,
+          users: {
+            $elemMatch: {
+              user_id: member.user_id,
+              isActive: true,
+              deletedAt: null,
             },
-          });
-      });
+          },
+        }).lean();
+
+        const totalUnread = allRooms.reduce((sum, r) => {
+          const m = r.users.find(
+            (u) => u.user_id.toString() === memberId,
+          );
+          return sum + (m?.unreadCount || 0);
+        }, 0);
+
+        // Lấy unreadCount của room này cho user này
+        const memberInUpdatedRoom = updatedRoom?.users?.find(
+          (u) => u.user_id.toString() === memberId,
+        );
+        const roomUnread = isSender ? 0 : (memberInUpdatedRoom?.unreadCount || 0);
+
+        global._io.to(memberId).emit("SERVER_CHAT_LIST_UPDATED", {
+          roomId: roomChatId,
+          lastMessage: {
+            message_id: chat._id,
+            sender: myUserId,
+            content: chat.content,
+            imagesCount: images.length,
+            createdAt: chat.createdAt,
+          },
+          roomUnreadCount: roomUnread,
+          totalUnreadCount: totalUnread,
+        });
+      }
     } catch (error) {
       console.log("SEND MESSAGE ERROR:", error);
       socket.emit("SERVER_CHAT_ERROR", {
