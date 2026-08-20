@@ -14,6 +14,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { setTotalUnread, setActiveRoomId } from '../../redux/slices/chatSlice';
 
 import {
     getChatRooms,
@@ -23,6 +24,7 @@ import {
 } from '../../services/chatServices';
 import {
     joinChatRoom,
+    leaveChatRoom,
     registerChatSocketEvents,
     sendChatMessage,
     startTyping,
@@ -45,7 +47,6 @@ import TypingIndicator from './components/TypingIndicator';
 import RoomInfoPanel from './components/RoomInfoPanel';
 import CreateGroupModal from './components/CreateGroupModal';
 import NewChatModal from './components/NewChatModal';
-import { setTotalUnread } from '../../redux/slices/chatSlice';
 
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
@@ -325,7 +326,11 @@ function Messenger() {
             setRooms(list);
             if (!hasAutoSelected && !selectedRoom && list.length > 0) {
                 const fromUrl = roomIdFromUrl ? list.find((r) => getRoomId(r) === roomIdFromUrl) : null;
-                setSelectedRoom(fromUrl || list[0]);
+                if (fromUrl) {
+                    setSelectedRoom(fromUrl);
+                    dispatch(setActiveRoomId(getRoomId(fromUrl)));
+                }
+                // Không auto-select room đầu tiên nữa — để user tự chọn
                 setHasAutoSelected(true);
             }
         } catch (e) {
@@ -349,8 +354,10 @@ function Messenger() {
 
     useEffect(() => {
         loadRooms();
-        // Reset badge khi vào Messenger
-        dispatch(setTotalUnread(0));
+
+        return () => {
+            dispatch(setActiveRoomId(null));
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
@@ -519,6 +526,10 @@ function Messenger() {
         if (!selectedRoomId) return;
         joinChatRoom(selectedRoomId);
         loadMessages(selectedRoomId);
+
+        return () => {
+            leaveChatRoom(selectedRoomId);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRoomId]);
 
@@ -534,6 +545,9 @@ function Messenger() {
         setShowInfo(false);
         setAiExplanation(null);
         setOpenRoomMenuId(null);
+
+        // Cập nhật room đang xem để global listener không increment badge
+        dispatch(setActiveRoomId(roomId));
 
         setRooms((prev) =>
             prev
@@ -648,7 +662,11 @@ function Messenger() {
         const lastMessageId = room?.lastMessage?.message_id || room?.lastMessage?._id;
 
         try {
-            await roomChatApi.markAsRead(roomId, lastMessageId);
+            const res = await roomChatApi.markAsRead(roomId, lastMessageId);
+
+            if (typeof res?.data?.chatBadgeCount === 'number') {
+                dispatch(setTotalUnread(res.data.chatBadgeCount));
+            }
 
             updateRoomStateForMe({
                 roomId,

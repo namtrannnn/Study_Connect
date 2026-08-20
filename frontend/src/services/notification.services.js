@@ -4,7 +4,7 @@ import httpRequest from '../config/axios';
 export const getNotifications = async () => {
     try {
         const res = await httpRequest.get('/notifications');
-        console.log('notification res:', res.data);
+        // console.log('notification res:', res.data);
         return res.data;
     } catch (error) {
         console.log('notification error:', error?.response?.status, error?.response?.data?.message);

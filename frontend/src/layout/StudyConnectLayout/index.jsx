@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 import Slider from '../components/Slider';
@@ -11,8 +10,6 @@ import Modal from '../../pages/Dashboard/Modal';
 import { getSocket } from '../../config/socket';
 import * as NotificationServices from '../../services/notification.services';
 import { setUnreadCount, incrementUnread } from '../../redux/slices/notificationSlice';
-import { setTotalUnread } from '../../redux/slices/chatSlice';
-import * as roomChatApi from '../../services/messenger.services';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -40,8 +37,6 @@ function StudyConnectLayout({
             localStorage.setItem(STORAGE_KEY, String(collapsed));
         } catch {}
     }, [collapsed]);
-
-    const location = useLocation();
 
     // Global fetch and socket listener for unread notifications count
     useEffect(() => {
@@ -77,41 +72,7 @@ function StudyConnectLayout({
         };
     }, [dispatch]);
 
-    // Global listener for unread message count
-    useEffect(() => {
-        // Load tổng unread khi mount
-        roomChatApi.getListFriendChat?.()
-            .then((res) => {
-                const rooms = res?.data || [];
-                const total = rooms.reduce((sum, room) => {
-                    return sum + (room.currentUserRoomState?.unreadCount || 0);
-                }, 0);
-                dispatch(setTotalUnread(total));
-            })
-            .catch(() => {});
-
-        const socket = getSocket();
-        if (!socket) return;
-
-        const handleChatListUpdated = (data) => {
-            // Nếu đang ở trang Messenger thì không cần tăng badge
-            // (Messenger tự xử lý unread nội bộ)
-            const isOnMessenger = location.pathname.startsWith('/messenger') ||
-                                  location.pathname.startsWith('/tin-nhan');
-            if (isOnMessenger) return;
-
-            // Server đã tính totalUnreadCount, dùng luôn
-            if (typeof data?.totalUnreadCount === 'number') {
-                dispatch(setTotalUnread(data.totalUnreadCount));
-            }
-        };
-
-        socket.on('SERVER_CHAT_LIST_UPDATED', handleChatListUpdated);
-
-        return () => {
-            socket.off('SERVER_CHAT_LIST_UPDATED', handleChatListUpdated);
-        };
-    }, [dispatch, location.pathname]);
+    // Global listener for unread message count handled in App.jsx
 
     const isSearchOpen = openPanel === 'search';
     const isNotifOpen = openPanel === 'notifications';

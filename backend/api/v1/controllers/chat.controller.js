@@ -3,6 +3,7 @@ const RoomChat = require("../models/roomChat.model");
 const User = require("../models/user.model");
 const mongoose = require("mongoose");
 const { redisClient } = require("../../../config/redis");
+const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 // [GET] /api/v1/chat/:roomId/messages
 module.exports.getMessagesByRoom = async (req, res) => {
@@ -78,6 +79,11 @@ module.exports.getMessagesByRoom = async (req, res) => {
           },
         },
       ).catch((err) => console.log("RoomChat.updateOne read error:", err));
+
+      const newBadgeCount = await syncUserChatBadge(userId.toString());
+      global._io?.to(userId.toString()).emit("SERVER_UNREAD_CHAT_COUNT_UPDATED", {
+        chatBadgeCount: newBadgeCount,
+      });
     }
 
     return res.status(200).json({
