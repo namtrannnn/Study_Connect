@@ -403,7 +403,18 @@ function Messenger() {
                 onChatListUpdated: (data) => {
                     setRooms((prev) =>
                         prev
-                            .map((r) => (getRoomId(r) !== data.roomId ? r : { ...r, lastMessage: data.lastMessage }))
+                            .map((r) => {
+                                if (getRoomId(r) !== data.roomId) return r;
+                                const updated = { ...r, lastMessage: data.lastMessage };
+                                // Cập nhật unreadCount từ server nếu có
+                                if (typeof data.roomUnreadCount === 'number') {
+                                    updated.currentUserRoomState = {
+                                        ...(r.currentUserRoomState || {}),
+                                        unreadCount: data.roomUnreadCount,
+                                    };
+                                }
+                                return updated;
+                            })
                             .sort(
                                 (a, b) =>
                                     new Date(b.lastMessage?.createdAt || b.updatedAt || 0) -
@@ -887,7 +898,7 @@ function Messenger() {
                                                     </p>
 
                                                     {unread > 0 && !active && (
-                                                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                                                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
                                                             {unread > 99 ? '99+' : unread}
                                                         </span>
                                                     )}
