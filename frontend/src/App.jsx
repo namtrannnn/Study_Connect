@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Fragment, useEffect } from 'react';
+import React, { Fragment, useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -22,7 +22,14 @@ import { playMessageSound } from './helper/sound';
 function App() {
     const dark = useSelector((state) => state.theme?.theme);
     const user = useSelector((state) => state.user?.infoUser);
+    const activeRoomId = useSelector((state) => state.chat?.activeRoomId);
     const dispatch = useDispatch();
+
+    // Dùng ref để luôn có giá trị mới nhất trong closure socket listener
+    const activeRoomIdRef = React.useRef(activeRoomId);
+    React.useEffect(() => {
+        activeRoomIdRef.current = activeRoomId;
+    }, [activeRoomId]);
 
     useEffect(() => {
         const token = Cookies.get('accessToken');
@@ -51,9 +58,13 @@ function App() {
                 }
 
                 // Phát âm thanh nếu tin nhắn do người khác gửi tới
+                // và user KHÔNG đang mở trực tiếp phòng chat đó
                 const senderId = data?.lastMessage?.sender;
+                const messageRoomId = data?.roomId;
                 if (senderId && user?._id && senderId.toString() !== user._id.toString()) {
-                    playMessageSound();
+                    if (!activeRoomIdRef.current || activeRoomIdRef.current !== messageRoomId) {
+                        playMessageSound();
+                    }
                 }
             };
 
