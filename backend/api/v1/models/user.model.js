@@ -66,6 +66,12 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    chatBadgeCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     username: {
       type: String,
       required: true,

@@ -4,19 +4,20 @@ const chatSlice = createSlice({
     name: 'chat',
     initialState: {
         totalUnread: 0,
+        activeRoomId: null,
     },
     reducers: {
         setTotalUnread(state, action) {
             state.totalUnread = Math.max(0, action.payload ?? 0);
         },
-        incrementTotalUnread(state) {
-            state.totalUnread += 1;
-        },
         resetTotalUnread(state) {
             state.totalUnread = 0;
+        },
+        setActiveRoomId(state, action) {
+            state.activeRoomId = action.payload || null;
         },
     },
 });
 
-export const { setTotalUnread, incrementTotalUnread, resetTotalUnread } = chatSlice.actions;
+export const { setTotalUnread, resetTotalUnread, setActiveRoomId } = chatSlice.actions;
 export default chatSlice.reducer;

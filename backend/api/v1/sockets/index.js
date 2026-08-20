@@ -2,6 +2,7 @@ const chatSocket = require("./chat.socket");
 const postCommentSocket = require("./postComment.socket");
 const studyRoomSocket = require("./studyRoom.socket");
 const socketMiddleware = require("../middlewares/socket.middleware");
+const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 const { redisClient } = require("../../../config/redis");
 
@@ -23,6 +24,7 @@ module.exports = () => {
       await redisClient.sAdd("online_users", userId);
 
       const onlineUsers = await redisClient.sMembers("online_users");
+      const chatBadgeCount = await syncUserChatBadge(userId);
 
       console.log("USER ONLINE:", userId);
       console.log("ONLINE USERS NOW:", onlineUsers);
@@ -32,6 +34,7 @@ module.exports = () => {
         userId,
         isOnline: true,
         onlineUsers,
+        chatBadgeCount,
       });
 
       // Báo cho các client khác biết user này online

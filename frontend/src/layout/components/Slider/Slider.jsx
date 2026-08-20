@@ -22,9 +22,10 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
-// import NotificationsPanel from './panels/NotificationsPanel';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
 import config from '../../../config';
+import { resetTotalUnread } from '../../../redux/slices/chatSlice';
+import { getSocket } from '../../../config/socket';
 
 export default function Slider({
     user,

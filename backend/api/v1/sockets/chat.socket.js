@@ -1,8 +1,20 @@
 const RoomChat = require("../models/roomChat.model");
 const Chat = require("../models/chat.model");
+const User = require("../models/user.model");
+const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 module.exports = (socket) => {
   const myUserId = socket.user._id.toString();
+
+  // CLIENT RESET CHAT BADGE
+  socket.on("CLIENT_RESET_CHAT_BADGE", async () => {
+    try {
+      const newBadge = await syncUserChatBadge(myUserId);
+      socket.emit("SERVER_UNREAD_CHAT_COUNT_UPDATED", { chatBadgeCount: newBadge });
+    } catch (err) {
+      console.error("CLIENT_RESET_CHAT_BADGE error:", err);
+    }
+  });
 
   // CLIENT JOIN ROOM CHAT
   socket.on("CLIENT_JOIN_ROOM", async (roomId) => {
@@ -34,6 +46,14 @@ module.exports = (socket) => {
       socket.emit("SERVER_CHAT_ERROR", {
         message: "Join room thất bại",
       });
+    }
+  });
+
+  // CLIENT LEAVE ROOM CHAT
+  socket.on("CLIENT_LEAVE_ROOM", (roomId) => {
+    if (roomId) {
+      socket.leave(roomId.toString());
+      console.log("LEAVE ROOM:", roomId);
     }
   });
 
@@ -182,25 +202,69 @@ module.exports = (socket) => {
         },
       });
 
-      // Tăng unreadCount cho từng member isActive không phải sender
+      // Tăng unreadCount cho member không phải sender (chỉ tăng nếu member đó KHÔNG đang mở trực tiếp phòng này)
+      const activeSocketsInRoom =
+        global._io.sockets.adapter.rooms.get(roomChatId.toString()) || new Set();
+
       for (const member of room.users) {
         if (!member.isActive) continue;
         if (member.user_id.toString() === myUserId) continue;
 
-        bulkOps.push({
-          updateOne: {
-            filter: {
-              _id: roomChatId,
-              "users.user_id": member.user_id,
+        let isReceiverViewingRoom = false;
+        for (const sId of activeSocketsInRoom) {
+          const sObj = global._io.sockets.sockets.get(sId);
+          if (sObj?.user?._id?.toString() === member.user_id.toString()) {
+            isReceiverViewingRoom = true;
+            break;
+          }
+        }
+
+        if (isReceiverViewingRoom) {
+          // Receiver đang mở trực tiếp phòng chat này -> Giữ unreadCount = 0 & cập nhật lastReadAt
+          bulkOps.push({
+            updateOne: {
+              filter: {
+                _id: roomChatId,
+                "users.user_id": member.user_id,
+              },
+              update: {
+                $set: {
+                  "users.$.unreadCount": 0,
+                  "users.$.lastReadAt": new Date(),
+                  "users.$.lastReadMessage": chat._id,
+                },
+              },
             },
-            update: {
-              $inc: { "users.$.unreadCount": 1 },
+          });
+        } else {
+          // Receiver không mở phòng chat này -> Tăng unreadCount + 1
+          bulkOps.push({
+            updateOne: {
+              filter: {
+                _id: roomChatId,
+                "users.user_id": member.user_id,
+              },
+              update: {
+                $inc: { "users.$.unreadCount": 1 },
+              },
             },
-          },
-        });
+          });
+        }
       }
 
       await RoomChat.bulkWrite(bulkOps);
+
+      // Tính lại chatBadgeCount (số conversation chưa đọc) cho từng receiver
+      const receiverIds = room.users
+        .filter((m) => m.isActive && m.user_id.toString() !== myUserId)
+        .map((m) => m.user_id);
+
+      const badgeMap = {};
+      for (const rId of receiverIds) {
+        const strId = rId.toString();
+        badgeMap[strId] = await syncUserChatBadge(strId);
+      }
+      console.log("[UNREAD CONVERSATIONS BADGE MAP]", badgeMap);
 
       const messageData = {
         _id: chat._id,
@@ -233,7 +297,7 @@ module.exports = (socket) => {
       // Trả tin nhắn mới về tất cả client đang ở room
       global._io.to(roomChatId).emit("SERVER_RETURN_MESSAGE", messageData);
 
-      // Báo cho từng user trong room cập nhật danh sách chat + tổng unread
+      // Báo cho từng user trong room cập nhật danh sách chat
       const updatedRoom = await RoomChat.findById(roomChatId).lean();
 
       for (const member of room.users) {
@@ -242,26 +306,6 @@ module.exports = (socket) => {
         const memberId = member.user_id.toString();
         const isSender = memberId === myUserId;
 
-        // Tính tổng unread của user này trên tất cả room
-        const allRooms = await RoomChat.find({
-          deleted: false,
-          users: {
-            $elemMatch: {
-              user_id: member.user_id,
-              isActive: true,
-              deletedAt: null,
-            },
-          },
-        }).lean();
-
-        const totalUnread = allRooms.reduce((sum, r) => {
-          const m = r.users.find(
-            (u) => u.user_id.toString() === memberId,
-          );
-          return sum + (m?.unreadCount || 0);
-        }, 0);
-
-        // Lấy unreadCount của room này cho user này
         const memberInUpdatedRoom = updatedRoom?.users?.find(
           (u) => u.user_id.toString() === memberId,
         );
@@ -277,7 +321,8 @@ module.exports = (socket) => {
             createdAt: chat.createdAt,
           },
           roomUnreadCount: roomUnread,
-          totalUnreadCount: totalUnread,
+          // chatBadgeCount: tổng badge mới nhất từ DB cho receiver
+          chatBadgeCount: isSender ? null : (badgeMap[memberId] ?? null),
         });
       }
     } catch (error) {

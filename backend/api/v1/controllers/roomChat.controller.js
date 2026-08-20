@@ -11,6 +11,7 @@ function getCleanLastMessage(lastMessage) {
 
 const RoomChat = require("../models/roomChat.model");
 const User = require("../models/user.model");
+const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 const { redisClient } = require("../../../config/redis");
 
@@ -1714,14 +1715,14 @@ module.exports.transferOwner = async (req, res) => {
     if (!isValidObjectId(roomId) || !isValidObjectId(userId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId hoáº·c userId khÃ´ng há»£p lá»‡",
+        message: "roomId hoặc userId không hợp lệ",
       });
     }
 
     if (meId.toString() === userId.toString()) {
       return res.status(400).json({
         code: 400,
-        message: "Báº¡n Ä‘ang lÃ  trÆ°á»Ÿng nhÃ³m rá»“i",
+        message: "Bạn đang là trưởng nhóm rồi",
       });
     }
 
@@ -1735,31 +1736,35 @@ module.exports.transferOwner = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "Không tìm thấy nhóm",
       });
     }
 
-    const myMember = getRoomMember(room, meId);
-    const targetMember = getRoomMember(room, userId);
+    const myMember = room.users.find(
+      (u) => u.user_id.toString() === meId.toString() && u.isActive,
+    );
+    const targetMember = room.users.find(
+      (u) => u.user_id.toString() === userId.toString() && u.isActive,
+    );
 
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "Bạn không thuộc nhóm này",
       });
     }
 
-    if (!isSuperAdmin(myMember)) {
+    if (myMember.role !== "superAdmin") {
       return res.status(403).json({
         code: 403,
-        message: "Chá»‰ trÆ°á»Ÿng nhÃ³m má»›i cÃ³ quyá»n chuyá»ƒn quyá»n",
+        message: "Chỉ trưởng nhóm mới có quyền chuyển quyền",
       });
     }
 
     if (!targetMember) {
       return res.status(404).json({
         code: 404,
-        message: "NgÆ°á»i nháº­n quyá»n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "Người nhận quyền không thuộc nhóm này",
       });
     }
 
@@ -1780,7 +1785,7 @@ module.exports.transferOwner = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Chuyá»ƒn quyá»n trÆ°á»Ÿng nhÃ³m thÃ nh cÃ´ng",
+      message: "Chuyển quyền trưởng nhóm thành công",
       data: {
         room: responseRoom,
         oldOwnerId: meId,
@@ -1795,8 +1800,6 @@ module.exports.transferOwner = async (req, res) => {
     });
   }
 };
-
-// [PATCH] /api/v1/room-chat/:roomId/settings
 module.exports.updateGroupSettings = async (req, res) => {
   try {
     const meId = req.user._id;
@@ -1811,7 +1814,7 @@ module.exports.updateGroupSettings = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId không hợp lệ",
       });
     }
 
@@ -1825,23 +1828,25 @@ module.exports.updateGroupSettings = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "Không tìm thấy nhóm",
       });
     }
 
-    const myMember = getRoomMember(room, meId);
+    const myMember = room.users.find(
+      (u) => u.user_id.toString() === meId.toString() && u.isActive,
+    );
 
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "Bạn không thuộc nhóm này",
       });
     }
 
-    if (!isAdminOrSuperAdmin(myMember)) {
+    if (!["admin", "superAdmin"].includes(myMember.role)) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n thay Ä‘á»•i cÃ i Ä‘áº·t nhÃ³m",
+        message: "Bạn không có quyền thay đổi cài đặt nhóm",
       });
     }
 
@@ -1855,7 +1860,7 @@ module.exports.updateGroupSettings = async (req, res) => {
     Object.entries(allowedSettings).forEach(([key, value]) => {
       if (value !== undefined) {
         if (typeof value !== "boolean") {
-          throw new Error(`${key} pháº£i lÃ  true hoáº·c false`);
+          throw new Error(`${key} phải là true hoặc false`);
         }
 
         room.groupSettings[key] = value;
@@ -1874,7 +1879,7 @@ module.exports.updateGroupSettings = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Cáº­p nháº­t cÃ i Ä‘áº·t nhÃ³m thÃ nh cÃ´ng",
+      message: "Cập nhật cài đặt nhóm thành công",
       data: responseRoom,
     });
   } catch (error) {
@@ -1897,14 +1902,14 @@ module.exports.markRoomAsRead = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId không hợp lệ",
       });
     }
 
     if (lastMessageId && !isValidObjectId(lastMessageId)) {
       return res.status(400).json({
         code: 400,
-        message: "lastMessageId khÃ´ng há»£p lá»‡",
+        message: "lastMessageId không hợp lệ",
       });
     }
 
@@ -1934,9 +1939,11 @@ module.exports.markRoomAsRead = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
+        message: "Không tìm thấy phòng chat",
       });
     }
+
+    const newBadgeCount = await syncUserChatBadge(meId.toString());
 
     global._io?.to(meId.toString()).emit("SERVER_ROOM_STATE_UPDATED", {
       roomId: room._id,
@@ -1945,14 +1952,20 @@ module.exports.markRoomAsRead = async (req, res) => {
         lastReadAt: updateData["users.$.lastReadAt"],
         lastReadMessage: lastMessageId || null,
       },
+      chatBadgeCount: newBadgeCount,
+    });
+
+    global._io?.to(meId.toString()).emit("SERVER_UNREAD_CHAT_COUNT_UPDATED", {
+      chatBadgeCount: newBadgeCount,
     });
 
     return res.status(200).json({
       code: 200,
-      message: "ÄÃ£ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c",
+      message: "Đã đánh dấu đã đọc",
       data: {
         roomId: room._id,
         unreadCount: 0,
+        chatBadgeCount: newBadgeCount,
         lastReadAt: updateData["users.$.lastReadAt"],
         lastReadMessage: lastMessageId || null,
       },
@@ -1967,10 +1980,45 @@ module.exports.markRoomAsRead = async (req, res) => {
   }
 };
 
+// [PATCH] /api/v1/room-chat/read-all
+// Reset unreadCount = 0 cho tất cả room của user (khi bấm vào icon Tin nhắn)
+module.exports.markAllRoomsAsRead = async (req, res) => {
+  try {
+    const meId = req.user._id;
 
+    await RoomChat.updateMany(
+      {
+        deleted: false,
+        "users.user_id": meId,
+        "users.isActive": true,
+      },
+      {
+        $set: { "users.$[elem].unreadCount": 0 },
+      },
+      {
+        arrayFilters: [{ "elem.user_id": meId }],
+      },
+    );
 
+    const newBadgeCount = await syncUserChatBadge(meId.toString());
 
-// [POST] /api/v1/room-chat/create-private/:userId
+    global._io?.to(meId.toString()).emit("SERVER_UNREAD_CHAT_COUNT_UPDATED", {
+      chatBadgeCount: newBadgeCount,
+    });
+
+    return res.status(200).json({
+      code: 200,
+      message: "Đã đánh dấu tất cả tin nhắn là đã đọc",
+      data: {
+        chatBadgeCount: newBadgeCount,
+      },
+    });
+  } catch (error) {
+    console.error("markAllRoomsAsRead error:", error);
+    return res.status(500).json({ code: 500, message: "FAILED!" });
+  }
+};
+
 // Alias dung tu ProfilePage khi bam "Nhan tin"
 module.exports.createPrivateFromProfile = async (req, res) => {
   try {
