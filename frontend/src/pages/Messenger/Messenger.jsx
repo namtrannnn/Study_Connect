@@ -11,9 +11,10 @@ import {
     UserRound,
     Trash2,
 } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { setTotalUnread, setActiveRoomId } from '../../redux/slices/chatSlice';
 
 import {
     getChatRooms,
@@ -23,6 +24,7 @@ import {
 } from '../../services/chatServices';
 import {
     joinChatRoom,
+    leaveChatRoom,
     registerChatSocketEvents,
     sendChatMessage,
     startTyping,
@@ -48,6 +50,7 @@ import NewChatModal from './components/NewChatModal';
 
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
+    const dispatch = useDispatch();
     const onlineUsers = useSelector((state) => state.presence?.onlineUsers || []);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -323,7 +326,11 @@ function Messenger() {
             setRooms(list);
             if (!hasAutoSelected && !selectedRoom && list.length > 0) {
                 const fromUrl = roomIdFromUrl ? list.find((r) => getRoomId(r) === roomIdFromUrl) : null;
-                setSelectedRoom(fromUrl || list[0]);
+                if (fromUrl) {
+                    setSelectedRoom(fromUrl);
+                    dispatch(setActiveRoomId(getRoomId(fromUrl)));
+                }
+                // Không auto-select room đầu tiên nữa — để user tự chọn
                 setHasAutoSelected(true);
             }
         } catch (e) {
@@ -347,6 +354,10 @@ function Messenger() {
 
     useEffect(() => {
         loadRooms();
+
+        return () => {
+            dispatch(setActiveRoomId(null));
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
@@ -392,7 +403,18 @@ function Messenger() {
                 onChatListUpdated: (data) => {
                     setRooms((prev) =>
                         prev
-                            .map((r) => (getRoomId(r) !== data.roomId ? r : { ...r, lastMessage: data.lastMessage }))
+                            .map((r) => {
+                                if (getRoomId(r) !== data.roomId) return r;
+                                const updated = { ...r, lastMessage: data.lastMessage };
+                                // Cập nhật unreadCount từ server nếu có
+                                if (typeof data.roomUnreadCount === 'number') {
+                                    updated.currentUserRoomState = {
+                                        ...(r.currentUserRoomState || {}),
+                                        unreadCount: data.roomUnreadCount,
+                                    };
+                                }
+                                return updated;
+                            })
                             .sort(
                                 (a, b) =>
                                     new Date(b.lastMessage?.createdAt || b.updatedAt || 0) -
@@ -515,6 +537,10 @@ function Messenger() {
         if (!selectedRoomId) return;
         joinChatRoom(selectedRoomId);
         loadMessages(selectedRoomId);
+
+        return () => {
+            leaveChatRoom(selectedRoomId);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRoomId]);
 
@@ -530,6 +556,9 @@ function Messenger() {
         setShowInfo(false);
         setAiExplanation(null);
         setOpenRoomMenuId(null);
+
+        // Cập nhật room đang xem để global listener không increment badge
+        dispatch(setActiveRoomId(roomId));
 
         setRooms((prev) =>
             prev
@@ -644,7 +673,11 @@ function Messenger() {
         const lastMessageId = room?.lastMessage?.message_id || room?.lastMessage?._id;
 
         try {
-            await roomChatApi.markAsRead(roomId, lastMessageId);
+            const res = await roomChatApi.markAsRead(roomId, lastMessageId);
+
+            if (typeof res?.data?.chatBadgeCount === 'number') {
+                dispatch(setTotalUnread(res.data.chatBadgeCount));
+            }
 
             updateRoomStateForMe({
                 roomId,
@@ -865,7 +898,7 @@ function Messenger() {
                                                     </p>
 
                                                     {unread > 0 && !active && (
-                                                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                                                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
                                                             {unread > 99 ? '99+' : unread}
                                                         </span>
                                                     )}

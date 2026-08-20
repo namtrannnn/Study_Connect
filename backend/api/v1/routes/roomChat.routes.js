@@ -124,6 +124,9 @@ router.patch(
   userMiddleware.requireUser,
   controller.updateGroupSettings,
 );
+// PATCH /api/v1/room-chat/read-all
+router.patch("/read-all", userMiddleware.requireUser, controller.markAllRoomsAsRead);
+
 // PATCH /api/v1/room-chat/:roomId/read
 router.patch(
   "/:roomId/read",

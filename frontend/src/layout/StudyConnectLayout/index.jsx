@@ -72,6 +72,8 @@ function StudyConnectLayout({
         };
     }, [dispatch]);
 
+    // Global listener for unread message count handled in App.jsx
+
     const isSearchOpen = openPanel === 'search';
     const isNotifOpen = openPanel === 'notifications';
     const sidebarWidth = collapsed ? 88 : 285;

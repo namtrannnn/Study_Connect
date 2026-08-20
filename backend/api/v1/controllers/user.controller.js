@@ -4,6 +4,7 @@ const sendMail = require("../../../helpers/sendMail");
 const md5 = require("md5");
 
 const { generateAccessToken } = require("../../../helpers/jwt.helper");
+const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 function removeVietnameseTones(str = "") {
   return str
@@ -363,5 +364,28 @@ module.exports.searchUsers = async (req, res) => {
       message: "Lỗi server",
       error: error.message,
     });
+  }
+};
+
+// [GET] /api/v1/user/chat-badge
+module.exports.getChatBadge = async (req, res) => {
+  try {
+    const chatBadgeCount = await syncUserChatBadge(req.user._id.toString());
+    return res.status(200).json({
+      code: 200,
+      data: { chatBadgeCount },
+    });
+  } catch (error) {
+    return res.status(500).json({ code: 500, message: "FAILED!" });
+  }
+};
+
+// [PATCH] /api/v1/user/reset-chat-badge
+module.exports.resetChatBadge = async (req, res) => {
+  try {
+    await User.updateOne({ _id: req.user._id }, { $set: { chatBadgeCount: 0 } });
+    return res.status(200).json({ code: 200, message: "Reset badge thành công" });
+  } catch (error) {
+    return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };

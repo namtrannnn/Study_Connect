@@ -22,9 +22,10 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
-// import NotificationsPanel from './panels/NotificationsPanel';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
 import config from '../../../config';
+import { resetTotalUnread } from '../../../redux/slices/chatSlice';
+import { getSocket } from '../../../config/socket';
 
 export default function Slider({
     user,
@@ -44,6 +45,7 @@ export default function Slider({
     const currentUser = user || infoUser;
     const theme = useSelector((state) => state.theme?.theme);
     const unreadNotifCount = useSelector((state) => state.notification?.unreadCount || 0);
+    const unreadChatCount = useSelector((state) => state.chat?.totalUnread || 0);
 
     useEffect(() => {
         if (theme === 'dark') {
@@ -208,6 +210,11 @@ export default function Slider({
                     {item.id === 'notifications' && unreadNotifCount > 0 && (
                         <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[10px] font-bold text-white dark:border-surface-cardDark">
                             {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                        </span>
+                    )}
+                    {item.id === 'messages' && unreadChatCount > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[10px] font-bold text-white dark:border-surface-cardDark">
+                            {unreadChatCount > 99 ? '99+' : unreadChatCount}
                         </span>
                     )}
                 </div>

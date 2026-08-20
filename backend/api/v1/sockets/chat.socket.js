@@ -1,8 +1,20 @@
 const RoomChat = require("../models/roomChat.model");
 const Chat = require("../models/chat.model");
+const User = require("../models/user.model");
+const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 module.exports = (socket) => {
   const myUserId = socket.user._id.toString();
+
+  // CLIENT RESET CHAT BADGE
+  socket.on("CLIENT_RESET_CHAT_BADGE", async () => {
+    try {
+      const newBadge = await syncUserChatBadge(myUserId);
+      socket.emit("SERVER_UNREAD_CHAT_COUNT_UPDATED", { chatBadgeCount: newBadge });
+    } catch (err) {
+      console.error("CLIENT_RESET_CHAT_BADGE error:", err);
+    }
+  });
 
   // CLIENT JOIN ROOM CHAT
   socket.on("CLIENT_JOIN_ROOM", async (roomId) => {
@@ -34,6 +46,14 @@ module.exports = (socket) => {
       socket.emit("SERVER_CHAT_ERROR", {
         message: "Join room thất bại",
       });
+    }
+  });
+
+  // CLIENT LEAVE ROOM CHAT
+  socket.on("CLIENT_LEAVE_ROOM", (roomId) => {
+    if (roomId) {
+      socket.leave(roomId.toString());
+      console.log("LEAVE ROOM:", roomId);
     }
   });
 
@@ -161,21 +181,90 @@ module.exports = (socket) => {
         images,
       });
 
-      // CẬP NHẬT TIN NHẮN CUỐI CHO ROOM
-      await RoomChat.updateOne(
-        { _id: roomChatId },
-        {
-          $set: {
-            lastMessage: {
-              message_id: chat._id,
-              sender: myUserId,
-              content: chat.content,
-              imagesCount: images.length,
-              createdAt: chat.createdAt,
+      // CẬP NHẬT TIN NHẮN CUỐI CHO ROOM + TĂNG unreadCount cho các member không phải sender
+      const bulkOps = [];
+
+      // Cập nhật lastMessage cho tất cả
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: roomChatId },
+          update: {
+            $set: {
+              lastMessage: {
+                message_id: chat._id,
+                sender: myUserId,
+                content: chat.content,
+                imagesCount: images.length,
+                createdAt: chat.createdAt,
+              },
             },
           },
         },
-      );
+      });
+
+      // Tăng unreadCount cho member không phải sender (chỉ tăng nếu member đó KHÔNG đang mở trực tiếp phòng này)
+      const activeSocketsInRoom =
+        global._io.sockets.adapter.rooms.get(roomChatId.toString()) || new Set();
+
+      for (const member of room.users) {
+        if (!member.isActive) continue;
+        if (member.user_id.toString() === myUserId) continue;
+
+        let isReceiverViewingRoom = false;
+        for (const sId of activeSocketsInRoom) {
+          const sObj = global._io.sockets.sockets.get(sId);
+          if (sObj?.user?._id?.toString() === member.user_id.toString()) {
+            isReceiverViewingRoom = true;
+            break;
+          }
+        }
+
+        if (isReceiverViewingRoom) {
+          // Receiver đang mở trực tiếp phòng chat này -> Giữ unreadCount = 0 & cập nhật lastReadAt
+          bulkOps.push({
+            updateOne: {
+              filter: {
+                _id: roomChatId,
+                "users.user_id": member.user_id,
+              },
+              update: {
+                $set: {
+                  "users.$.unreadCount": 0,
+                  "users.$.lastReadAt": new Date(),
+                  "users.$.lastReadMessage": chat._id,
+                },
+              },
+            },
+          });
+        } else {
+          // Receiver không mở phòng chat này -> Tăng unreadCount + 1
+          bulkOps.push({
+            updateOne: {
+              filter: {
+                _id: roomChatId,
+                "users.user_id": member.user_id,
+              },
+              update: {
+                $inc: { "users.$.unreadCount": 1 },
+              },
+            },
+          });
+        }
+      }
+
+      await RoomChat.bulkWrite(bulkOps);
+
+      // Tính lại chatBadgeCount (số conversation chưa đọc) cho từng receiver
+      const receiverIds = room.users
+        .filter((m) => m.isActive && m.user_id.toString() !== myUserId)
+        .map((m) => m.user_id);
+
+      const badgeMap = {};
+      for (const rId of receiverIds) {
+        const strId = rId.toString();
+        badgeMap[strId] = await syncUserChatBadge(strId);
+      }
+      console.log("[UNREAD CONVERSATIONS BADGE MAP]", badgeMap);
 
       const messageData = {
         _id: chat._id,
@@ -209,20 +298,33 @@ module.exports = (socket) => {
       global._io.to(roomChatId).emit("SERVER_RETURN_MESSAGE", messageData);
 
       // Báo cho từng user trong room cập nhật danh sách chat
-      room.users.forEach((member) => {
-        global._io
-          .to(member.user_id.toString())
-          .emit("SERVER_CHAT_LIST_UPDATED", {
-            roomId: roomChatId,
-            lastMessage: {
-              message_id: chat._id,
-              sender: myUserId,
-              content: chat.content,
-              imagesCount: images.length,
-              createdAt: chat.createdAt,
-            },
-          });
-      });
+      const updatedRoom = await RoomChat.findById(roomChatId).lean();
+
+      for (const member of room.users) {
+        if (!member.isActive) continue;
+
+        const memberId = member.user_id.toString();
+        const isSender = memberId === myUserId;
+
+        const memberInUpdatedRoom = updatedRoom?.users?.find(
+          (u) => u.user_id.toString() === memberId,
+        );
+        const roomUnread = isSender ? 0 : (memberInUpdatedRoom?.unreadCount || 0);
+
+        global._io.to(memberId).emit("SERVER_CHAT_LIST_UPDATED", {
+          roomId: roomChatId,
+          lastMessage: {
+            message_id: chat._id,
+            sender: myUserId,
+            content: chat.content,
+            imagesCount: images.length,
+            createdAt: chat.createdAt,
+          },
+          roomUnreadCount: roomUnread,
+          // chatBadgeCount: tổng badge mới nhất từ DB cho receiver
+          chatBadgeCount: isSender ? null : (badgeMap[memberId] ?? null),
+        });
+      }
     } catch (error) {
       console.log("SEND MESSAGE ERROR:", error);
       socket.emit("SERVER_CHAT_ERROR", {
