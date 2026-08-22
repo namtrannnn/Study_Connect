@@ -248,6 +248,13 @@ const isAdminOrSuperAdmin = (member) => {
 const isSuperAdmin = (member) => {
   return member?.role === "superAdmin";
 };
+
+// Helper lấy member object từ room
+function getRoomMember(room, userId) {
+  return room.users.find(
+    (m) => m.user_id.toString() === userId.toString() && m.isActive !== false,
+  );
+}
 // [POST] /api/v1/room-chat/create
 module.exports.create = async (req, res) => {
   try {
@@ -297,6 +304,12 @@ module.exports.create = async (req, res) => {
     });
 
     const responseRoom = await buildRoomResponse(roomChat._id, meId);
+
+    // Emit cho từng thành viên được thêm vào nhóm (trừ người tạo)
+    for (const uid of uniqueUserIds) {
+      const memberRoom = await buildRoomResponse(roomChat._id, uid);
+      global._io?.to(uid).emit("SERVER_ADDED_TO_ROOM", memberRoom);
+    }
 
     return res.status(201).json({
       message: "Room created successfully",

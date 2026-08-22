@@ -70,11 +70,8 @@ module.exports.getSuggestSummary = async (req, res) => {
     const excludedIds = [userId, ...followingIds, ...pendingIds]
       .filter(Boolean)
       .map((id) => toObjectId(id))
-      .filter(Boolean); // lọc null nếu convert thất bại
+      .filter(Boolean);
 
-    console.log("[Suggest] userId:", userId);
-    console.log("[Suggest] excludedIds count:", excludedIds.length);
-    console.log("[Suggest] followingIds count:", followingIds.length);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -293,8 +290,6 @@ module.exports.getSuggestSummary = async (req, res) => {
               .lean()
           : [],
       ]);
-
-    console.log("[Suggest] peopleToFollowRaw count:", peopleToFollowRaw.length);
 
     // Map response
     const mappedPeopleToFollow = peopleToFollowRaw.map((u) => ({

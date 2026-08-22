@@ -10,6 +10,9 @@ import {
     Loader2,
     UserRound,
     Trash2,
+    Pin,
+    BellOff,
+    Archive,
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -72,6 +75,7 @@ function Messenger() {
     const [showNewChat, setShowNewChat] = useState(false);
     const [openingFriendChat, setOpeningFriendChat] = useState(false);
     const [openRoomMenuId, setOpenRoomMenuId] = useState(null);
+    const [showArchived, setShowArchived] = useState(false);
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
     const roomMenuRef = useRef(null);
@@ -172,18 +176,30 @@ function Messenger() {
     const filteredRooms = useMemo(() => {
         const selectedId = selectedRoomId;
         const activeRooms = rooms.filter(
-            (room) => hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId,
+            (room) => {
+                const archived = room.currentUserRoomState?.archived || false;
+                if (showArchived) return archived;
+                return !archived && (hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId);
+            }
         );
 
         const kw = searchKeyword.trim().toLowerCase();
-        if (!kw) return activeRooms;
-
-        return activeRooms.filter((room) => {
+        const matched = !kw ? activeRooms : activeRooms.filter((room) => {
             if (room.typeRoom === 'group') return (room.title || '').toLowerCase().includes(kw);
             const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id)?.user;
             return (friend?.fullName || '').toLowerCase().includes(kw);
         });
-    }, [rooms, searchKeyword, selectedRoomId, currentUser?._id]);
+
+        // Pinned luôn lên đầu
+        return [...matched].sort((a, b) => {
+            const aPinned = a.currentUserRoomState?.pinned ? 1 : 0;
+            const bPinned = b.currentUserRoomState?.pinned ? 1 : 0;
+            if (bPinned !== aPinned) return bPinned - aPinned;
+            const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+            const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+            return bTime - aTime;
+        });
+    }, [rooms, searchKeyword, selectedRoomId, currentUser?._id, showArchived]);
 
     function getRoomDisplay(room) {
         if (room.typeRoom === 'group') {
@@ -386,6 +402,23 @@ function Messenger() {
                         return [...prev, message];
                     });
                     upsertRoomLastMessage(message);
+
+                    // Play sound nếu tin nhắn không phải của mình và room không bị mute
+                    const senderId = getSenderId(message);
+                    if (senderId !== currentUser?._id) {
+                        setRooms((prev) => {
+                            const room = prev.find((r) => getRoomId(r) === msgRoomId);
+                            const isMuted = room?.currentUserRoomState?.muted;
+                            if (!isMuted) {
+                                try {
+                                    const audio = new Audio('/sounds/message_sound.mp3');
+                                    audio.volume = 0.5;
+                                    audio.play().catch(() => {});
+                                } catch {}
+                            }
+                            return prev;
+                        });
+                    }
                 },
                 onTypingStart: (data) => {
                     const id = data.room_chat_id || data.roomChatId;
@@ -636,8 +669,8 @@ function Messenger() {
     const updateRoomStateForMe = ({ roomId, currentUserRoomState }) => {
         if (!roomId || !currentUserRoomState) return;
 
-        setRooms((prev) =>
-            prev.map((room) =>
+        setRooms((prev) => {
+            const updated = prev.map((room) =>
                 getRoomId(room) !== roomId
                     ? room
                     : {
@@ -647,8 +680,17 @@ function Messenger() {
                               ...currentUserRoomState,
                           },
                       },
-            ),
-        );
+            );
+            // Re-sort: pinned lên đầu
+            return [...updated].sort((a, b) => {
+                const aPinned = a.currentUserRoomState?.pinned ? 1 : 0;
+                const bPinned = b.currentUserRoomState?.pinned ? 1 : 0;
+                if (bPinned !== aPinned) return bPinned - aPinned;
+                const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+                const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+                return bTime - aTime;
+            });
+        });
 
         setSelectedRoom((prev) => {
             if (!prev) return prev;
@@ -801,26 +843,38 @@ function Messenger() {
                     <div className="border-b border-blue-100 p-4 dark:border-white/10">
                         <div className="flex items-center justify-between gap-2">
                             <div>
-                                <h1 className="text-xl font-bold">Tin nhắn</h1>
+                                <h1 className="text-xl font-bold">{showArchived ? 'Lưu trữ' : 'Tin nhắn'}</h1>
                                 <p className="text-xs text-gray-400">{filteredRooms.length} đoạn chat</p>
                             </div>
                             <div className="flex gap-1">
                                 <button
                                     type="button"
-                                    onClick={() => setShowNewChat(true)}
-                                    title="Nhắn tin mới"
-                                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
+                                    onClick={() => setShowArchived((p) => !p)}
+                                    title={showArchived ? 'Quay lại' : 'Xem lưu trữ'}
+                                    className={`flex h-9 w-9 items-center justify-center rounded-2xl transition ${showArchived ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400' : 'bg-blue-50 text-gray-500 hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10'}`}
                                 >
-                                    <MessageCircle className="h-4 w-4" />
+                                    <Archive className="h-4 w-4" />
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCreateGroup(true)}
-                                    title="Tạo nhóm"
-                                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </button>
+                                {!showArchived && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewChat(true)}
+                                            title="Nhắn tin mới"
+                                            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
+                                        >
+                                            <MessageCircle className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCreateGroup(true)}
+                                            title="Tạo nhóm"
+                                            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                         <div className="relative mt-3">
@@ -877,12 +931,19 @@ function Messenger() {
                                                     <span className="min-w-0 truncate text-sm font-semibold">
                                                         {display.name}
                                                     </span>
-
-                                                    {lastTime && (
-                                                        <span className="shrink-0 text-[11px] font-medium text-gray-400">
-                                                            {lastTime}
-                                                        </span>
-                                                    )}
+                                                    <div className="flex shrink-0 items-center gap-1">
+                                                        {room.currentUserRoomState?.pinned && (
+                                                            <Pin className="h-3 w-3 text-amber-500" />
+                                                        )}
+                                                        {room.currentUserRoomState?.muted && (
+                                                            <BellOff className="h-3 w-3 text-gray-400" />
+                                                        )}
+                                                        {lastTime && (
+                                                            <span className="text-[11px] font-medium text-gray-400">
+                                                                {lastTime}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="mt-0.5 flex items-center justify-between gap-2">
                                                     <p
@@ -1052,11 +1113,15 @@ function Messenger() {
 
                                             const senderId = getSenderId(message);
                                             const isMe = senderId === currentUser?._id;
-                                            const sender =
+                                            const senderMember = selectedRoom.members?.find((m) => m?.user?._id === senderId);
+                                            const senderUser =
                                                 message.user_id && typeof message.user_id === 'object'
                                                     ? message.user_id
-                                                    : selectedRoom.members?.find((m) => m?.user?._id === senderId)
-                                                          ?.user;
+                                                    : senderMember?.user;
+                                            // Dùng nickname nếu có, fallback về fullName
+                                            const sender = senderUser
+                                                ? { ...senderUser, fullName: senderMember?.nickname || senderUser.fullName }
+                                                : senderUser;
 
                                             return (
                                                 <div key={message._id}>
@@ -1099,7 +1164,7 @@ function Messenger() {
                                                 />
                                             );
                                         })}
-                                        <div ref={bottomRef} />
+                                        <div ref={bottomRef} className="h-2" />
                                     </div>
                                 )}
                             </div>
