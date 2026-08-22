@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import ThemeSection from './ThemeSection';
+import AddMembersModal from './AddMembersModal';
+import GroupSettingsModal from './GroupSettingsModal';
 import {
     X,
     Loader2,
-    Check,
     Pencil,
     Bell,
     BellOff,
@@ -15,9 +16,9 @@ import {
     ShieldCheck,
     ShieldOff,
     UserPlus,
+    Settings2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getMyFriends } from '../../../services/friendServices';
 import roomChatApi from '../roomChatApi';
 import { getRoomId, formatLastActive } from '../helpers';
 import Avatar from './Avatar';
@@ -27,9 +28,8 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
     const [titleInput, setTitleInput] = useState(room?.title || '');
     const [editingNickname, setEditingNickname] = useState(false);
     const [nicknameInput, setNicknameInput] = useState('');
-    const [addingMembers, setAddingMembers] = useState(false);
-    const [friends, setFriends] = useState([]);
-    const [selectedToAdd, setSelectedToAdd] = useState([]);
+    const [showAddMembers, setShowAddMembers] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [loadingAction, setLoadingAction] = useState('');
     const avatarInputRef = useRef(null);
 
@@ -143,23 +143,7 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
             toast.success('Đã chuyển quyền trưởng nhóm');
         });
 
-    const loadFriendsToAdd = async () => {
-        const res = await getMyFriends();
-        const all = res?.data?.friends || res?.data || [];
-        const memberIds = room?.members?.map((m) => m?.user?._id) || [];
-        setFriends(all.filter((f) => !memberIds.includes(f._id)));
-        setAddingMembers(true);
-    };
-
-    const handleAddMembers = () =>
-        doAction('add', async () => {
-            if (selectedToAdd.length === 0) return;
-            const res = await roomChatApi.addMembers(roomId, selectedToAdd);
-            onRoomUpdated(res.data?.data?.room || res.data?.room || res.data);
-            setAddingMembers(false);
-            setSelectedToAdd([]);
-            toast.success('Đã thêm thành viên');
-        });
+    const loadFriendsToAdd = () => setShowAddMembers(true);
 
     const quickActions = [
         {
@@ -477,68 +461,29 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                             >
                                 Thành viên · {room?.members?.length || 0}
                             </span>
-                            {isAdmin && (
-                                <button
-                                    type="button"
-                                    onClick={loadFriendsToAdd}
-                                    className="flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20"
-                                >
-                                    <UserPlus className="h-3 w-3" /> Thêm
-                                </button>
-                            )}
+                            <div className="flex gap-1">
+                                {isAdmin && isSuperAdmin && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSettings(true)}
+                                        className="flex items-center gap-1 rounded-lg bg-gray-100/80 px-2 py-0.5 text-[11px] font-semibold text-gray-500 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-400"
+                                    >
+                                        <Settings2 className="h-3 w-3" /> Cài đặt
+                                    </button>
+                                )}
+                                {isAdmin && (
+                                    <button
+                                        type="button"
+                                        onClick={loadFriendsToAdd}
+                                        className="flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20"
+                                    >
+                                        <UserPlus className="h-3 w-3" /> Thêm
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
-                        {addingMembers && (
-                            <div className="border-b border-blue-50 dark:border-white/5">
-                                <div className="max-h-36 overflow-y-auto">
-                                    {friends.length === 0 ? (
-                                        <p className="py-3 text-center text-xs text-gray-400">
-                                            Không có bạn bè để thêm
-                                        </p>
-                                    ) : (
-                                        friends.map((f) => {
-                                            const isSel = selectedToAdd.includes(f._id);
-                                            return (
-                                                <button
-                                                    key={f._id}
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setSelectedToAdd((p) =>
-                                                            isSel ? p.filter((x) => x !== f._id) : [...p, f._id],
-                                                        )
-                                                    }
-                                                    className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition ${isSel ? 'bg-primary/10' : 'hover:bg-blue-50 dark:hover:bg-white/5'}`}
-                                                >
-                                                    <Avatar src={f.avatar} name={f.fullName} size="h-7 w-7" />
-                                                    <span className="flex-1 text-left font-medium">{f.fullName}</span>
-                                                    {isSel && <Check className="h-3.5 w-3.5 text-primary" />}
-                                                </button>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                                <div className="flex gap-2 p-2">
-                                    <button
-                                        type="button"
-                                        onClick={handleAddMembers}
-                                        disabled={selectedToAdd.length === 0 || loadingAction === 'add'}
-                                        className="flex-1 rounded-xl bg-primary py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                                    >
-                                        {loadingAction === 'add' ? '...' : `Thêm (${selectedToAdd.length})`}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setAddingMembers(false);
-                                            setSelectedToAdd([]);
-                                        }}
-                                        className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs dark:bg-white/10"
-                                    >
-                                        Hủy
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {/* Bỏ phần addingMembers inline — dùng modal riêng */}
 
                         <div>
                             {room?.members?.map((m, idx) => {
@@ -663,6 +608,23 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                 )}
             </div>
         </div>
+
+        {/* Modals */}
+        {showAddMembers && (
+            <AddMembersModal
+                room={room}
+                onClose={() => setShowAddMembers(false)}
+                onRoomUpdated={onRoomUpdated}
+            />
+        )}
+        {showSettings && (
+            <GroupSettingsModal
+                room={room}
+                onClose={() => setShowSettings(false)}
+                onRoomUpdated={onRoomUpdated}
+            />
+        )}
+    </div>
     );
 }
 

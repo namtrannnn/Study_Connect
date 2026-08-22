@@ -10,8 +10,6 @@ module.exports = () => {
   socketMiddleware();
 
   global._io.on("connection", async (socket) => {
-    console.log("client connected:", socket.id);
-
     const userId = socket.user._id.toString();
 
     socket.join(userId);
@@ -21,15 +19,15 @@ module.exports = () => {
 
       await redisClient.sAdd(`user:${userId}:sockets`, socket.id);
       await redisClient.set(`socket:${socket.id}:user`, userId);
+      await redisClient.expire(`user:${userId}:sockets`, 86400);
+      await redisClient.expire(`socket:${socket.id}:user`, 86400);
       await redisClient.sAdd("online_users", userId);
 
       const onlineUsers = await redisClient.sMembers("online_users");
       const chatBadgeCount = await syncUserChatBadge(userId);
 
-      console.log("USER ONLINE:", userId);
       console.log("ONLINE USERS NOW:", onlineUsers);
 
-      // Báo cho chính client này biết Redis đã lưu online xong
       socket.emit("SERVER_ONLINE_READY", {
         userId,
         isOnline: true,
@@ -37,14 +35,11 @@ module.exports = () => {
         chatBadgeCount,
       });
 
-      // Báo cho các client khác biết user này online
       if (!wasOnline) {
         socket.broadcast.emit("SERVER_USER_ONLINE", {
           userId,
           isOnline: true,
         });
-
-        console.log("EMIT SERVER_USER_ONLINE:", userId);
       }
 
       chatSocket(socket);
@@ -52,8 +47,6 @@ module.exports = () => {
       studyRoomSocket(socket);
 
       socket.on("disconnect", async (reason) => {
-        console.log("client disconnected:", socket.id, reason);
-
         await redisClient.sRem(`user:${userId}:sockets`, socket.id);
         await redisClient.del(`socket:${socket.id}:user`);
 
@@ -61,12 +54,9 @@ module.exports = () => {
           `user:${userId}:sockets`,
         );
 
-        console.log("REMAINING SOCKETS:", userId, remainingSockets);
-
         if (remainingSockets === 0) {
           await redisClient.sRem("online_users", userId);
 
-          // Tự động rời khỏi bất kỳ phòng học nào đang tham gia
           try {
             const StudyRoom = require("../models/studyRoom.model");
             const activeRoom = await StudyRoom.findOne({
@@ -91,7 +81,6 @@ module.exports = () => {
 
               await activeRoom.save();
 
-              // Báo cho những người còn lại trong phòng biết
               global._io
                 .to(activeRoom._id.toString())
                 .emit("SERVER_STUDY_ROOM_MEMBER_LEFT", {
@@ -99,20 +88,13 @@ module.exports = () => {
                   userId: userId,
                   membersCount: activeRoom.membersCount,
                 });
-
-              console.log(
-                `🧹 Cleaned up user ${userId} from study room ${activeRoom._id} on disconnect`,
-              );
             }
           } catch (err) {
             console.error("Auto leave study room on disconnect error:", err);
           }
 
           const lastActiveAt = new Date().toISOString();
-
           await redisClient.set(`user:${userId}:last_active_at`, lastActiveAt);
-
-          console.log("USER OFFLINE:", userId);
 
           socket.broadcast.emit("SERVER_USER_OFFLINE", {
             userId,

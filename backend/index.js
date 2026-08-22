@@ -16,6 +16,20 @@ connectRedis().then(async () => {
     await redisClient.del("suggest:hotPosts", "suggest:trendingHashtags", "suggest:suggestedQuiz");
     console.log("Suggest cache cleared on startup");
   } catch (_) {}
+
+  // Clear online users cũ khi server restart
+  // (tránh ghost users còn sót từ session trước)
+  try {
+    const oldOnlineUsers = await redisClient.sMembers("online_users");
+    if (oldOnlineUsers.length > 0) {
+      await redisClient.del("online_users");
+      // Xóa socket sets của các user cũ
+      for (const userId of oldOnlineUsers) {
+        await redisClient.del(`user:${userId}:sockets`);
+      }
+      console.log(`Cleared ${oldOnlineUsers.length} ghost online users on startup`);
+    }
+  } catch (_) {}
 });
 
 const app = express();
