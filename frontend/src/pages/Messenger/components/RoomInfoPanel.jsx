@@ -22,12 +22,18 @@ import { toast } from 'react-toastify';
 import roomChatApi from '../roomChatApi';
 import { getRoomId, formatLastActive } from '../helpers';
 import Avatar from './Avatar';
+import { setNickname as setNicknameApi } from '../../../services/contactNickname.services';
+import { upsertNickname } from '../../../redux/slices/nicknameSlice';
+import { useDispatch, useSelector } from 'react-redux';
 
 function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDelete, themeStyles = {} }) {
+    const dispatch = useDispatch();
+    const nicknameMap = useSelector((state) => state.nickname?.map || {});
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleInput, setTitleInput] = useState(room?.title || '');
     const [editingNickname, setEditingNickname] = useState(false);
     const [nicknameInput, setNicknameInput] = useState('');
+    const [nicknameTargetId, setNicknameTargetId] = useState(null); // userId được đặt biệt danh
     const [showAddMembers, setShowAddMembers] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [loadingAction, setLoadingAction] = useState('');
@@ -77,10 +83,14 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
 
     const handleSaveNickname = () =>
         doAction('nickname', async () => {
-            const res = await roomChatApi.updateNickname(roomId, nicknameInput.trim());
-            onRoomUpdated(res.data?.data || res.data);
+            if (!nicknameTargetId) return;
+            const res = await setNicknameApi(nicknameTargetId, nicknameInput.trim());
+            if (res?.code === 200) {
+                dispatch(upsertNickname({ targetId: nicknameTargetId, nickname: nicknameInput.trim() }));
+                toast.success('Đã đặt biệt danh');
+            }
             setEditingNickname(false);
-            toast.success('Đã cập nhật nickname');
+            setNicknameTargetId(null);
         });
 
     const handleMute = () =>
@@ -181,6 +191,7 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
     ];
 
     return (
+        <>
         <div
             className="modal-slide-down flex h-full w-full min-w-[340px] shrink-0 flex-col overflow-hidden border-l"
             style={{
@@ -345,7 +356,8 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                     <ThemeSection room={room} onRoomUpdated={onRoomUpdated} themeStyles={themeStyles} />
                 </div>
 
-                {/* Nickname */}
+                {/* Nickname — chỉ hiển thị trong chat 1-1, đặt biệt danh cho đối phương */}
+                {!isGroup && (
                 <div
                     className="mt-4 overflow-hidden rounded-[24px] border shadow-sm transition"
                     style={{
@@ -357,7 +369,8 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                         <button
                             type="button"
                             onClick={() => {
-                                setNicknameInput(myMember?.nickname || '');
+                                setNicknameTargetId(otherMember?.user?._id || null);
+                                setNicknameInput(nicknameMap[otherMember?.user?._id] || '');
                                 setEditingNickname(true);
                             }}
                             className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-blue-50/60 dark:hover:bg-white/5"
@@ -365,79 +378,42 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-primary dark:bg-white/10">
                                 <Pencil className="h-4 w-4" />
                             </div>
-
                             <div className="min-w-0 flex-1">
-                                <p
-                                    className="text-sm font-semibold"
-                                    style={themeStyles.isDark ? { color: '#e2e8f0' } : { color: '#334155' }}
-                                >
-                                    Nickname
+                                <p className="text-sm font-semibold" style={themeStyles.isDark ? { color: '#e2e8f0' } : { color: '#334155' }}>
+                                    Biệt danh
                                 </p>
-
-                                <p
-                                    className={`mt-0.5 truncate text-[15px] ${
-                                        myMember?.nickname
-                                            ? 'font-semibold text-gray-800 dark:text-gray-100'
-                                            : 'font-normal italic text-gray-400'
-                                    }`}
-                                >
-                                    {myMember?.nickname || 'Chưa đặt nickname'}
+                                <p className={`mt-0.5 truncate text-[15px] ${nicknameMap[otherMember?.user?._id] ? 'font-semibold text-gray-800 dark:text-gray-100' : 'font-normal italic text-gray-400'}`}>
+                                    {nicknameMap[otherMember?.user?._id] || 'Chưa đặt biệt danh'}
                                 </p>
                             </div>
-
-                            <span className="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary">
-                                Sửa
-                            </span>
+                            <span className="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary">Sửa</span>
                         </button>
                     ) : (
                         <div className="p-4">
                             <div className="mb-2 flex items-center justify-between">
-                                <span
-                                    className="text-sm font-semibold"
-                                    style={themeStyles.isDark ? { color: '#e2e8f0' } : { color: '#334155' }}
-                                >
-                                    Đặt nickname
+                                <span className="text-sm font-semibold" style={themeStyles.isDark ? { color: '#e2e8f0' } : { color: '#334155' }}>
+                                    Đặt biệt danh cho {otherMember?.user?.fullName}
                                 </span>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingNickname(false)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10"
-                                >
-                                    ✕
-                                </button>
+                                <button type="button" onClick={() => { setEditingNickname(false); setNicknameTargetId(null); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 dark:hover:bg-white/10">✕</button>
                             </div>
-
                             <input
                                 value={nicknameInput}
                                 onChange={(e) => setNicknameInput(e.target.value)}
-                                placeholder="Nhập nickname..."
+                                placeholder="Nhập biệt danh..."
                                 maxLength={50}
                                 autoFocus
-                                className="h-11 w-full rounded-2xl border border-blue-100 bg-blue-50/60 px-4 text-[15px] font-medium outline-none transition focus:border-primary focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-white/10"
+                                className="h-11 w-full rounded-2xl border border-blue-100 bg-blue-50/60 px-4 text-[15px] font-medium outline-none transition focus:border-primary focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
                             />
-
                             <div className="mt-3 flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingNickname(false)}
-                                    className="flex-1 rounded-2xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-500 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/15"
-                                >
-                                    Hủy
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={handleSaveNickname}
-                                    disabled={loadingAction === 'nickname'}
-                                    className="flex-1 rounded-2xl bg-primary py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-                                >
+                                <button type="button" onClick={() => { setEditingNickname(false); setNicknameTargetId(null); }} className="flex-1 rounded-2xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-500 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-300">Hủy</button>
+                                <button type="button" onClick={handleSaveNickname} disabled={loadingAction === 'nickname'} className="flex-1 rounded-2xl bg-primary py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50">
                                     {loadingAction === 'nickname' ? 'Đang lưu...' : 'Lưu'}
                                 </button>
                             </div>
                         </div>
                     )}
                 </div>
+                )}
                 {/* Thành viên */}
                 {isGroup && (
                     <div
@@ -503,7 +479,7 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                                     >
                                         <div className="relative shrink-0">
                                             <Avatar src={u.avatar} name={u.fullName} size="h-9 w-9" />
-                                            {u.isOnline && (
+                                            {!!u.isOnline && (
                                                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 dark:border-[#181b22]" />
                                             )}
                                         </div>
@@ -515,7 +491,7 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                                                         themeStyles.isDark ? { color: '#e2e8f0' } : { color: '#1e293b' }
                                                     }
                                                 >
-                                                    {u.fullName}
+                                                    {nicknameMap[u._id] || u.fullName}
                                                     {isMe && (
                                                         <span
                                                             className="ml-1 font-normal"
@@ -546,7 +522,20 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                                         </div>
                                         {!isMe && isAdmin && (
                                             <div className="flex shrink-0 gap-0.5 opacity-0 transition group-hover:opacity-100">
-                                                {isSuperAdmin && m.role !== 'superAdmin' && (
+                                                {/* Đặt biệt danh */}
+                                                <button
+                                                    type="button"
+                                                    title="Đặt biệt danh"
+                                                    onClick={() => {
+                                                        setNicknameTargetId(u._id);
+                                                        setNicknameInput(nicknameMap[u._id] || '');
+                                                        setEditingNickname(true);
+                                                    }}
+                                                    disabled={!!loadingAction}
+                                                    className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-50 disabled:opacity-40 dark:hover:bg-blue-500/10"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </button>
                                                     <button
                                                         type="button"
                                                         title="Chuyển quyền"
@@ -624,7 +613,38 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                 onRoomUpdated={onRoomUpdated}
             />
         )}
-    </div>
+        {/* Modal đặt biệt danh trong nhóm */}
+        {editingNickname && isGroup && nicknameTargetId && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm" onClick={() => { setEditingNickname(false); setNicknameTargetId(null); }}>
+                <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-[#181b22]" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between border-b border-blue-100 px-5 py-4 dark:border-white/10">
+                        <h2 className="text-base font-bold dark:text-white">
+                            Đặt biệt danh cho {room?.members?.find((m) => m?.user?._id === nicknameTargetId)?.user?.fullName}
+                        </h2>
+                        <button type="button" onClick={() => { setEditingNickname(false); setNicknameTargetId(null); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-white">
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div className="p-5">
+                        <input
+                            value={nicknameInput}
+                            onChange={(e) => setNicknameInput(e.target.value)}
+                            placeholder="Nhập biệt danh..."
+                            maxLength={50}
+                            autoFocus
+                            className="h-11 w-full rounded-2xl border border-blue-100 bg-blue-50/60 px-4 text-sm outline-none focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-white"
+                        />
+                        <div className="mt-3 flex gap-2">
+                            <button type="button" onClick={() => { setEditingNickname(false); setNicknameTargetId(null); }} className="flex-1 rounded-2xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-300">Hủy</button>
+                            <button type="button" onClick={handleSaveNickname} disabled={loadingAction === 'nickname'} className="flex-1 rounded-2xl bg-primary py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                                {loadingAction === 'nickname' ? 'Đang lưu...' : 'Lưu'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
 
