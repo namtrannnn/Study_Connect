@@ -54,6 +54,7 @@ import NewChatModal from './components/NewChatModal';
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
     const dispatch = useDispatch();
+    const nicknameMap = useSelector((state) => state.nickname?.map || {});
     const onlineUsers = useSelector((state) => state.presence?.onlineUsers || []);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -162,8 +163,12 @@ function Messenger() {
 
         const lastActiveAt = otherUser?.lastActiveAt || otherUser?.last_active_at;
 
+        // Dùng nickname nếu có
+        const otherMember = selectedRoom.members?.find((m) => m?.user?._id !== currentUser?._id);
+        const displayName = nicknameMap[otherUser?._id] || otherMember?.nickname || otherUser?.fullName || 'Người dùng';
+
         return {
-            name: otherUser?.fullName || 'Người dùng',
+            name: displayName,
             avatar: otherUser?.avatar || '',
             sub: isOnline ? 'Đang hoạt động' : formatLastActive(lastActiveAt),
             isOnline,
@@ -225,15 +230,19 @@ function Messenger() {
             };
         }
 
-        const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id)?.user;
+        const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id);
+        const friendUser = friend?.user;
 
-        const isOnline = onlineUsers.includes(friend?._id) || friend?.isOnline === true || friend?.isOnline === 1;
+        const isOnline = onlineUsers.includes(friendUser?._id) || friendUser?.isOnline === true || friendUser?.isOnline === 1;
 
-        const lastActiveAt = friend?.lastActiveAt || friend?.last_active_at;
+        const lastActiveAt = friendUser?.lastActiveAt || friendUser?.last_active_at;
+
+        // Dùng nickname nếu có
+        const displayName = nicknameMap[friendUser?._id] || friend?.nickname || friendUser?.fullName || 'Người dùng';
 
         return {
-            name: friend?.fullName || 'Người dùng',
-            avatar: friend?.avatar || '',
+            name: displayName,
+            avatar: friendUser?.avatar || '',
             sub: isOnline ? 'Đang hoạt động' : formatLastActive(lastActiveAt),
             isOnline,
             isGroup: false,
@@ -1120,7 +1129,7 @@ function Messenger() {
                                                     : senderMember?.user;
                                             // Dùng nickname nếu có, fallback về fullName
                                             const sender = senderUser
-                                                ? { ...senderUser, fullName: senderMember?.nickname || senderUser.fullName }
+                                                ? { ...senderUser, fullName: nicknameMap[senderId] || senderMember?.nickname || senderUser.fullName }
                                                 : senderUser;
 
                                             return (
