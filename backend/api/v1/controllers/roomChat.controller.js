@@ -1,5 +1,32 @@
 ﻿const mongoose = require("mongoose");
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+const Chat = require("../models/chat.model");
+
+// Helper tạo system message và emit về room
+async function createSystemMessage(roomId, content, systemAction, metadata = {}) {
+  try {
+    const msg = await Chat.create({
+      room_chat_id: roomId,
+      user_id: metadata.actorId || null,
+      type: "system",
+      content,
+      systemAction,
+      metadata,
+    });
+    global._io?.to(roomId.toString()).emit("SERVER_RETURN_MESSAGE", {
+      _id: msg._id,
+      room_chat_id: roomId,
+      roomChatId: roomId,
+      type: "system",
+      content,
+      systemAction,
+      metadata,
+      createdAt: msg.createdAt,
+    });
+  } catch (err) {
+    console.error("createSystemMessage error:", err);
+  }
+}
 
 function getCleanLastMessage(lastMessage) {
   if (!lastMessage) return null;
@@ -2069,3 +2096,5 @@ module.exports.createPrivateFromProfile = async (req, res) => {
     return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };
+
+

@@ -536,6 +536,7 @@ function RoomInfoPanel({ room, currentUser, onClose, onRoomUpdated, onLeaveOrDel
                                                 >
                                                     <Pencil className="h-3.5 w-3.5" />
                                                 </button>
+                                                {isSuperAdmin && m.role !== 'superAdmin' && (
                                                     <button
                                                         type="button"
                                                         title="Chuyển quyền"
