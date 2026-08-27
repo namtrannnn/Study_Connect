@@ -14,7 +14,7 @@ const roomChatApi = {
         });
     },
     updateTheme: (id, themeConfig) => httpRequest.patch(`/room-chat/${id}/theme`, { themeConfig }),
-    updateNickname: (id, nickname) => httpRequest.patch(`/room-chat/${id}/nickname`, { nickname }),
+    updateNickname: (id, nickname, targetUserId) => httpRequest.patch(`/room-chat/${id}/nickname`, { nickname, targetUserId }),
     addMembers: (id, usersId) => httpRequest.patch(`/room-chat/${id}/members/add`, { usersId }),
     leaveGroup: (id) => httpRequest.patch(`/room-chat/${id}/leave`),
     kickMember: (id, userId) => httpRequest.patch(`/room-chat/${id}/members/${userId}/kick`),

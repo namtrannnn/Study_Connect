@@ -4,6 +4,7 @@ import userReducer from './userSlice';
 import presenceReducer from './slices/presenceSlice';
 import notificationReducer from './slices/notificationSlice';
 import chatReducer from './slices/chatSlice';
+import nicknameReducer from './slices/nicknameSlice';
 
 const store = configureStore({
     reducer: {
@@ -12,6 +13,7 @@ const store = configureStore({
         presence: presenceReducer,
         notification: notificationReducer,
         chat: chatReducer,
+        nickname: nicknameReducer,
     },
 });
 

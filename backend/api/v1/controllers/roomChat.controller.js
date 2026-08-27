@@ -1,5 +1,32 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+const Chat = require("../models/chat.model");
+
+// Helper tạo system message và emit về room
+async function createSystemMessage(roomId, content, systemAction, metadata = {}) {
+  try {
+    const msg = await Chat.create({
+      room_chat_id: roomId,
+      user_id: metadata.actorId || null,
+      type: "system",
+      content,
+      systemAction,
+      metadata,
+    });
+    global._io?.to(roomId.toString()).emit("SERVER_RETURN_MESSAGE", {
+      _id: msg._id,
+      room_chat_id: roomId,
+      roomChatId: roomId,
+      type: "system",
+      content,
+      systemAction,
+      metadata,
+      createdAt: msg.createdAt,
+    });
+  } catch (err) {
+    console.error("createSystemMessage error:", err);
+  }
+}
 
 function getCleanLastMessage(lastMessage) {
   if (!lastMessage) return null;
@@ -15,7 +42,7 @@ const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
 
 const { redisClient } = require("../../../config/redis");
 
-// â”€â”€â”€ Preset themes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Preset themes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 const PRESET_THEMES = [
   {
     name: "Default",
@@ -143,7 +170,7 @@ const PRESET_THEMES = [
 module.exports.getPresetThemes = (req, res) => {
   return res.status(200).json({
     code: 200,
-    message: "Láº¥y danh sÃ¡ch theme thÃ nh cÃ´ng",
+    message: "LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch theme thÃƒÂ nh cÃƒÂ´ng",
     data: PRESET_THEMES,
   });
 };
@@ -248,6 +275,13 @@ const isAdminOrSuperAdmin = (member) => {
 const isSuperAdmin = (member) => {
   return member?.role === "superAdmin";
 };
+
+// Helper láº¥y member object tá»« room
+function getRoomMember(room, userId) {
+  return room.users.find(
+    (m) => m.user_id.toString() === userId.toString() && m.isActive !== false,
+  );
+}
 // [POST] /api/v1/room-chat/create
 module.exports.create = async (req, res) => {
   try {
@@ -256,7 +290,7 @@ module.exports.create = async (req, res) => {
 
     if (!Array.isArray(usersId) || usersId.length === 0) {
       return res.status(400).json({
-        message: "Danh sÃ¡ch thÃ nh viÃªn khÃ´ng há»£p lá»‡",
+        message: "Danh sÃƒÂ¡ch thÃƒÂ nh viÃƒÂªn khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
@@ -266,7 +300,7 @@ module.exports.create = async (req, res) => {
 
     if (uniqueUserIds.length === 0) {
       return res.status(400).json({
-        message: "NhÃ³m cáº§n Ã­t nháº¥t 1 thÃ nh viÃªn khÃ¡c",
+        message: "NhÃƒÂ³m cÃ¡ÂºÂ§n ÃƒÂ­t nhÃ¡ÂºÂ¥t 1 thÃƒÂ nh viÃƒÂªn khÃƒÂ¡c",
       });
     }
 
@@ -287,7 +321,7 @@ module.exports.create = async (req, res) => {
     });
 
     const roomChat = await RoomChat.create({
-      title: title?.trim() || "NhÃ³m má»›i",
+      title: title?.trim() || "NhÃƒÂ³m mÃ¡Â»â€ºi",
       avatar: "",
       typeRoom: "group",
       createdBy: meId,
@@ -297,6 +331,12 @@ module.exports.create = async (req, res) => {
     });
 
     const responseRoom = await buildRoomResponse(roomChat._id, meId);
+
+    // Emit cho tá»«ng thÃ nh viÃªn Ä‘Æ°á»£c thÃªm vÃ o nhÃ³m (trá»« ngÆ°á»i táº¡o)
+    for (const uid of uniqueUserIds) {
+      const memberRoom = await buildRoomResponse(roomChat._id, uid);
+      global._io?.to(uid).emit("SERVER_ADDED_TO_ROOM", memberRoom);
+    }
 
     return res.status(201).json({
       message: "Room created successfully",
@@ -552,7 +592,7 @@ module.exports.getMyRooms = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Láº¥y danh sÃ¡ch phÃ²ng chat thÃ nh cÃ´ng",
+      message: "LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch phÃƒÂ²ng chat thÃƒÂ nh cÃƒÂ´ng",
       data: results,
     });
   } catch (error) {
@@ -573,14 +613,14 @@ module.exports.muteRoom = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (typeof muted !== "boolean") {
       return res.status(400).json({
         code: 400,
-        message: "muted pháº£i lÃ  true hoáº·c false",
+        message: "muted phÃ¡ÂºÂ£i lÃƒÂ  true hoÃ¡ÂºÂ·c false",
       });
     }
 
@@ -603,7 +643,7 @@ module.exports.muteRoom = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y phÃƒÂ²ng chat",
       });
     }
     global._io?.to(meId.toString()).emit("SERVER_ROOM_STATE_UPDATED", {
@@ -615,8 +655,8 @@ module.exports.muteRoom = async (req, res) => {
     return res.status(200).json({
       code: 200,
       message: muted
-        ? "ÄÃ£ táº¯t thÃ´ng bÃ¡o phÃ²ng chat"
-        : "ÄÃ£ báº­t thÃ´ng bÃ¡o phÃ²ng chat",
+        ? "Ã„ÂÃƒÂ£ tÃ¡ÂºÂ¯t thÃƒÂ´ng bÃƒÂ¡o phÃƒÂ²ng chat"
+        : "Ã„ÂÃƒÂ£ bÃ¡ÂºÂ­t thÃƒÂ´ng bÃƒÂ¡o phÃƒÂ²ng chat",
       data: {
         roomId: room._id,
         muted,
@@ -641,14 +681,14 @@ module.exports.pinRoom = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (typeof pinned !== "boolean") {
       return res.status(400).json({
         code: 400,
-        message: "pinned pháº£i lÃ  true hoáº·c false",
+        message: "pinned phÃ¡ÂºÂ£i lÃƒÂ  true hoÃ¡ÂºÂ·c false",
       });
     }
 
@@ -671,7 +711,7 @@ module.exports.pinRoom = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y phÃƒÂ²ng chat",
       });
     }
     global._io?.to(meId.toString()).emit("SERVER_ROOM_STATE_UPDATED", {
@@ -682,7 +722,7 @@ module.exports.pinRoom = async (req, res) => {
     });
     return res.status(200).json({
       code: 200,
-      message: pinned ? "ÄÃ£ ghim phÃ²ng chat" : "ÄÃ£ bá» ghim phÃ²ng chat",
+      message: pinned ? "Ã„ÂÃƒÂ£ ghim phÃƒÂ²ng chat" : "Ã„ÂÃƒÂ£ bÃ¡Â»Â ghim phÃƒÂ²ng chat",
       data: {
         roomId: room._id,
         pinned,
@@ -707,14 +747,14 @@ module.exports.archiveRoom = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (typeof archived !== "boolean") {
       return res.status(400).json({
         code: 400,
-        message: "archived pháº£i lÃ  true hoáº·c false",
+        message: "archived phÃ¡ÂºÂ£i lÃƒÂ  true hoÃ¡ÂºÂ·c false",
       });
     }
 
@@ -743,7 +783,7 @@ module.exports.archiveRoom = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y phÃƒÂ²ng chat",
       });
     }
     global._io?.to(meId.toString()).emit("SERVER_ROOM_DELETED_FOR_ME", {
@@ -752,7 +792,7 @@ module.exports.archiveRoom = async (req, res) => {
     });
     return res.status(200).json({
       code: 200,
-      message: archived ? "ÄÃ£ lÆ°u trá»¯ phÃ²ng chat" : "ÄÃ£ bá» lÆ°u trá»¯ phÃ²ng chat",
+      message: archived ? "Ã„ÂÃƒÂ£ lÃ†Â°u trÃ¡Â»Â¯ phÃƒÂ²ng chat" : "Ã„ÂÃƒÂ£ bÃ¡Â»Â lÃ†Â°u trÃ¡Â»Â¯ phÃƒÂ²ng chat",
       data: {
         roomId: room._id,
         archived,
@@ -777,7 +817,7 @@ module.exports.deleteRoomForMe = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
@@ -803,13 +843,13 @@ module.exports.deleteRoomForMe = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat hoáº·c phÃ²ng chat Ä‘Ã£ bá»‹ xÃ³a",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y phÃƒÂ²ng chat hoÃ¡ÂºÂ·c phÃƒÂ²ng chat Ã„â€˜ÃƒÂ£ bÃ¡Â»â€¹ xÃƒÂ³a",
       });
     }
 
     return res.status(200).json({
       code: 200,
-      message: "ÄÃ£ xÃ³a phÃ²ng chat phÃ­a báº¡n",
+      message: "Ã„ÂÃƒÂ£ xÃƒÂ³a phÃƒÂ²ng chat phÃƒÂ­a bÃ¡ÂºÂ¡n",
       data: {
         roomId: room._id,
         deletedAt: new Date(),
@@ -834,21 +874,21 @@ module.exports.updateGroupTitle = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (!title || !title.trim()) {
       return res.status(400).json({
         code: 400,
-        message: "TÃªn nhÃ³m khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng",
+        message: "TÃƒÂªn nhÃƒÂ³m khÃƒÂ´ng Ã„â€˜Ã†Â°Ã¡Â»Â£c Ã„â€˜Ã¡Â»Æ’ trÃ¡Â»â€˜ng",
       });
     }
 
     if (title.trim().length > 100) {
       return res.status(400).json({
         code: 400,
-        message: "TÃªn nhÃ³m tá»‘i Ä‘a 100 kÃ½ tá»±",
+        message: "TÃƒÂªn nhÃƒÂ³m tÃ¡Â»â€˜i Ã„â€˜a 100 kÃƒÂ½ tÃ¡Â»Â±",
       });
     }
 
@@ -862,7 +902,7 @@ module.exports.updateGroupTitle = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m",
       });
     }
 
@@ -871,7 +911,7 @@ module.exports.updateGroupTitle = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y",
       });
     }
 
@@ -881,7 +921,7 @@ module.exports.updateGroupTitle = async (req, res) => {
     ) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n Ä‘á»•i tÃªn nhÃ³m",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân Ã„â€˜Ã¡Â»â€¢i tÃƒÂªn nhÃƒÂ³m",
       });
     }
 
@@ -898,7 +938,7 @@ module.exports.updateGroupTitle = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Äá»•i tÃªn nhÃ³m thÃ nh cÃ´ng",
+      message: "Ã„ÂÃ¡Â»â€¢i tÃƒÂªn nhÃƒÂ³m thÃƒÂ nh cÃƒÂ´ng",
       data: responseRoom,
     });
   } catch (error) {
@@ -920,14 +960,14 @@ module.exports.updateGroupAvatar = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (typeof avatar !== "string") {
       return res.status(400).json({
         code: 400,
-        message: "avatar khÃ´ng há»£p lá»‡",
+        message: "avatar khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
@@ -941,7 +981,7 @@ module.exports.updateGroupAvatar = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m",
       });
     }
 
@@ -950,7 +990,7 @@ module.exports.updateGroupAvatar = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y",
       });
     }
 
@@ -960,7 +1000,7 @@ module.exports.updateGroupAvatar = async (req, res) => {
     ) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n Ä‘á»•i avatar nhÃ³m",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân Ã„â€˜Ã¡Â»â€¢i avatar nhÃƒÂ³m",
       });
     }
 
@@ -977,7 +1017,7 @@ module.exports.updateGroupAvatar = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Äá»•i avatar nhÃ³m thÃ nh cÃ´ng",
+      message: "Ã„ÂÃ¡Â»â€¢i avatar nhÃƒÂ³m thÃƒÂ nh cÃƒÂ´ng",
       data: responseRoom,
     });
   } catch (error) {
@@ -989,7 +1029,7 @@ module.exports.updateGroupAvatar = async (req, res) => {
   }
 };
 
-// [PATCH] /api/v1/room-chat/:roomId/avatar/upload  (multipart â†’ Cloudinary)
+// [PATCH] /api/v1/room-chat/:roomId/avatar/upload  (multipart Ã¢â€ â€™ Cloudinary)
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 module.exports.uploadGroupAvatar = async (req, res) => {
   try {
@@ -999,11 +1039,11 @@ module.exports.uploadGroupAvatar = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res
         .status(400)
-        .json({ code: 400, message: "roomId khÃ´ng há»£p lá»‡" });
+        .json({ code: 400, message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡" });
     }
 
     if (!req.file) {
-      return res.status(400).json({ code: 400, message: "ChÆ°a cÃ³ file áº£nh" });
+      return res.status(400).json({ code: 400, message: "ChÃ†Â°a cÃƒÂ³ file Ã¡ÂºÂ£nh" });
     }
 
     const room = await RoomChat.findOne({
@@ -1016,14 +1056,14 @@ module.exports.uploadGroupAvatar = async (req, res) => {
     if (!room) {
       return res
         .status(404)
-        .json({ code: 404, message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m" });
+        .json({ code: 404, message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m" });
     }
 
     const myMember = getRoomMember(room, meId);
     if (!myMember) {
       return res
         .status(403)
-        .json({ code: 403, message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y" });
+        .json({ code: 403, message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y" });
     }
     if (
       room.groupSettings?.onlyAdminCanChangeInfo &&
@@ -1031,7 +1071,7 @@ module.exports.uploadGroupAvatar = async (req, res) => {
     ) {
       return res
         .status(403)
-        .json({ code: 403, message: "Báº¡n khÃ´ng cÃ³ quyá»n Ä‘á»•i avatar nhÃ³m" });
+        .json({ code: 403, message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân Ã„â€˜Ã¡Â»â€¢i avatar nhÃƒÂ³m" });
     }
 
     const result = await uploadStreamToCloudinary(req.file.buffer, "/rooms");
@@ -1048,7 +1088,7 @@ module.exports.uploadGroupAvatar = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Äá»•i avatar nhÃ³m thÃ nh cÃ´ng",
+      message: "Ã„ÂÃ¡Â»â€¢i avatar nhÃƒÂ³m thÃƒÂ nh cÃƒÂ´ng",
       data: responseRoom,
     });
   } catch (error) {
@@ -1067,14 +1107,14 @@ module.exports.updateRoomTheme = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (!themeConfig || typeof themeConfig !== "object") {
       return res.status(400).json({
         code: 400,
-        message: "themeConfig khÃ´ng há»£p lá»‡",
+        message: "themeConfig khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
@@ -1087,7 +1127,7 @@ module.exports.updateRoomTheme = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y phÃƒÂ²ng chat",
       });
     }
 
@@ -1096,7 +1136,7 @@ module.exports.updateRoomTheme = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c phÃ²ng chat nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c phÃƒÂ²ng chat nÃƒÂ y",
       });
     }
 
@@ -1107,7 +1147,7 @@ module.exports.updateRoomTheme = async (req, res) => {
     ) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n Ä‘á»•i theme nhÃ³m",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân Ã„â€˜Ã¡Â»â€¢i theme nhÃƒÂ³m",
       });
     }
 
@@ -1143,7 +1183,7 @@ module.exports.updateRoomTheme = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Äá»•i theme thÃ nh cÃ´ng",
+      message: "Ã„ÂÃ¡Â»â€¢i theme thÃƒÂ nh cÃƒÂ´ng",
       data: responseRoom,
     });
   } catch (error) {
@@ -1160,79 +1200,48 @@ module.exports.updateMyNickname = async (req, res) => {
   try {
     const meId = req.user._id;
     const { roomId } = req.params;
-    const { nickname } = req.body;
+    const { nickname, targetUserId } = req.body;
 
     if (!isValidObjectId(roomId)) {
-      return res.status(400).json({
-        code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
-      });
+      return res.status(400).json({ code: 400, message: "roomId khong hop le" });
     }
-
     if (typeof nickname !== "string") {
-      return res.status(400).json({
-        code: 400,
-        message: "nickname khÃ´ng há»£p lá»‡",
-      });
+      return res.status(400).json({ code: 400, message: "nickname khong hop le" });
+    }
+    if (nickname.trim().length > 50) {
+      return res.status(400).json({ code: 400, message: "Nickname toi da 50 ky tu" });
     }
 
-    if (nickname.trim().length > 50) {
-      return res.status(400).json({
-        code: 400,
-        message: "Nickname tá»‘i Ä‘a 50 kÃ½ tá»±",
-      });
-    }
+    const targetId = targetUserId && isValidObjectId(targetUserId) ? targetUserId : meId;
 
     const room = await RoomChat.findOneAndUpdate(
-      {
-        _id: roomId,
-        deleted: false,
-        status: "active",
-        users: {
-          $elemMatch: {
-            user_id: meId,
-            isActive: true,
-          },
-        },
-      },
-      {
-        $set: {
-          "users.$.nickname": nickname.trim(),
-        },
-      },
-      {
-        new: true,
-      },
+      { _id: roomId, deleted: false, status: "active", "users.user_id": targetId },
+      { $set: { "users.$.nickname": nickname.trim() } },
+      { new: true },
     );
 
     if (!room) {
-      return res.status(404).json({
-        code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
-      });
+      return res.status(404).json({ code: 404, message: "Khong tim thay phong chat" });
     }
 
     const responseRoom = await buildRoomResponse(room._id, meId);
 
-    global._io?.to(room._id.toString()).emit("SERVER_ROOM_UPDATED", {
+    global._io?.to(meId.toString()).emit("SERVER_ROOM_UPDATED", {
       roomId: room._id,
       type: "CHANGE_NICKNAME",
-      userId: meId,
+      targetUserId: targetId,
       nickname: nickname.trim(),
       room: responseRoom,
     });
 
     return res.status(200).json({
       code: 200,
-      message: "Äá»•i nickname thÃ nh cÃ´ng",
+      message: "Doi biet danh thanh cong",
       data: responseRoom,
     });
   } catch (error) {
     console.error("updateMyNickname error:", error);
-    return res.status(500).json({
-      code: 500,
-      message: "FAILED!",
-    });
+    return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };
 
@@ -1246,14 +1255,14 @@ module.exports.addMembers = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (!Array.isArray(usersId) || usersId.length === 0) {
       return res.status(400).json({
         code: 400,
-        message: "Danh sÃ¡ch thÃ nh viÃªn khÃ´ng há»£p lá»‡",
+        message: "Danh sÃƒÂ¡ch thÃƒÂ nh viÃƒÂªn khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
@@ -1267,7 +1276,7 @@ module.exports.addMembers = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m",
       });
     }
 
@@ -1276,7 +1285,7 @@ module.exports.addMembers = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y",
       });
     }
 
@@ -1286,7 +1295,7 @@ module.exports.addMembers = async (req, res) => {
     ) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n thÃªm thÃ nh viÃªn",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân thÃƒÂªm thÃƒÂ nh viÃƒÂªn",
       });
     }
 
@@ -1297,7 +1306,7 @@ module.exports.addMembers = async (req, res) => {
     if (uniqueUserIds.length === 0) {
       return res.status(400).json({
         code: 400,
-        message: "KhÃ´ng cÃ³ user há»£p lá»‡ Ä‘á»ƒ thÃªm",
+        message: "KhÃƒÂ´ng cÃƒÂ³ user hÃ¡Â»Â£p lÃ¡Â»â€¡ Ã„â€˜Ã¡Â»Æ’ thÃƒÂªm",
       });
     }
 
@@ -1360,7 +1369,7 @@ module.exports.addMembers = async (req, res) => {
     if (addedUsers.length === 0 && reactivatedUsers.length === 0) {
       return res.status(400).json({
         code: 400,
-        message: "KhÃ´ng cÃ³ thÃ nh viÃªn má»›i nÃ o Ä‘Æ°á»£c thÃªm",
+        message: "KhÃƒÂ´ng cÃƒÂ³ thÃƒÂ nh viÃƒÂªn mÃ¡Â»â€ºi nÃƒÂ o Ã„â€˜Ã†Â°Ã¡Â»Â£c thÃƒÂªm",
         data: {
           skippedUsers,
         },
@@ -1388,7 +1397,7 @@ module.exports.addMembers = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "ThÃªm thÃ nh viÃªn thÃ nh cÃ´ng",
+      message: "ThÃƒÂªm thÃƒÂ nh viÃƒÂªn thÃƒÂ nh cÃƒÂ´ng",
       data: {
         room: responseRoom,
         addedUsers,
@@ -1414,7 +1423,7 @@ module.exports.leaveGroup = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId khÃ´ng há»£p lá»‡",
+        message: "roomId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
@@ -1428,7 +1437,7 @@ module.exports.leaveGroup = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m",
       });
     }
 
@@ -1437,7 +1446,7 @@ module.exports.leaveGroup = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y",
       });
     }
 
@@ -1446,7 +1455,7 @@ module.exports.leaveGroup = async (req, res) => {
     if (myMember.role === "superAdmin" && activeMembers.length > 1) {
       return res.status(400).json({
         code: 400,
-        message: "TrÆ°á»Ÿng nhÃ³m cáº§n chuyá»ƒn quyá»n trÆ°á»›c khi rá»i nhÃ³m",
+        message: "TrÃ†Â°Ã¡Â»Å¸ng nhÃƒÂ³m cÃ¡ÂºÂ§n chuyÃ¡Â»Æ’n quyÃ¡Â»Ân trÃ†Â°Ã¡Â»â€ºc khi rÃ¡Â»Âi nhÃƒÂ³m",
       });
     }
 
@@ -1477,7 +1486,7 @@ module.exports.leaveGroup = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Báº¡n Ä‘Ã£ rá»i nhÃ³m",
+      message: "BÃ¡ÂºÂ¡n Ã„â€˜ÃƒÂ£ rÃ¡Â»Âi nhÃƒÂ³m",
       data: {
         roomId: room._id,
       },
@@ -1500,14 +1509,14 @@ module.exports.kickMember = async (req, res) => {
     if (!isValidObjectId(roomId) || !isValidObjectId(userId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId hoáº·c userId khÃ´ng há»£p lá»‡",
+        message: "roomId hoÃ¡ÂºÂ·c userId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (meId.toString() === userId.toString()) {
       return res.status(400).json({
         code: 400,
-        message: "KhÃ´ng thá»ƒ tá»± kick chÃ­nh mÃ¬nh, hÃ£y dÃ¹ng chá»©c nÄƒng rá»i nhÃ³m",
+        message: "KhÃƒÂ´ng thÃ¡Â»Æ’ tÃ¡Â»Â± kick chÃƒÂ­nh mÃƒÂ¬nh, hÃƒÂ£y dÃƒÂ¹ng chÃ¡Â»Â©c nÃ„Æ’ng rÃ¡Â»Âi nhÃƒÂ³m",
       });
     }
 
@@ -1521,7 +1530,7 @@ module.exports.kickMember = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m",
       });
     }
 
@@ -1531,35 +1540,35 @@ module.exports.kickMember = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y",
       });
     }
 
     if (!isAdminOrSuperAdmin(myMember)) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng cÃ³ quyá»n kick thÃ nh viÃªn",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng cÃƒÂ³ quyÃ¡Â»Ân kick thÃƒÂ nh viÃƒÂªn",
       });
     }
 
     if (!targetMember) {
       return res.status(404).json({
         code: 404,
-        message: "ThÃ nh viÃªn cáº§n kick khÃ´ng tá»“n táº¡i trong nhÃ³m",
+        message: "ThÃƒÂ nh viÃƒÂªn cÃ¡ÂºÂ§n kick khÃƒÂ´ng tÃ¡Â»â€œn tÃ¡ÂºÂ¡i trong nhÃƒÂ³m",
       });
     }
 
     if (targetMember.role === "superAdmin") {
       return res.status(403).json({
         code: 403,
-        message: "KhÃ´ng thá»ƒ kick trÆ°á»Ÿng nhÃ³m",
+        message: "KhÃƒÂ´ng thÃ¡Â»Æ’ kick trÃ†Â°Ã¡Â»Å¸ng nhÃƒÂ³m",
       });
     }
 
     if (myMember.role === "admin" && targetMember.role === "admin") {
       return res.status(403).json({
         code: 403,
-        message: "Admin khÃ´ng thá»ƒ kick admin khÃ¡c",
+        message: "Admin khÃƒÂ´ng thÃ¡Â»Æ’ kick admin khÃƒÂ¡c",
       });
     }
 
@@ -1592,7 +1601,7 @@ module.exports.kickMember = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "ÄÃ£ kick thÃ nh viÃªn khá»i nhÃ³m",
+      message: "Ã„ÂÃƒÂ£ kick thÃƒÂ nh viÃƒÂªn khÃ¡Â»Âi nhÃƒÂ³m",
       data: {
         room: responseRoom,
         kickedUserId: userId,
@@ -1617,14 +1626,14 @@ module.exports.updateMemberRole = async (req, res) => {
     if (!isValidObjectId(roomId) || !isValidObjectId(userId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId hoáº·c userId khÃ´ng há»£p lá»‡",
+        message: "roomId hoÃ¡ÂºÂ·c userId khÃƒÂ´ng hÃ¡Â»Â£p lÃ¡Â»â€¡",
       });
     }
 
     if (!["admin", "member"].includes(role)) {
       return res.status(400).json({
         code: 400,
-        message: "role chá»‰ Ä‘Æ°á»£c lÃ  admin hoáº·c member",
+        message: "role chÃ¡Â»â€° Ã„â€˜Ã†Â°Ã¡Â»Â£c lÃƒÂ  admin hoÃ¡ÂºÂ·c member",
       });
     }
 
@@ -1638,7 +1647,7 @@ module.exports.updateMemberRole = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
+        message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y nhÃƒÂ³m",
       });
     }
 
@@ -1648,28 +1657,28 @@ module.exports.updateMemberRole = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
+        message: "BÃ¡ÂºÂ¡n khÃƒÂ´ng thuÃ¡Â»â„¢c nhÃƒÂ³m nÃƒÂ y",
       });
     }
 
     if (!isSuperAdmin(myMember)) {
       return res.status(403).json({
         code: 403,
-        message: "Chá»‰ trÆ°á»Ÿng nhÃ³m má»›i cÃ³ quyá»n Ä‘á»•i role",
+        message: "ChÃ¡Â»â€° trÃ†Â°Ã¡Â»Å¸ng nhÃƒÂ³m mÃ¡Â»â€ºi cÃƒÂ³ quyÃ¡Â»Ân Ã„â€˜Ã¡Â»â€¢i role",
       });
     }
 
     if (!targetMember) {
       return res.status(404).json({
         code: 404,
-        message: "ThÃ nh viÃªn khÃ´ng tá»“n táº¡i trong nhÃ³m",
+        message: "ThÃƒÂ nh viÃƒÂªn khÃƒÂ´ng tÃ¡Â»â€œn tÃ¡ÂºÂ¡i trong nhÃƒÂ³m",
       });
     }
 
     if (targetMember.role === "superAdmin") {
       return res.status(403).json({
         code: 403,
-        message: "KhÃ´ng thá»ƒ Ä‘á»•i role cá»§a trÆ°á»Ÿng nhÃ³m báº±ng API nÃ y",
+        message: "KhÃƒÂ´ng thÃ¡Â»Æ’ Ã„â€˜Ã¡Â»â€¢i role cÃ¡Â»Â§a trÃ†Â°Ã¡Â»Å¸ng nhÃƒÂ³m bÃ¡ÂºÂ±ng API nÃƒÂ y",
       });
     }
 
@@ -1689,7 +1698,7 @@ module.exports.updateMemberRole = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Äá»•i role thÃ nh cÃ´ng",
+      message: "Ã„ÂÃ¡Â»â€¢i role thÃƒÂ nh cÃƒÂ´ng",
       data: {
         room: responseRoom,
         userId,
@@ -1715,14 +1724,14 @@ module.exports.transferOwner = async (req, res) => {
     if (!isValidObjectId(roomId) || !isValidObjectId(userId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId hoặc userId không hợp lệ",
+        message: "roomId hoáº·c userId khÃ´ng há»£p lá»‡",
       });
     }
 
     if (meId.toString() === userId.toString()) {
       return res.status(400).json({
         code: 400,
-        message: "Bạn đang là trưởng nhóm rồi",
+        message: "Báº¡n Ä‘ang lÃ  trÆ°á»Ÿng nhÃ³m rá»“i",
       });
     }
 
@@ -1736,7 +1745,7 @@ module.exports.transferOwner = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "Không tìm thấy nhóm",
+        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
       });
     }
 
@@ -1750,21 +1759,21 @@ module.exports.transferOwner = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Bạn không thuộc nhóm này",
+        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
       });
     }
 
     if (myMember.role !== "superAdmin") {
       return res.status(403).json({
         code: 403,
-        message: "Chỉ trưởng nhóm mới có quyền chuyển quyền",
+        message: "Chá»‰ trÆ°á»Ÿng nhÃ³m má»›i cÃ³ quyá»n chuyá»ƒn quyá»n",
       });
     }
 
     if (!targetMember) {
       return res.status(404).json({
         code: 404,
-        message: "Người nhận quyền không thuộc nhóm này",
+        message: "NgÆ°á»i nháº­n quyá»n khÃ´ng thuá»™c nhÃ³m nÃ y",
       });
     }
 
@@ -1785,7 +1794,7 @@ module.exports.transferOwner = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Chuyển quyền trưởng nhóm thành công",
+      message: "Chuyá»ƒn quyá»n trÆ°á»Ÿng nhÃ³m thÃ nh cÃ´ng",
       data: {
         room: responseRoom,
         oldOwnerId: meId,
@@ -1814,7 +1823,7 @@ module.exports.updateGroupSettings = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId không hợp lệ",
+        message: "roomId khÃ´ng há»£p lá»‡",
       });
     }
 
@@ -1828,7 +1837,7 @@ module.exports.updateGroupSettings = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "Không tìm thấy nhóm",
+        message: "KhÃ´ng tÃ¬m tháº¥y nhÃ³m",
       });
     }
 
@@ -1839,14 +1848,14 @@ module.exports.updateGroupSettings = async (req, res) => {
     if (!myMember) {
       return res.status(403).json({
         code: 403,
-        message: "Bạn không thuộc nhóm này",
+        message: "Báº¡n khÃ´ng thuá»™c nhÃ³m nÃ y",
       });
     }
 
     if (!["admin", "superAdmin"].includes(myMember.role)) {
       return res.status(403).json({
         code: 403,
-        message: "Bạn không có quyền thay đổi cài đặt nhóm",
+        message: "Báº¡n khÃ´ng cÃ³ quyá»n thay Ä‘á»•i cÃ i Ä‘áº·t nhÃ³m",
       });
     }
 
@@ -1860,7 +1869,7 @@ module.exports.updateGroupSettings = async (req, res) => {
     Object.entries(allowedSettings).forEach(([key, value]) => {
       if (value !== undefined) {
         if (typeof value !== "boolean") {
-          throw new Error(`${key} phải là true hoặc false`);
+          throw new Error(`${key} pháº£i lÃ  true hoáº·c false`);
         }
 
         room.groupSettings[key] = value;
@@ -1879,7 +1888,7 @@ module.exports.updateGroupSettings = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Cập nhật cài đặt nhóm thành công",
+      message: "Cáº­p nháº­t cÃ i Ä‘áº·t nhÃ³m thÃ nh cÃ´ng",
       data: responseRoom,
     });
   } catch (error) {
@@ -1902,14 +1911,14 @@ module.exports.markRoomAsRead = async (req, res) => {
     if (!isValidObjectId(roomId)) {
       return res.status(400).json({
         code: 400,
-        message: "roomId không hợp lệ",
+        message: "roomId khÃ´ng há»£p lá»‡",
       });
     }
 
     if (lastMessageId && !isValidObjectId(lastMessageId)) {
       return res.status(400).json({
         code: 400,
-        message: "lastMessageId không hợp lệ",
+        message: "lastMessageId khÃ´ng há»£p lá»‡",
       });
     }
 
@@ -1939,7 +1948,7 @@ module.exports.markRoomAsRead = async (req, res) => {
     if (!room) {
       return res.status(404).json({
         code: 404,
-        message: "Không tìm thấy phòng chat",
+        message: "KhÃ´ng tÃ¬m tháº¥y phÃ²ng chat",
       });
     }
 
@@ -1961,7 +1970,7 @@ module.exports.markRoomAsRead = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Đã đánh dấu đã đọc",
+      message: "ÄÃ£ Ä‘Ã¡nh dáº¥u Ä‘Ã£ Ä‘á»c",
       data: {
         roomId: room._id,
         unreadCount: 0,
@@ -1981,7 +1990,7 @@ module.exports.markRoomAsRead = async (req, res) => {
 };
 
 // [PATCH] /api/v1/room-chat/read-all
-// Reset unreadCount = 0 cho tất cả room của user (khi bấm vào icon Tin nhắn)
+// Reset unreadCount = 0 cho táº¥t cáº£ room cá»§a user (khi báº¥m vÃ o icon Tin nháº¯n)
 module.exports.markAllRoomsAsRead = async (req, res) => {
   try {
     const meId = req.user._id;
@@ -2008,7 +2017,7 @@ module.exports.markAllRoomsAsRead = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Đã đánh dấu tất cả tin nhắn là đã đọc",
+      message: "ÄÃ£ Ä‘Ã¡nh dáº¥u táº¥t cáº£ tin nháº¯n lÃ  Ä‘Ã£ Ä‘á»c",
       data: {
         chatBadgeCount: newBadgeCount,
       },
@@ -2087,3 +2096,5 @@ module.exports.createPrivateFromProfile = async (req, res) => {
     return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };
+
+
