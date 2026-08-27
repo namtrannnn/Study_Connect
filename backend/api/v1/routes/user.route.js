@@ -20,4 +20,8 @@ router.post(
 // search
 router.get("/search-user", userMiddleware.requireUser, controller.searchUsers);
 
+// chat badge
+router.get("/chat-badge", userMiddleware.requireUser, controller.getChatBadge);
+router.patch("/reset-chat-badge", userMiddleware.requireUser, controller.resetChatBadge);
+
 module.exports = router;

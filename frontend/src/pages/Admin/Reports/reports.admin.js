@@ -213,11 +213,74 @@ function ReportsAdmin() {
 
                                 {/* Target Content Preview */}
                                 {report.targetDetails && (
-                                    <div className={`rounded-2xl border p-4 text-xs ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                                        <div className={`text-[11px] font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>Nội dung bị báo cáo:</div>
-                                        <p className={`font-medium ${isDark ? 'text-gray-200' : 'text-slate-800'}`}>
-                                            {report.targetDetails.content || report.targetDetails.title || 'Nội dung bị ảnh hưởng'}
-                                        </p>
+                                    <div className={`rounded-2xl border p-4 text-xs space-y-3 ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                        {/* Tác giả bài viết / comment */}
+                                        {(report.targetDetails.author || report.targetDetails.user) && (
+                                            <div className="flex items-center gap-2">
+                                                <img
+                                                    src={
+                                                        (report.targetDetails.author || report.targetDetails.user)?.avatar ||
+                                                        'https://via.placeholder.com/150'
+                                                    }
+                                                    alt="author"
+                                                    className="h-7 w-7 rounded-xl object-cover ring-1 ring-black/10"
+                                                />
+                                                <div>
+                                                    <div className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                                        {(report.targetDetails.author || report.targetDetails.user)?.fullName || 'Người dùng'}
+                                                    </div>
+                                                    <div className="text-gray-400">
+                                                        @{(report.targetDetails.author || report.targetDetails.user)?.username || ''}
+                                                    </div>
+                                                </div>
+                                                <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                                                    report.target_type === 'post'
+                                                        ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                                        : 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                                                }`}>
+                                                    {report.target_type === 'post' ? 'Bài viết' : report.target_type === 'comment' ? 'Bình luận' : 'Người dùng'}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Tiêu đề nếu có */}
+                                        {report.targetDetails.title && (
+                                            <div className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                                {report.targetDetails.title}
+                                            </div>
+                                        )}
+
+                                        {/* Nội dung chính */}
+                                        <div>
+                                            <div className={`text-[11px] font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                                                Nội dung bị báo cáo:
+                                            </div>
+                                            <p className={`font-medium leading-relaxed ${isDark ? 'text-gray-200' : 'text-slate-800'}`}>
+                                                {report.targetDetails.caption ||
+                                                    report.targetDetails.content ||
+                                                    report.targetDetails.fullName ||
+                                                    '(Không có nội dung văn bản)'}
+                                            </p>
+                                        </div>
+
+                                        {/* Ảnh nếu có */}
+                                        {Array.isArray(report.targetDetails.media) && report.targetDetails.media.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 pt-1">
+                                                {report.targetDetails.media.slice(0, 4).map((url, idx) => (
+                                                    <img
+                                                        key={idx}
+                                                        src={url}
+                                                        alt={`media-${idx}`}
+                                                        className="h-20 w-20 rounded-xl object-cover border border-white/10"
+                                                    />
+                                                ))}
+                                                {report.targetDetails.media.length > 4 && (
+                                                    <div className={`flex h-20 w-20 items-center justify-center rounded-xl border text-xs font-bold ${isDark ? 'border-white/10 bg-white/5 text-gray-400' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
+                                                        +{report.targetDetails.media.length - 4}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -227,7 +290,7 @@ function ReportsAdmin() {
                                         <div className="flex items-center gap-2 text-xs font-bold text-indigo-500">
                                             <Sparkles className="h-4 w-4" /> Kết quả đánh giá từ Gemini AI:
                                         </div>
-                                        {!ai.toxicScore ? (
+                                        {!ai.toxicScore && !ai.analyzedAt ? (
                                             <button
                                                 type="button"
                                                 disabled={isAnalyzing}
@@ -238,9 +301,20 @@ function ReportsAdmin() {
                                                 Phân tích AI ngay
                                             </button>
                                         ) : (
-                                            <span className="text-[11px] font-semibold text-indigo-500">
-                                                Tỷ lệ vi phạm: <strong className="text-rose-500">{ai.toxicScore}%</strong>
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-semibold text-indigo-500">
+                                                    Tỷ lệ vi phạm: <strong className="text-rose-500">{ai.toxicScore}%</strong>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    disabled={isAnalyzing}
+                                                    onClick={() => handleAnalyzeAI(report._id)}
+                                                    className="flex items-center gap-1 rounded-lg border border-indigo-500/30 px-2 py-1 text-[11px] font-bold text-indigo-400 transition hover:bg-indigo-500/10 disabled:opacity-50"
+                                                >
+                                                    {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
+                                                    Phân tích lại
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
 

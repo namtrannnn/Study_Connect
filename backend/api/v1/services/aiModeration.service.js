@@ -19,23 +19,29 @@ async function analyzeContentWithAI(content, reportReason = "", reasonCategory =
     }
 
     const categoryLabel = REASON_CATEGORY_LABELS[reasonCategory] || "Chưa phân loại";
-    const prompt = `Bạn là hệ thống AI kiểm duyệt nội dung của ứng dụng mạng xã hội StudyConnect.
-Hãy phân tích nội dung sau đây cùng với lý do báo cáo vi phạm từ người dùng và trả về JSON thuần kết quả đánh giá.
+    const prompt = `Bạn là hệ thống AI kiểm duyệt nội dung của mạng xã hội học tập StudyConnect.
+Nhiệm vụ: Phân tích khách quan nội dung bên dưới và trả về JSON đánh giá mức độ vi phạm.
 
-Nội dung bài viết/bình luận: "${content || "Không có nội dung văn bản"}"
-Phân loại vi phạm (do người dùng chọn): "${categoryLabel}"
-Mô tả thêm từ người báo cáo: "${reportReason || "Không có mô tả thêm"}"
+LƯU Ý QUAN TRỌNG:
+- Đây là mạng xã hội học tập, nội dung về học tập, code, chia sẻ kiến thức là HOÀN TOÀN BÌNH THƯỜNG.
+- Phân loại vi phạm do NGƯỜI DÙNG TỰ CHỌN — có thể không chính xác, đừng để nó ảnh hưởng quá nhiều đến đánh giá.
+- Hãy đánh giá dựa trên NỘI DUNG THỰC TẾ là chính.
+- Chỉ cho điểm cao (>60) khi nội dung THỰC SỰ vi phạm rõ ràng.
 
-Trả về ĐÚNG 1 ĐỐI TƯỢNG JSON (không bọc trong markdown code block, không giải thích thêm):
+Nội dung cần phân tích: "${content || "Không có nội dung văn bản"}"
+Phân loại vi phạm (người dùng chọn, có thể sai): "${categoryLabel}"
+Mô tả thêm từ người báo cáo: "${reportReason || "Không có"}"
+
+Trả về ĐÚNG 1 ĐỐI TƯỢNG JSON (không markdown, không giải thích):
 {
-  "toxicScore": <số từ 0 đến 100 thể hiện độ độc hại/vi phạm>,
-  "category": "<chọn 1 trong các giá trị: spam | hate_speech | harassment | violence | normal>",
-  "summary": "<tóm tắt 1-2 câu lý do tại sao bài viết này bị đánh giá vi phạm hoặc an toàn>",
-  "suggestedAction": "<chọn 1 trong các giá trị: hide_post | warn_user | ban_user | dismiss>"
+  "toxicScore": <0-100, chỉ cao nếu vi phạm rõ ràng>,
+  "category": "<spam | hate_speech | harassment | violence | normal>",
+  "summary": "<1-2 câu nhận xét khách quan về nội dung>",
+  "suggestedAction": "<hide_post | warn_user | ban_user | dismiss>"
 }`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -46,6 +52,13 @@ Trả về ĐÚNG 1 ĐỐI TƯỢNG JSON (không bọc trong markdown code block
     );
 
     const data = await response.json();
+
+    // Nếu API trả lỗi thì dùng fallback
+    if (data?.error) {
+      console.error("Gemini API error:", data.error.message);
+      return getFallbackAnalysis(content, reportReason, reasonCategory);
+    }
+
     const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     // Clean JSON string
@@ -66,41 +79,28 @@ Trả về ĐÚNG 1 ĐỐI TƯỢNG JSON (không bọc trong markdown code block
 
 function getFallbackAnalysis(content, reportReason, reasonCategory = "") {
   const text = (content + " " + reportReason).toLowerCase();
-  let toxicScore = 20;
-  let category = "normal";
-  let suggestedAction = "dismiss";
-  let summary = "Nội dung cần xem xét thêm bởi Quản trị viên.";
 
-  // Ưu tiên dùng reasonCategory nếu có
-  if (reasonCategory && reasonCategory !== "other") {
-    const categoryMap = {
-      spam: { score: 65, cat: "spam", action: "hide_post", msg: "Nội dung chứa dấu hiệu spam/quảng cáo rác." },
-      violence: { score: 80, cat: "violence", action: "hide_post", msg: "Nội dung bị báo cáo có liên quan đến bạo lực." },
-      harassment: { score: 75, cat: "harassment", action: "warn_user", msg: "Nội dung bị báo cáo có dấu hiệu quấy rối." },
-      hate_speech: { score: 80, cat: "hate_speech", action: "hide_post", msg: "Nội dung bị báo cáo có ngôn từ thù địch/kỳ thị." },
-      misinformation: { score: 60, cat: "normal", action: "hide_post", msg: "Nội dung bị báo cáo có thể chứa thông tin sai lệch." },
-      sexual_content: { score: 85, cat: "harassment", action: "hide_post", msg: "Nội dung bị báo cáo có yếu tố khiêu dâm/18+." },
-    };
-    const mapped = categoryMap[reasonCategory];
-    if (mapped) {
-      toxicScore = mapped.score;
-      category = mapped.cat;
-      suggestedAction = mapped.action;
-      summary = mapped.msg;
-    }
-  } else if (text.includes("chửi") || text.includes("đám") || text.includes("ngu") || text.includes("xúc phạm")) {
-    toxicScore = 75;
-    category = "hate_speech";
-    suggestedAction = "hide_post";
-    summary = "Phát hiện từ ngữ có tính chất xúc phạm hoặc hằn học.";
-  } else if (text.includes("link") || text.includes("cờ bạc") || text.includes("kiếm tiền") || text.includes("http")) {
-    toxicScore = 65;
-    category = "spam";
-    suggestedAction = "hide_post";
-    summary = "Nội dung chứa liên kết hoặc dấu hiệu quảng cáo rác/spam.";
+  // Không có Gemini API — chỉ dùng keyword matching đơn giản
+  // Không tin tuyệt đối vào reasonCategory vì user có thể chọn sai
+
+  // Keyword matching cho nội dung rõ ràng vi phạm
+  if (text.includes("chửi") || text.includes("đm") || text.includes("ngu") || text.includes("xúc phạm") || text.includes("địt")) {
+    return { toxicScore: 75, category: "hate_speech", suggestedAction: "hide_post", summary: "Phát hiện từ ngữ có tính chất xúc phạm." };
+  }
+  if (text.includes("cờ bạc") || text.includes("kiếm tiền nhanh") || text.includes("đầu tư sinh lời")) {
+    return { toxicScore: 70, category: "spam", suggestedAction: "hide_post", summary: "Nội dung có dấu hiệu spam/quảng cáo." };
+  }
+  if (text.includes("http://") || text.includes("https://") && (text.includes("click") || text.includes("đăng ký ngay"))) {
+    return { toxicScore: 65, category: "spam", suggestedAction: "hide_post", summary: "Nội dung chứa liên kết quảng cáo." };
   }
 
-  return { toxicScore, category, summary, suggestedAction };
+  // Không phát hiện vi phạm rõ ràng → để admin xem xét thủ công
+  return {
+    toxicScore: 0,
+    category: "normal",
+    suggestedAction: "dismiss",
+    summary: "Không thể phân tích tự động (Gemini API không khả dụng). Vui lòng xem xét thủ công.",
+  };
 }
 
 module.exports = { analyzeContentWithAI };

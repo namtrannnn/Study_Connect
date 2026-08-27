@@ -28,3 +28,15 @@ export const searchUsers = async ({ keyword, scope = 'all', limit = 10 } = {}) =
 
     return res.data;
 };
+
+// [GET] /api/v1/user/chat-badge
+export const getChatBadge = async () => {
+    const res = await httpRequest.get('/user/chat-badge');
+    return res.data;
+};
+
+// [PATCH] /api/v1/user/reset-chat-badge
+export const resetChatBadge = async () => {
+    const res = await httpRequest.patch('/user/reset-chat-badge');
+    return res.data;
+};

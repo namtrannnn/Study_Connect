@@ -10,6 +10,8 @@ import Modal from '../../pages/Dashboard/Modal';
 import { getSocket } from '../../config/socket';
 import * as NotificationServices from '../../services/notification.services';
 import { setUnreadCount, incrementUnread } from '../../redux/slices/notificationSlice';
+import { setNicknameMap } from '../../redux/slices/nicknameSlice';
+import { getMyNicknames } from '../../services/contactNickname.services';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -71,6 +73,17 @@ function StudyConnectLayout({
             socket.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
         };
     }, [dispatch]);
+
+    // Load nicknames khi mount
+    useEffect(() => {
+        getMyNicknames()
+            .then((res) => {
+                if (res?.code === 200) dispatch(setNicknameMap(res.data || {}));
+            })
+            .catch(() => {});
+    }, [dispatch]);
+
+    // Global listener for unread message count handled in App.jsx
 
     const isSearchOpen = openPanel === 'search';
     const isNotifOpen = openPanel === 'notifications';

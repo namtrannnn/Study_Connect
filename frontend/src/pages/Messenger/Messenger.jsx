@@ -10,10 +10,14 @@ import {
     Loader2,
     UserRound,
     Trash2,
+    Pin,
+    BellOff,
+    Archive,
 } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { setTotalUnread, setActiveRoomId } from '../../redux/slices/chatSlice';
 
 import {
     getChatRooms,
@@ -23,6 +27,7 @@ import {
 } from '../../services/chatServices';
 import {
     joinChatRoom,
+    leaveChatRoom,
     registerChatSocketEvents,
     sendChatMessage,
     startTyping,
@@ -48,6 +53,8 @@ import NewChatModal from './components/NewChatModal';
 
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
+    const dispatch = useDispatch();
+    const nicknameMap = useSelector((state) => state.nickname?.map || {});
     const onlineUsers = useSelector((state) => state.presence?.onlineUsers || []);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -69,6 +76,7 @@ function Messenger() {
     const [showNewChat, setShowNewChat] = useState(false);
     const [openingFriendChat, setOpeningFriendChat] = useState(false);
     const [openRoomMenuId, setOpenRoomMenuId] = useState(null);
+    const [showArchived, setShowArchived] = useState(false);
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
     const roomMenuRef = useRef(null);
@@ -155,8 +163,12 @@ function Messenger() {
 
         const lastActiveAt = otherUser?.lastActiveAt || otherUser?.last_active_at;
 
+        // Dùng nickname nếu có
+        const otherMember = selectedRoom.members?.find((m) => m?.user?._id !== currentUser?._id);
+        const displayName = nicknameMap[otherUser?._id] || otherMember?.nickname || otherUser?.fullName || 'Người dùng';
+
         return {
-            name: otherUser?.fullName || 'Người dùng',
+            name: displayName,
             avatar: otherUser?.avatar || '',
             sub: isOnline ? 'Đang hoạt động' : formatLastActive(lastActiveAt),
             isOnline,
@@ -169,18 +181,30 @@ function Messenger() {
     const filteredRooms = useMemo(() => {
         const selectedId = selectedRoomId;
         const activeRooms = rooms.filter(
-            (room) => hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId,
+            (room) => {
+                const archived = room.currentUserRoomState?.archived || false;
+                if (showArchived) return archived;
+                return !archived && (hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId);
+            }
         );
 
         const kw = searchKeyword.trim().toLowerCase();
-        if (!kw) return activeRooms;
-
-        return activeRooms.filter((room) => {
+        const matched = !kw ? activeRooms : activeRooms.filter((room) => {
             if (room.typeRoom === 'group') return (room.title || '').toLowerCase().includes(kw);
             const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id)?.user;
             return (friend?.fullName || '').toLowerCase().includes(kw);
         });
-    }, [rooms, searchKeyword, selectedRoomId, currentUser?._id]);
+
+        // Pinned luôn lên đầu
+        return [...matched].sort((a, b) => {
+            const aPinned = a.currentUserRoomState?.pinned ? 1 : 0;
+            const bPinned = b.currentUserRoomState?.pinned ? 1 : 0;
+            if (bPinned !== aPinned) return bPinned - aPinned;
+            const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+            const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+            return bTime - aTime;
+        });
+    }, [rooms, searchKeyword, selectedRoomId, currentUser?._id, showArchived]);
 
     function getRoomDisplay(room) {
         if (room.typeRoom === 'group') {
@@ -206,15 +230,19 @@ function Messenger() {
             };
         }
 
-        const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id)?.user;
+        const friend = room.members?.find((m) => m?.user?._id !== currentUser?._id);
+        const friendUser = friend?.user;
 
-        const isOnline = onlineUsers.includes(friend?._id) || friend?.isOnline === true || friend?.isOnline === 1;
+        const isOnline = onlineUsers.includes(friendUser?._id) || friendUser?.isOnline === true || friendUser?.isOnline === 1;
 
-        const lastActiveAt = friend?.lastActiveAt || friend?.last_active_at;
+        const lastActiveAt = friendUser?.lastActiveAt || friendUser?.last_active_at;
+
+        // Dùng nickname nếu có
+        const displayName = nicknameMap[friendUser?._id] || friend?.nickname || friendUser?.fullName || 'Người dùng';
 
         return {
-            name: friend?.fullName || 'Người dùng',
-            avatar: friend?.avatar || '',
+            name: displayName,
+            avatar: friendUser?.avatar || '',
             sub: isOnline ? 'Đang hoạt động' : formatLastActive(lastActiveAt),
             isOnline,
             isGroup: false,
@@ -323,7 +351,11 @@ function Messenger() {
             setRooms(list);
             if (!hasAutoSelected && !selectedRoom && list.length > 0) {
                 const fromUrl = roomIdFromUrl ? list.find((r) => getRoomId(r) === roomIdFromUrl) : null;
-                setSelectedRoom(fromUrl || list[0]);
+                if (fromUrl) {
+                    setSelectedRoom(fromUrl);
+                    dispatch(setActiveRoomId(getRoomId(fromUrl)));
+                }
+                // Không auto-select room đầu tiên nữa — để user tự chọn
                 setHasAutoSelected(true);
             }
         } catch (e) {
@@ -347,6 +379,10 @@ function Messenger() {
 
     useEffect(() => {
         loadRooms();
+
+        return () => {
+            dispatch(setActiveRoomId(null));
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
@@ -375,6 +411,23 @@ function Messenger() {
                         return [...prev, message];
                     });
                     upsertRoomLastMessage(message);
+
+                    // Play sound nếu tin nhắn không phải của mình và room không bị mute
+                    const senderId = getSenderId(message);
+                    if (senderId !== currentUser?._id) {
+                        setRooms((prev) => {
+                            const room = prev.find((r) => getRoomId(r) === msgRoomId);
+                            const isMuted = room?.currentUserRoomState?.muted;
+                            if (!isMuted) {
+                                try {
+                                    const audio = new Audio('/sounds/message_sound.mp3');
+                                    audio.volume = 0.5;
+                                    audio.play().catch(() => {});
+                                } catch {}
+                            }
+                            return prev;
+                        });
+                    }
                 },
                 onTypingStart: (data) => {
                     const id = data.room_chat_id || data.roomChatId;
@@ -392,7 +445,18 @@ function Messenger() {
                 onChatListUpdated: (data) => {
                     setRooms((prev) =>
                         prev
-                            .map((r) => (getRoomId(r) !== data.roomId ? r : { ...r, lastMessage: data.lastMessage }))
+                            .map((r) => {
+                                if (getRoomId(r) !== data.roomId) return r;
+                                const updated = { ...r, lastMessage: data.lastMessage };
+                                // Cập nhật unreadCount từ server nếu có
+                                if (typeof data.roomUnreadCount === 'number') {
+                                    updated.currentUserRoomState = {
+                                        ...(r.currentUserRoomState || {}),
+                                        unreadCount: data.roomUnreadCount,
+                                    };
+                                }
+                                return updated;
+                            })
                             .sort(
                                 (a, b) =>
                                     new Date(b.lastMessage?.createdAt || b.updatedAt || 0) -
@@ -515,6 +579,10 @@ function Messenger() {
         if (!selectedRoomId) return;
         joinChatRoom(selectedRoomId);
         loadMessages(selectedRoomId);
+
+        return () => {
+            leaveChatRoom(selectedRoomId);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRoomId]);
 
@@ -530,6 +598,9 @@ function Messenger() {
         setShowInfo(false);
         setAiExplanation(null);
         setOpenRoomMenuId(null);
+
+        // Cập nhật room đang xem để global listener không increment badge
+        dispatch(setActiveRoomId(roomId));
 
         setRooms((prev) =>
             prev
@@ -607,8 +678,8 @@ function Messenger() {
     const updateRoomStateForMe = ({ roomId, currentUserRoomState }) => {
         if (!roomId || !currentUserRoomState) return;
 
-        setRooms((prev) =>
-            prev.map((room) =>
+        setRooms((prev) => {
+            const updated = prev.map((room) =>
                 getRoomId(room) !== roomId
                     ? room
                     : {
@@ -618,8 +689,17 @@ function Messenger() {
                               ...currentUserRoomState,
                           },
                       },
-            ),
-        );
+            );
+            // Re-sort: pinned lên đầu
+            return [...updated].sort((a, b) => {
+                const aPinned = a.currentUserRoomState?.pinned ? 1 : 0;
+                const bPinned = b.currentUserRoomState?.pinned ? 1 : 0;
+                if (bPinned !== aPinned) return bPinned - aPinned;
+                const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+                const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+                return bTime - aTime;
+            });
+        });
 
         setSelectedRoom((prev) => {
             if (!prev) return prev;
@@ -644,7 +724,11 @@ function Messenger() {
         const lastMessageId = room?.lastMessage?.message_id || room?.lastMessage?._id;
 
         try {
-            await roomChatApi.markAsRead(roomId, lastMessageId);
+            const res = await roomChatApi.markAsRead(roomId, lastMessageId);
+
+            if (typeof res?.data?.chatBadgeCount === 'number') {
+                dispatch(setTotalUnread(res.data.chatBadgeCount));
+            }
 
             updateRoomStateForMe({
                 roomId,
@@ -768,26 +852,38 @@ function Messenger() {
                     <div className="border-b border-blue-100 p-4 dark:border-white/10">
                         <div className="flex items-center justify-between gap-2">
                             <div>
-                                <h1 className="text-xl font-bold">Tin nhắn</h1>
+                                <h1 className="text-xl font-bold">{showArchived ? 'Lưu trữ' : 'Tin nhắn'}</h1>
                                 <p className="text-xs text-gray-400">{filteredRooms.length} đoạn chat</p>
                             </div>
                             <div className="flex gap-1">
                                 <button
                                     type="button"
-                                    onClick={() => setShowNewChat(true)}
-                                    title="Nhắn tin mới"
-                                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
+                                    onClick={() => setShowArchived((p) => !p)}
+                                    title={showArchived ? 'Quay lại' : 'Xem lưu trữ'}
+                                    className={`flex h-9 w-9 items-center justify-center rounded-2xl transition ${showArchived ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400' : 'bg-blue-50 text-gray-500 hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10'}`}
                                 >
-                                    <MessageCircle className="h-4 w-4" />
+                                    <Archive className="h-4 w-4" />
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCreateGroup(true)}
-                                    title="Tạo nhóm"
-                                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </button>
+                                {!showArchived && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewChat(true)}
+                                            title="Nhắn tin mới"
+                                            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
+                                        >
+                                            <MessageCircle className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCreateGroup(true)}
+                                            title="Tạo nhóm"
+                                            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-gray-500 transition hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                         <div className="relative mt-3">
@@ -844,12 +940,19 @@ function Messenger() {
                                                     <span className="min-w-0 truncate text-sm font-semibold">
                                                         {display.name}
                                                     </span>
-
-                                                    {lastTime && (
-                                                        <span className="shrink-0 text-[11px] font-medium text-gray-400">
-                                                            {lastTime}
-                                                        </span>
-                                                    )}
+                                                    <div className="flex shrink-0 items-center gap-1">
+                                                        {room.currentUserRoomState?.pinned && (
+                                                            <Pin className="h-3 w-3 text-amber-500" />
+                                                        )}
+                                                        {room.currentUserRoomState?.muted && (
+                                                            <BellOff className="h-3 w-3 text-gray-400" />
+                                                        )}
+                                                        {lastTime && (
+                                                            <span className="text-[11px] font-medium text-gray-400">
+                                                                {lastTime}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="mt-0.5 flex items-center justify-between gap-2">
                                                     <p
@@ -865,7 +968,7 @@ function Messenger() {
                                                     </p>
 
                                                     {unread > 0 && !active && (
-                                                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                                                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
                                                             {unread > 99 ? '99+' : unread}
                                                         </span>
                                                     )}
@@ -1019,11 +1122,15 @@ function Messenger() {
 
                                             const senderId = getSenderId(message);
                                             const isMe = senderId === currentUser?._id;
-                                            const sender =
+                                            const senderMember = selectedRoom.members?.find((m) => m?.user?._id === senderId);
+                                            const senderUser =
                                                 message.user_id && typeof message.user_id === 'object'
                                                     ? message.user_id
-                                                    : selectedRoom.members?.find((m) => m?.user?._id === senderId)
-                                                          ?.user;
+                                                    : senderMember?.user;
+                                            // Dùng nickname nếu có, fallback về fullName
+                                            const sender = senderUser
+                                                ? { ...senderUser, fullName: nicknameMap[senderId] || senderMember?.nickname || senderUser.fullName }
+                                                : senderUser;
 
                                             return (
                                                 <div key={message._id}>
@@ -1066,7 +1173,7 @@ function Messenger() {
                                                 />
                                             );
                                         })}
-                                        <div ref={bottomRef} />
+                                        <div ref={bottomRef} className="h-2" />
                                     </div>
                                 )}
                             </div>
