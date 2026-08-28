@@ -77,6 +77,7 @@ function Messenger() {
     const [openingFriendChat, setOpeningFriendChat] = useState(false);
     const [openRoomMenuId, setOpenRoomMenuId] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
+    const [collapsedSystemGroups, setCollapsedSystemGroups] = useState(new Set());
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
     const roomMenuRef = useRef(null);
@@ -178,11 +179,28 @@ function Messenger() {
 
     const hasRealMessage = (room) => Boolean(room?.lastMessage && (room.lastMessage.message_id || room.lastMessage._id));
 
+    // Kiểm tra user có quyền gửi tin nhắn không
+    const canSendMessage = useMemo(() => {
+        if (!selectedRoom) return false;
+        if (selectedRoom.typeRoom !== 'group') return true;
+        if (!selectedRoom.groupSettings?.onlyAdminCanSendMessage) return true;
+        const myMember = selectedRoom.members?.find((m) => m?.user?._id === currentUser?._id);
+        return ['admin', 'superAdmin'].includes(myMember?.role);
+    }, [selectedRoom, currentUser?._id]);
+
     const filteredRooms = useMemo(() => {
         const selectedId = selectedRoomId;
         const activeRooms = rooms.filter(
             (room) => {
                 const archived = room.currentUserRoomState?.archived || false;
+                const lastDeletedAt = room.currentUserRoomState?.lastDeletedAt;
+                const lastMsgTime = room.lastMessage?.createdAt ? new Date(room.lastMessage.createdAt) : null;
+
+                // Ẩn room nếu đã xóa và chưa có tin nhắn mới sau thời điểm xóa
+                if (lastDeletedAt && (!lastMsgTime || lastMsgTime <= new Date(lastDeletedAt))) {
+                    return false;
+                }
+
                 if (showArchived) return archived;
                 return !archived && (hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId);
             }
@@ -624,6 +642,8 @@ function Messenger() {
     const handleSendMessage = () => {
         const content = messageText.trim();
         if (!content || !selectedRoomId) return;
+        // Double-check quyền gửi
+        if (!canSendMessage) return;
         sendChatMessage({ roomChatId: selectedRoomId, content, type: 'text' });
         setMessageText('');
         stopTyping(selectedRoomId);
@@ -1115,32 +1135,86 @@ function Messenger() {
                                     </div>
                                 ) : (
                                     <div className="space-y-2 pb-2">
-                                        {messages.map((message, index) => {
-                                            const previousMessage = messages[index - 1];
-                                            const showTimeDivider = shouldShowTimeDivider(message, previousMessage);
-                                            const isLastMessage = index === messages.length - 1;
+                                        {(() => {
+                                            // Gom system messages liên tiếp thành groups
+                                            const groups = [];
+                                            let i = 0;
+                                            while (i < messages.length) {
+                                                const msg = messages[i];
+                                                if (msg.type === 'system') {
+                                                    const group = [msg];
+                                                    while (i + 1 < messages.length && messages[i + 1].type === 'system') {
+                                                        i++;
+                                                        group.push(messages[i]);
+                                                    }
+                                                    groups.push({ type: 'system-group', group, key: msg._id });
+                                                } else {
+                                                    groups.push({ type: 'message', msg, index: i });
+                                                }
+                                                i++;
+                                            }
 
-                                            const senderId = getSenderId(message);
-                                            const isMe = senderId === currentUser?._id;
-                                            const senderMember = selectedRoom.members?.find((m) => m?.user?._id === senderId);
-                                            const senderUser =
-                                                message.user_id && typeof message.user_id === 'object'
-                                                    ? message.user_id
-                                                    : senderMember?.user;
-                                            // Dùng nickname nếu có, fallback về fullName
-                                            const sender = senderUser
-                                                ? { ...senderUser, fullName: nicknameMap[senderId] || senderMember?.nickname || senderUser.fullName }
-                                                : senderUser;
-
-                                            return (
-                                                <div key={message._id}>
-                                                    {showTimeDivider && (
-                                                        <div className="my-4 flex justify-center">
-                                                            <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-400 shadow-sm dark:bg-white/10 dark:text-gray-300">
-                                                                {formatTimeDivider(message.createdAt)}
-                                                            </span>
+                                            return groups.map((item) => {
+                                                if (item.type === 'system-group') {
+                                                    const { group, key } = item;
+                                                    const isCollapsed = !collapsedSystemGroups.has(key);
+                                                    const showCollapse = group.length >= 3;
+                                                    const visible = showCollapse && isCollapsed ? [group[0]] : group;
+                                                    return (
+                                                        <div key={key}>
+                                                            {visible.map((msg) => (
+                                                                <MessageBubble
+                                                                    key={msg._id}
+                                                                    message={msg}
+                                                                    isMe={false}
+                                                                    isGroup={selectedRoom.typeRoom === 'group'}
+                                                                />
+                                                            ))}
+                                                            {showCollapse && (
+                                                                <div className="flex justify-center py-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setCollapsedSystemGroups((prev) => {
+                                                                            const next = new Set(prev);
+                                                                            if (next.has(key)) next.delete(key);
+                                                                            else next.add(key);
+                                                                            return next;
+                                                                        })}
+                                                                        className="text-[11px] font-medium text-primary/70 hover:text-primary"
+                                                                    >
+                                                                        {isCollapsed ? `Xem thêm ${group.length - 1} thông báo` : 'Thu gọn'}
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
+                                                    );
+                                                }
+
+                                                const { msg: message, index } = item;
+                                                const previousMessage = messages[index - 1];
+                                                const showTimeDivider = shouldShowTimeDivider(message, previousMessage);
+                                                const isLastMessage = index === messages.length - 1;
+
+                                                const senderId = getSenderId(message);
+                                                const isMe = senderId === currentUser?._id;
+                                                const senderMember = selectedRoom.members?.find((m) => m?.user?._id === senderId);
+                                                const senderUser =
+                                                    message.user_id && typeof message.user_id === 'object'
+                                                        ? message.user_id
+                                                        : senderMember?.user;
+                                                const sender = senderUser
+                                                    ? { ...senderUser, fullName: nicknameMap[senderId] || senderMember?.nickname || senderUser.fullName }
+                                                    : senderUser;
+
+                                                return (
+                                                    <div key={message._id}>
+                                                        {showTimeDivider && (
+                                                            <div className="my-4 flex justify-center">
+                                                                <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-400 shadow-sm dark:bg-white/10 dark:text-gray-300">
+                                                                    {formatTimeDivider(message.createdAt)}
+                                                                </span>
+                                                            </div>
+                                                        )}
 
                                                     <MessageBubble
                                                         message={message}
@@ -1160,7 +1234,8 @@ function Messenger() {
                                                     />
                                                 </div>
                                             );
-                                        })}
+                                            }); // end groups.map
+                                        })()} {/* end IIFE */}
                                         {Object.values(typingUsers).map((t) => {
                                             if (t.user_id === currentUser?._id || t.userId === currentUser?._id)
                                                 return null;
@@ -1198,8 +1273,9 @@ function Messenger() {
                                         onChange={handleChangeMessage}
                                         onKeyDown={handleKeyDown}
                                         rows={1}
-                                        placeholder="Nhập tin nhắn..."
-                                        className={`max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2.5 text-sm outline-none ${themeStyles.isDark ? 'text-white placeholder:text-white/40' : ''}`}
+                                        disabled={!canSendMessage}
+                                        placeholder={canSendMessage ? 'Nhập tin nhắn...' : 'Chỉ admin/trưởng nhóm mới được phép nhắn tin'}
+                                        className={`max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2.5 text-sm outline-none ${themeStyles.isDark ? 'text-white placeholder:text-white/40' : ''} ${!canSendMessage ? 'cursor-not-allowed opacity-60 font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400' : ''}`}
                                     />
                                     <button
                                         type="button"
@@ -1210,7 +1286,7 @@ function Messenger() {
                                     <button
                                         type="button"
                                         onClick={handleSendMessage}
-                                        disabled={!messageText.trim()}
+                                        disabled={!messageText.trim() || !canSendMessage}
                                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
                                         <Send className="h-4 w-4" />

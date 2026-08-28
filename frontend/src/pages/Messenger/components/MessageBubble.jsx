@@ -13,10 +13,81 @@ function MessageBubble({
     alwaysShowTime = false,
 }) {
     if (message.type === 'system') {
+        // Bold tên người dùng — phần trước "đã" và phần sau "cho"
+        const content = message.content || '';
+        const daIdx = content.indexOf(' đã ');
+
+        let renderedContent;
+        if (daIdx > 0) {
+            const actorName = content.slice(0, daIdx);
+            const rest = content.slice(daIdx); // " đã thăng X lên Admin"
+
+            // Tìm tên sau "cho " hoặc "thêm " hoặc "xóa "
+            const choIdx = rest.indexOf(' cho ');
+            const themIdx = rest.indexOf(' thêm ');
+            const xoaIdx = rest.indexOf(' xóa ');
+
+            if (choIdx > 0) {
+                // "đã chuyển quyền ... cho [TÊN]"
+                const beforeCho = rest.slice(0, choIdx + 5); // " đã ... cho "
+                const afterCho = rest.slice(choIdx + 5);
+                renderedContent = (
+                    <>
+                        <strong className="font-semibold text-gray-700 dark:text-gray-200">{actorName}</strong>
+                        {beforeCho}
+                        <strong className="font-semibold text-gray-700 dark:text-gray-200">{afterCho}</strong>
+                    </>
+                );
+            } else if (themIdx > 0) {
+                // "đã thêm [TÊN] vào nhóm"
+                const beforeThem = rest.slice(0, themIdx + 6);
+                const afterThem = rest.slice(themIdx + 6);
+                const vaoIdx = afterThem.indexOf(' vào ');
+                if (vaoIdx > 0) {
+                    const targetName = afterThem.slice(0, vaoIdx);
+                    const suffix = afterThem.slice(vaoIdx);
+                    renderedContent = (
+                        <>
+                            <strong className="font-semibold text-gray-700 dark:text-gray-200">{actorName}</strong>
+                            {beforeThem}
+                            <strong className="font-semibold text-gray-700 dark:text-gray-200">{targetName}</strong>
+                            {suffix}
+                        </>
+                    );
+                } else {
+                    renderedContent = <><strong className="font-semibold text-gray-700 dark:text-gray-200">{actorName}</strong>{rest}</>;
+                }
+            } else if (xoaIdx > 0) {
+                // "đã xóa [TÊN] khỏi nhóm"
+                const beforeXoa = rest.slice(0, xoaIdx + 5);
+                const afterXoa = rest.slice(xoaIdx + 5);
+                const khoiIdx = afterXoa.indexOf(' khỏi ');
+                if (khoiIdx > 0) {
+                    const targetName = afterXoa.slice(0, khoiIdx);
+                    const suffix = afterXoa.slice(khoiIdx);
+                    renderedContent = (
+                        <>
+                            <strong className="font-semibold text-gray-700 dark:text-gray-200">{actorName}</strong>
+                            {beforeXoa}
+                            <strong className="font-semibold text-gray-700 dark:text-gray-200">{targetName}</strong>
+                            {suffix}
+                        </>
+                    );
+                } else {
+                    renderedContent = <><strong className="font-semibold text-gray-700 dark:text-gray-200">{actorName}</strong>{rest}</>;
+                }
+            } else {
+                // Chỉ bold tên đầu
+                renderedContent = <><strong className="font-semibold text-gray-700 dark:text-gray-200">{actorName}</strong>{rest}</>;
+            }
+        } else {
+            renderedContent = content;
+        }
+
         return (
             <div className="msg-system flex justify-center py-1">
                 <div className="rounded-full bg-white/80 px-4 py-1.5 text-xs text-gray-500 shadow-sm backdrop-blur-sm dark:bg-white/10 dark:text-gray-300">
-                    {message.content}
+                    {renderedContent}
                 </div>
             </div>
         );
