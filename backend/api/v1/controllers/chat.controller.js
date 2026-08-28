@@ -25,13 +25,7 @@ module.exports.getMessagesByRoom = async (req, res) => {
     const room = await RoomChat.findOne({
       _id: roomId,
       deleted: false,
-      users: {
-        $elemMatch: {
-          user_id: userId,
-          isActive: true,
-          deletedAt: null,
-        },
-      },
+      "users.user_id": userId,
     }).lean();
 
     if (!room) {
@@ -40,11 +34,30 @@ module.exports.getMessagesByRoom = async (req, res) => {
       });
     }
 
-    const messages = await Chat.find({
+    // Lấy deletedAt của user trong room (thời điểm user xóa đoạn chat)
+    const currentUserInRoom = room.users.find(
+      (u) => u.user_id.toString() === userId.toString(),
+    );
+
+    if (!currentUserInRoom || !currentUserInRoom.isActive) {
+      return res.status(403).json({
+        message: "Bạn không thuộc phòng chat này",
+      });
+    }
+
+    // Chỉ lấy tin nhắn SAU thời điểm xóa (nếu có)
+    const messageFilter = {
       room_chat_id: roomId,
       deleted: false,
       deletedFor: { $ne: userId },
-    })
+    };
+    // Dùng lastDeletedAt — thời điểm xóa cuối, vẫn còn sau khi nhắn lại
+    const cutoffTime = currentUserInRoom.lastDeletedAt || currentUserInRoom.deletedAt;
+    if (cutoffTime) {
+      messageFilter.createdAt = { $gt: cutoffTime };
+    }
+
+    const messages = await Chat.find(messageFilter)
       .populate({
         path: "user_id",
         select: "_id fullName username avatar isVerified",
