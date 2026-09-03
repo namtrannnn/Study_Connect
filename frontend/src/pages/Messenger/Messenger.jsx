@@ -22,8 +22,8 @@ import { setTotalUnread, setActiveRoomId } from '../../redux/slices/chatSlice';
 import {
     getChatRooms,
     getMessagesByRoom,
-    explainMessageWithAI,
     getOrCreateFriendRoom,
+    uploadChatImages,
 } from '../../services/chatServices';
 import {
     joinChatRoom,
@@ -69,8 +69,6 @@ function Messenger() {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [typingUsers, setTypingUsers] = useState({});
     const [hasAutoSelected, setHasAutoSelected] = useState(false);
-    const [aiExplanation, setAiExplanation] = useState(null);
-    const [explainingId, setExplainingId] = useState(null);
     const [showInfo, setShowInfo] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
@@ -78,6 +76,9 @@ function Messenger() {
     const [openRoomMenuId, setOpenRoomMenuId] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
     const [collapsedSystemGroups, setCollapsedSystemGroups] = useState(new Set());
+    const [pendingImages, setPendingImages] = useState([]); // files chờ gửi
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const imageInputRef = useRef(null);
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
     const roomMenuRef = useRef(null);
@@ -584,6 +585,30 @@ function Messenger() {
                         return null;
                     });
                 },
+
+                onMessageRevoked: ({ messageId, roomId }) => {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m._id === messageId
+                                ? { ...m, revoked: true, content: '', images: [] }
+                                : m,
+                        ),
+                    );
+                    // Cập nhật preview lastMessage trong room list
+                    if (roomId) {
+                        setRooms((prev) =>
+                            prev.map((r) => {
+                                if (getRoomId(r) !== roomId) return r;
+                                const lm = r.lastMessage;
+                                if (!lm || String(lm.message_id) !== String(messageId)) return r;
+                                return {
+                                    ...r,
+                                    lastMessage: { ...lm, content: 'Tin nhắn đã được thu hồi', imagesCount: 0 },
+                                };
+                            }),
+                        );
+                    }
+                },
             });
         }, 300);
         return () => {
@@ -606,7 +631,7 @@ function Messenger() {
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages.length, selectedRoomId]);
+    }, [messages.length, selectedRoomId, pendingImages.length]);
 
     const handleSelectRoom = (room) => {
         const roomId = getRoomId(room);
@@ -614,7 +639,6 @@ function Messenger() {
         setSelectedRoom(room);
         setHasAutoSelected(true);
         setShowInfo(false);
-        setAiExplanation(null);
         setOpenRoomMenuId(null);
 
         // Cập nhật room đang xem để global listener không increment badge
@@ -639,14 +663,39 @@ function Messenger() {
         markRoomAsRead(room);
     };
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         const content = messageText.trim();
-        if (!content || !selectedRoomId) return;
-        // Double-check quyền gửi
+        if ((!content && pendingImages.length === 0) || !selectedRoomId) return;
         if (!canSendMessage) return;
-        sendChatMessage({ roomChatId: selectedRoomId, content, type: 'text' });
+
+        if (pendingImages.length > 0) {
+            try {
+                setUploadingImages(true);
+                const uploaded = await uploadChatImages(pendingImages);
+                sendChatMessage({ roomChatId: selectedRoomId, content, images: uploaded });
+                setPendingImages([]);
+            } catch {
+                // silent
+            } finally {
+                setUploadingImages(false);
+            }
+        } else {
+            sendChatMessage({ roomChatId: selectedRoomId, content, type: 'text' });
+        }
         setMessageText('');
         stopTyping(selectedRoomId);
+    };
+
+    const handleSelectImages = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        const valid = files.filter((f) => f.type.startsWith('image/'));
+        setPendingImages((prev) => [...prev, ...valid].slice(0, 10));
+        e.target.value = '';
+    };
+
+    const handleRemovePendingImage = (index) => {
+        setPendingImages((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleChangeMessage = (e) => {
@@ -661,23 +710,6 @@ function Messenger() {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage();
-        }
-    };
-
-    const handleExplainMessage = async (message) => {
-        if (!message?._id) return;
-        try {
-            setExplainingId(message._id);
-            setAiExplanation(null);
-            const data = await explainMessageWithAI(message._id);
-            setAiExplanation({ messageId: message._id, explanation: data.explanation });
-        } catch (e) {
-            setAiExplanation({
-                messageId: message._id,
-                explanation: e?.response?.data?.message || 'Không thể giải thích',
-            });
-        } finally {
-            setExplainingId(null);
         }
     };
 
@@ -1223,14 +1255,11 @@ function Messenger() {
                                                         isGroup={selectedRoom.typeRoom === 'group'}
                                                         myStyle={themeStyles.bubbleMe}
                                                         otherStyle={themeStyles.bubbleOther}
-                                                        onExplain={handleExplainMessage}
-                                                        explaining={explainingId === message._id}
-                                                        aiExplanation={
-                                                            aiExplanation?.messageId === message._id
-                                                                ? aiExplanation
-                                                                : null
-                                                        }
                                                         alwaysShowTime={isLastMessage}
+                                                        onRevoked={(msgId) => setMessages((prev) =>
+                                                            prev.map((m) => m._id === msgId ? { ...m, revoked: true, content: '', images: [] } : m)
+                                                        )}
+                                                        onDeletedForMe={(msgId) => setMessages((prev) => prev.filter((m) => m._id !== msgId))}
                                                     />
                                                 </div>
                                             );
@@ -1258,13 +1287,44 @@ function Messenger() {
                                 className="shrink-0 border-t border-blue-100 bg-white p-3 dark:border-white/10 dark:bg-[#181b22]"
                                 style={themeStyles.footer}
                             >
+                                {/* Preview ảnh chờ gửi */}
+                                {pendingImages.length > 0 && (
+                                    <div className="mb-2 flex flex-wrap gap-2 px-1">
+                                        {pendingImages.map((file, idx) => (
+                                            <div key={idx} className="relative">
+                                                <img
+                                                    src={URL.createObjectURL(file)}
+                                                    alt="preview"
+                                                    className="h-16 w-16 rounded-xl object-cover"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemovePendingImage(idx)}
+                                                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold hover:bg-red-600"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 <div
                                     className="flex items-end gap-2 rounded-3xl border border-blue-100 bg-blue-50/70 p-2 dark:border-white/10 dark:bg-white/5"
                                     style={themeStyles.input}
                                 >
+                                    <input
+                                        ref={imageInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleSelectImages}
+                                    />
                                     <button
                                         type="button"
-                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary dark:hover:bg-white/10"
+                                        onClick={() => imageInputRef.current?.click()}
+                                        disabled={!canSendMessage}
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary disabled:opacity-40 dark:hover:bg-white/10"
                                     >
                                         <ImageIcon className="h-5 w-5" />
                                     </button>
@@ -1286,10 +1346,10 @@ function Messenger() {
                                     <button
                                         type="button"
                                         onClick={handleSendMessage}
-                                        disabled={!messageText.trim() || !canSendMessage}
+                                        disabled={(!messageText.trim() && pendingImages.length === 0) || !canSendMessage || uploadingImages}
                                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-                                        <Send className="h-4 w-4" />
+                                        {uploadingImages ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                                     </button>
                                 </div>
                             </div>
