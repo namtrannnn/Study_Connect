@@ -66,6 +66,7 @@ export const registerChatSocketEvents = ({
     onKickedFromRoom,
     onRoomStateUpdated,
     onRoomDeletedForMe,
+    onMessageRevoked,
 } = {}) => {
     const socket = getSocket();
 
@@ -91,6 +92,7 @@ export const registerChatSocketEvents = ({
         SERVER_KICKED_FROM_ROOM: (data) => onKickedFromRoom?.(data),
         SERVER_ROOM_STATE_UPDATED: (data) => onRoomStateUpdated?.(data),
         SERVER_ROOM_DELETED_FOR_ME: (data) => onRoomDeletedForMe?.(data),
+        SERVER_MESSAGE_REVOKED: (data) => onMessageRevoked?.(data),
     };
 
     Object.entries(activeListeners).forEach(([event, handler]) => {

@@ -54,3 +54,23 @@ export const generateRoomThemeWithAI = async ({ roomId, prompt }) => {
 
     return res.data?.data || res.data;
 };
+
+// [POST] /api/v1/chat/upload-images
+export const uploadChatImages = async (files) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+    const res = await httpRequest.post('/chat/upload-images', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data?.data || [];
+};
+
+export const revokeMessage = async (messageId) => {
+    const res = await httpRequest.patch(`/chat/message/${messageId}/revoke`);
+    return res.data;
+};
+
+export const deleteMessageForMe = async (messageId) => {
+    const res = await httpRequest.patch(`/chat/message/${messageId}/delete-for-me`);
+    return res.data;
+};
