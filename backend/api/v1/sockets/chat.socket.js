@@ -109,6 +109,19 @@ module.exports = (socket) => {
         return socket.emit("SERVER_CHAT_ERROR", { message: "Bạn không thuộc phòng chat này" });
       }
 
+      // Kiểm tra quyền gửi tin nhắn nếu nhóm có cài đặt onlyAdminCanSendMessage
+      if (room.typeRoom === "group" && room.groupSettings?.onlyAdminCanSendMessage) {
+        const myMember = room.users.find(
+          (u) => u.user_id.toString() === myUserId && u.isActive !== false,
+        );
+        const isAdmin = ["admin", "superAdmin"].includes(myMember?.role);
+        if (!isAdmin) {
+          return socket.emit("SERVER_CHAT_ERROR", {
+            message: "Chỉ admin mới được phép nhắn tin trong nhóm này",
+          });
+        }
+      }
+
       const images = Array.isArray(data.images)
         ? data.images.map((img) => ({ url: img.url, public_id: img.public_id }))
         : [];

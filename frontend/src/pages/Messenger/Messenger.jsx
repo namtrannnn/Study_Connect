@@ -22,8 +22,8 @@ import { setTotalUnread, setActiveRoomId } from '../../redux/slices/chatSlice';
 import {
     getChatRooms,
     getMessagesByRoom,
-    explainMessageWithAI,
     getOrCreateFriendRoom,
+    uploadChatImages,
 } from '../../services/chatServices';
 import {
     joinChatRoom,
@@ -69,14 +69,16 @@ function Messenger() {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [typingUsers, setTypingUsers] = useState({});
     const [hasAutoSelected, setHasAutoSelected] = useState(false);
-    const [aiExplanation, setAiExplanation] = useState(null);
-    const [explainingId, setExplainingId] = useState(null);
     const [showInfo, setShowInfo] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
     const [openingFriendChat, setOpeningFriendChat] = useState(false);
     const [openRoomMenuId, setOpenRoomMenuId] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
+    const [collapsedSystemGroups, setCollapsedSystemGroups] = useState(new Set());
+    const [pendingImages, setPendingImages] = useState([]); // files chờ gửi
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const imageInputRef = useRef(null);
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
     const roomMenuRef = useRef(null);
@@ -178,11 +180,28 @@ function Messenger() {
 
     const hasRealMessage = (room) => Boolean(room?.lastMessage && (room.lastMessage.message_id || room.lastMessage._id));
 
+    // Kiểm tra user có quyền gửi tin nhắn không
+    const canSendMessage = useMemo(() => {
+        if (!selectedRoom) return false;
+        if (selectedRoom.typeRoom !== 'group') return true;
+        if (!selectedRoom.groupSettings?.onlyAdminCanSendMessage) return true;
+        const myMember = selectedRoom.members?.find((m) => m?.user?._id === currentUser?._id);
+        return ['admin', 'superAdmin'].includes(myMember?.role);
+    }, [selectedRoom, currentUser?._id]);
+
     const filteredRooms = useMemo(() => {
         const selectedId = selectedRoomId;
         const activeRooms = rooms.filter(
             (room) => {
                 const archived = room.currentUserRoomState?.archived || false;
+                const lastDeletedAt = room.currentUserRoomState?.lastDeletedAt;
+                const lastMsgTime = room.lastMessage?.createdAt ? new Date(room.lastMessage.createdAt) : null;
+
+                // Ẩn room nếu đã xóa và chưa có tin nhắn mới sau thời điểm xóa
+                if (lastDeletedAt && (!lastMsgTime || lastMsgTime <= new Date(lastDeletedAt))) {
+                    return false;
+                }
+
                 if (showArchived) return archived;
                 return !archived && (hasRealMessage(room) || room.typeRoom === 'group' || getRoomId(room) === selectedId);
             }
@@ -566,6 +585,30 @@ function Messenger() {
                         return null;
                     });
                 },
+
+                onMessageRevoked: ({ messageId, roomId }) => {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m._id === messageId
+                                ? { ...m, revoked: true, content: '', images: [] }
+                                : m,
+                        ),
+                    );
+                    // Cập nhật preview lastMessage trong room list
+                    if (roomId) {
+                        setRooms((prev) =>
+                            prev.map((r) => {
+                                if (getRoomId(r) !== roomId) return r;
+                                const lm = r.lastMessage;
+                                if (!lm || String(lm.message_id) !== String(messageId)) return r;
+                                return {
+                                    ...r,
+                                    lastMessage: { ...lm, content: 'Tin nhắn đã được thu hồi', imagesCount: 0 },
+                                };
+                            }),
+                        );
+                    }
+                },
             });
         }, 300);
         return () => {
@@ -588,7 +631,7 @@ function Messenger() {
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages.length, selectedRoomId]);
+    }, [messages.length, selectedRoomId, pendingImages.length]);
 
     const handleSelectRoom = (room) => {
         const roomId = getRoomId(room);
@@ -596,7 +639,6 @@ function Messenger() {
         setSelectedRoom(room);
         setHasAutoSelected(true);
         setShowInfo(false);
-        setAiExplanation(null);
         setOpenRoomMenuId(null);
 
         // Cập nhật room đang xem để global listener không increment badge
@@ -621,12 +663,39 @@ function Messenger() {
         markRoomAsRead(room);
     };
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         const content = messageText.trim();
-        if (!content || !selectedRoomId) return;
-        sendChatMessage({ roomChatId: selectedRoomId, content, type: 'text' });
+        if ((!content && pendingImages.length === 0) || !selectedRoomId) return;
+        if (!canSendMessage) return;
+
+        if (pendingImages.length > 0) {
+            try {
+                setUploadingImages(true);
+                const uploaded = await uploadChatImages(pendingImages);
+                sendChatMessage({ roomChatId: selectedRoomId, content, images: uploaded });
+                setPendingImages([]);
+            } catch {
+                // silent
+            } finally {
+                setUploadingImages(false);
+            }
+        } else {
+            sendChatMessage({ roomChatId: selectedRoomId, content, type: 'text' });
+        }
         setMessageText('');
         stopTyping(selectedRoomId);
+    };
+
+    const handleSelectImages = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        const valid = files.filter((f) => f.type.startsWith('image/'));
+        setPendingImages((prev) => [...prev, ...valid].slice(0, 10));
+        e.target.value = '';
+    };
+
+    const handleRemovePendingImage = (index) => {
+        setPendingImages((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleChangeMessage = (e) => {
@@ -641,23 +710,6 @@ function Messenger() {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage();
-        }
-    };
-
-    const handleExplainMessage = async (message) => {
-        if (!message?._id) return;
-        try {
-            setExplainingId(message._id);
-            setAiExplanation(null);
-            const data = await explainMessageWithAI(message._id);
-            setAiExplanation({ messageId: message._id, explanation: data.explanation });
-        } catch (e) {
-            setAiExplanation({
-                messageId: message._id,
-                explanation: e?.response?.data?.message || 'Không thể giải thích',
-            });
-        } finally {
-            setExplainingId(null);
         }
     };
 
@@ -1115,32 +1167,86 @@ function Messenger() {
                                     </div>
                                 ) : (
                                     <div className="space-y-2 pb-2">
-                                        {messages.map((message, index) => {
-                                            const previousMessage = messages[index - 1];
-                                            const showTimeDivider = shouldShowTimeDivider(message, previousMessage);
-                                            const isLastMessage = index === messages.length - 1;
+                                        {(() => {
+                                            // Gom system messages liên tiếp thành groups
+                                            const groups = [];
+                                            let i = 0;
+                                            while (i < messages.length) {
+                                                const msg = messages[i];
+                                                if (msg.type === 'system') {
+                                                    const group = [msg];
+                                                    while (i + 1 < messages.length && messages[i + 1].type === 'system') {
+                                                        i++;
+                                                        group.push(messages[i]);
+                                                    }
+                                                    groups.push({ type: 'system-group', group, key: msg._id });
+                                                } else {
+                                                    groups.push({ type: 'message', msg, index: i });
+                                                }
+                                                i++;
+                                            }
 
-                                            const senderId = getSenderId(message);
-                                            const isMe = senderId === currentUser?._id;
-                                            const senderMember = selectedRoom.members?.find((m) => m?.user?._id === senderId);
-                                            const senderUser =
-                                                message.user_id && typeof message.user_id === 'object'
-                                                    ? message.user_id
-                                                    : senderMember?.user;
-                                            // Dùng nickname nếu có, fallback về fullName
-                                            const sender = senderUser
-                                                ? { ...senderUser, fullName: nicknameMap[senderId] || senderMember?.nickname || senderUser.fullName }
-                                                : senderUser;
-
-                                            return (
-                                                <div key={message._id}>
-                                                    {showTimeDivider && (
-                                                        <div className="my-4 flex justify-center">
-                                                            <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-400 shadow-sm dark:bg-white/10 dark:text-gray-300">
-                                                                {formatTimeDivider(message.createdAt)}
-                                                            </span>
+                                            return groups.map((item) => {
+                                                if (item.type === 'system-group') {
+                                                    const { group, key } = item;
+                                                    const isCollapsed = !collapsedSystemGroups.has(key);
+                                                    const showCollapse = group.length >= 3;
+                                                    const visible = showCollapse && isCollapsed ? [group[0]] : group;
+                                                    return (
+                                                        <div key={key}>
+                                                            {visible.map((msg) => (
+                                                                <MessageBubble
+                                                                    key={msg._id}
+                                                                    message={msg}
+                                                                    isMe={false}
+                                                                    isGroup={selectedRoom.typeRoom === 'group'}
+                                                                />
+                                                            ))}
+                                                            {showCollapse && (
+                                                                <div className="flex justify-center py-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setCollapsedSystemGroups((prev) => {
+                                                                            const next = new Set(prev);
+                                                                            if (next.has(key)) next.delete(key);
+                                                                            else next.add(key);
+                                                                            return next;
+                                                                        })}
+                                                                        className="text-[11px] font-medium text-primary/70 hover:text-primary"
+                                                                    >
+                                                                        {isCollapsed ? `Xem thêm ${group.length - 1} thông báo` : 'Thu gọn'}
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
+                                                    );
+                                                }
+
+                                                const { msg: message, index } = item;
+                                                const previousMessage = messages[index - 1];
+                                                const showTimeDivider = shouldShowTimeDivider(message, previousMessage);
+                                                const isLastMessage = index === messages.length - 1;
+
+                                                const senderId = getSenderId(message);
+                                                const isMe = senderId === currentUser?._id;
+                                                const senderMember = selectedRoom.members?.find((m) => m?.user?._id === senderId);
+                                                const senderUser =
+                                                    message.user_id && typeof message.user_id === 'object'
+                                                        ? message.user_id
+                                                        : senderMember?.user;
+                                                const sender = senderUser
+                                                    ? { ...senderUser, fullName: nicknameMap[senderId] || senderMember?.nickname || senderUser.fullName }
+                                                    : senderUser;
+
+                                                return (
+                                                    <div key={message._id}>
+                                                        {showTimeDivider && (
+                                                            <div className="my-4 flex justify-center">
+                                                                <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-400 shadow-sm dark:bg-white/10 dark:text-gray-300">
+                                                                    {formatTimeDivider(message.createdAt)}
+                                                                </span>
+                                                            </div>
+                                                        )}
 
                                                     <MessageBubble
                                                         message={message}
@@ -1149,18 +1255,16 @@ function Messenger() {
                                                         isGroup={selectedRoom.typeRoom === 'group'}
                                                         myStyle={themeStyles.bubbleMe}
                                                         otherStyle={themeStyles.bubbleOther}
-                                                        onExplain={handleExplainMessage}
-                                                        explaining={explainingId === message._id}
-                                                        aiExplanation={
-                                                            aiExplanation?.messageId === message._id
-                                                                ? aiExplanation
-                                                                : null
-                                                        }
                                                         alwaysShowTime={isLastMessage}
+                                                        onRevoked={(msgId) => setMessages((prev) =>
+                                                            prev.map((m) => m._id === msgId ? { ...m, revoked: true, content: '', images: [] } : m)
+                                                        )}
+                                                        onDeletedForMe={(msgId) => setMessages((prev) => prev.filter((m) => m._id !== msgId))}
                                                     />
                                                 </div>
                                             );
-                                        })}
+                                            }); // end groups.map
+                                        })()} {/* end IIFE */}
                                         {Object.values(typingUsers).map((t) => {
                                             if (t.user_id === currentUser?._id || t.userId === currentUser?._id)
                                                 return null;
@@ -1183,13 +1287,44 @@ function Messenger() {
                                 className="shrink-0 border-t border-blue-100 bg-white p-3 dark:border-white/10 dark:bg-[#181b22]"
                                 style={themeStyles.footer}
                             >
+                                {/* Preview ảnh chờ gửi */}
+                                {pendingImages.length > 0 && (
+                                    <div className="mb-2 flex flex-wrap gap-2 px-1">
+                                        {pendingImages.map((file, idx) => (
+                                            <div key={idx} className="relative">
+                                                <img
+                                                    src={URL.createObjectURL(file)}
+                                                    alt="preview"
+                                                    className="h-16 w-16 rounded-xl object-cover"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemovePendingImage(idx)}
+                                                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold hover:bg-red-600"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 <div
                                     className="flex items-end gap-2 rounded-3xl border border-blue-100 bg-blue-50/70 p-2 dark:border-white/10 dark:bg-white/5"
                                     style={themeStyles.input}
                                 >
+                                    <input
+                                        ref={imageInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleSelectImages}
+                                    />
                                     <button
                                         type="button"
-                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary dark:hover:bg-white/10"
+                                        onClick={() => imageInputRef.current?.click()}
+                                        disabled={!canSendMessage}
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary disabled:opacity-40 dark:hover:bg-white/10"
                                     >
                                         <ImageIcon className="h-5 w-5" />
                                     </button>
@@ -1198,8 +1333,9 @@ function Messenger() {
                                         onChange={handleChangeMessage}
                                         onKeyDown={handleKeyDown}
                                         rows={1}
-                                        placeholder="Nhập tin nhắn..."
-                                        className={`max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2.5 text-sm outline-none ${themeStyles.isDark ? 'text-white placeholder:text-white/40' : ''}`}
+                                        disabled={!canSendMessage}
+                                        placeholder={canSendMessage ? 'Nhập tin nhắn...' : 'Chỉ admin/trưởng nhóm mới được phép nhắn tin'}
+                                        className={`max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2.5 text-sm outline-none ${themeStyles.isDark ? 'text-white placeholder:text-white/40' : ''} ${!canSendMessage ? 'cursor-not-allowed opacity-60 font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400' : ''}`}
                                     />
                                     <button
                                         type="button"
@@ -1210,10 +1346,10 @@ function Messenger() {
                                     <button
                                         type="button"
                                         onClick={handleSendMessage}
-                                        disabled={!messageText.trim()}
+                                        disabled={(!messageText.trim() && pendingImages.length === 0) || !canSendMessage || uploadingImages}
                                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
-                                        <Send className="h-4 w-4" />
+                                        {uploadingImages ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                                     </button>
                                 </div>
                             </div>
