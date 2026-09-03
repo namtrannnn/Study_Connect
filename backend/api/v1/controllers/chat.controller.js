@@ -25,13 +25,7 @@ module.exports.getMessagesByRoom = async (req, res) => {
     const room = await RoomChat.findOne({
       _id: roomId,
       deleted: false,
-      users: {
-        $elemMatch: {
-          user_id: userId,
-          isActive: true,
-          deletedAt: null,
-        },
-      },
+      "users.user_id": userId,
     }).lean();
 
     if (!room) {
@@ -40,11 +34,30 @@ module.exports.getMessagesByRoom = async (req, res) => {
       });
     }
 
-    const messages = await Chat.find({
+    // Lấy deletedAt của user trong room (thời điểm user xóa đoạn chat)
+    const currentUserInRoom = room.users.find(
+      (u) => u.user_id.toString() === userId.toString(),
+    );
+
+    if (!currentUserInRoom || !currentUserInRoom.isActive) {
+      return res.status(403).json({
+        message: "Bạn không thuộc phòng chat này",
+      });
+    }
+
+    // Chỉ lấy tin nhắn SAU thời điểm xóa (nếu có)
+    const messageFilter = {
       room_chat_id: roomId,
       deleted: false,
       deletedFor: { $ne: userId },
-    })
+    };
+    // Dùng lastDeletedAt — thời điểm xóa cuối, vẫn còn sau khi nhắn lại
+    const cutoffTime = currentUserInRoom.lastDeletedAt || currentUserInRoom.deletedAt;
+    if (cutoffTime) {
+      messageFilter.createdAt = { $gt: cutoffTime };
+    }
+
+    const messages = await Chat.find(messageFilter)
       .populate({
         path: "user_id",
         select: "_id fullName username avatar isVerified",
@@ -102,5 +115,108 @@ module.exports.getMessagesByRoom = async (req, res) => {
       code: 500,
       message: error.message || "Không thể lấy danh sách tin nhắn",
     });
+  }
+};
+
+// [POST] /api/v1/chat/upload-images
+// Upload ảnh lên Cloudinary, trả về array { url, public_id }
+const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
+
+module.exports.uploadChatImages = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ code: 400, message: "Không có ảnh nào được gửi" });
+    }
+
+    const uploaded = await Promise.all(
+      req.files.map((file) =>
+        uploadStreamToCloudinary(file.buffer, "/chat").then((result) => ({
+          url: result.url,
+          public_id: result.public_id,
+        })),
+      ),
+    );
+
+    return res.status(200).json({ code: 200, data: uploaded });
+  } catch (error) {
+    console.error("uploadChatImages error:", error);
+    return res.status(500).json({ code: 500, message: "Upload ảnh thất bại" });
+  }
+};
+
+const cloudinaryHelper = require("../../../helpers/cloudinary.helper");
+
+// [PATCH] /api/v1/chat/message/:messageId/revoke
+// Thu hồi tin nhắn — mọi người thấy "Tin nhắn đã được thu hồi", xóa ảnh Cloudinary
+module.exports.revokeMessage = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { messageId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ code: 400, message: "messageId không hợp lệ" });
+    }
+
+    const message = await Chat.findOne({ _id: messageId, user_id: userId, deleted: false });
+    if (!message) {
+      return res.status(404).json({ code: 404, message: "Không tìm thấy tin nhắn hoặc bạn không có quyền thu hồi" });
+    }
+
+    // Xóa ảnh trên Cloudinary nếu có
+    if (message.images?.length > 0) {
+      const publicIds = message.images.map((img) => img.public_id).filter(Boolean);
+      if (publicIds.length > 0) {
+        await cloudinaryHelper.deleteMultipleFromCloudinary(publicIds);
+      }
+    }
+
+    message.revoked = true;
+    message.revokedAt = new Date();
+    message.content = "";
+    message.images = [];
+    await message.save();
+
+    // Emit cho tất cả người trong room
+    // Nếu đây là lastMessage của room thì cập nhật preview
+    const room = await RoomChat.findById(message.room_chat_id).select("lastMessage").lean();
+    if (room?.lastMessage?.message_id?.toString() === message._id.toString()) {
+      await RoomChat.updateOne(
+        { _id: message.room_chat_id },
+        { $set: { "lastMessage.content": "Tin nhắn đã được thu hồi", "lastMessage.imagesCount": 0 } },
+      );
+    }
+
+    global._io?.to(message.room_chat_id.toString()).emit("SERVER_MESSAGE_REVOKED", {
+      messageId: message._id,
+      roomId: message.room_chat_id,
+    });
+
+    return res.status(200).json({ code: 200, message: "Đã thu hồi tin nhắn" });
+  } catch (error) {
+    console.error("revokeMessage error:", error);
+    return res.status(500).json({ code: 500, message: "FAILED!" });
+  }
+};
+
+// [PATCH] /api/v1/chat/message/:messageId/delete-for-me
+// Xóa tin nhắn phía mình — chỉ mình không thấy
+module.exports.deleteMessageForMe = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { messageId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ code: 400, message: "messageId không hợp lệ" });
+    }
+
+    await Chat.updateOne(
+      { _id: messageId },
+      { $addToSet: { deletedFor: userId } },
+    );
+
+    return res.status(200).json({ code: 200, message: "Đã xóa tin nhắn" });
+  } catch (error) {
+    console.error("deleteMessageForMe error:", error);
+    return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };

@@ -229,6 +229,12 @@ const roomChatSchema = new mongoose.Schema(
           type: Date,
           default: null,
         },
+
+        // Lưu thời điểm xóa cuối cùng — dùng để filter messages sau khi nhắn lại
+        lastDeletedAt: {
+          type: Date,
+          default: null,
+        },
       },
     ],
 

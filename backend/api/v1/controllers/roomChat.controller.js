@@ -264,6 +264,7 @@ async function buildRoomResponse(roomId, currentUserId = null) {
       pinned: currentMember.pinned || false,
       archived: currentMember.archived || false,
       deletedAt: currentMember.deletedAt || null,
+      lastDeletedAt: currentMember.lastDeletedAt || null,
     };
   }
 
@@ -441,6 +442,7 @@ module.exports.getOrCreateFriend = async (req, res) => {
         }
 
         if (member.deletedAt) {
+          member.lastDeletedAt = member.deletedAt; // lưu lại để filter messages
           member.deletedAt = null;
           member.archived = false;
           member.pinned = false;
@@ -569,6 +571,7 @@ module.exports.getMyRooms = async (req, res) => {
           pinned: currentMember.pinned || false,
           archived: currentMember.archived || false,
           deletedAt: currentMember.deletedAt || null,
+          lastDeletedAt: currentMember.lastDeletedAt || null,
         },
       });
     }
@@ -830,6 +833,7 @@ module.exports.deleteRoomForMe = async (req, res) => {
       {
         $set: {
           "users.$.deletedAt": new Date(),
+          "users.$.lastDeletedAt": new Date(),
           "users.$.archived": false,
           "users.$.pinned": false,
           "users.$.unreadCount": 0,
@@ -1395,6 +1399,16 @@ module.exports.addMembers = async (req, res) => {
       });
     }
 
+    // System message: thêm thành viên
+    try {
+      const actorUser = await User.findById(meId).select("fullName").lean();
+      const addedUserObjs = await User.find({ _id: { $in: [...addedUsers, ...reactivatedUsers] } }).select("fullName").lean();
+      if (addedUserObjs.length > 0) {
+        const namesStr = addedUserObjs.map((u) => u.fullName).join(", ");
+        await createSystemMessage(room._id, `${actorUser?.fullName || "Ai đó"} đã thêm ${namesStr} vào nhóm`, "ADD_MEMBER", { actorId: meId });
+      }
+    } catch (_) {}
+
     return res.status(200).json({
       code: 200,
       message: "ThÃƒÂªm thÃƒÂ nh viÃƒÂªn thÃƒÂ nh cÃƒÂ´ng",
@@ -1484,6 +1498,11 @@ module.exports.leaveGroup = async (req, res) => {
       roomId: room._id,
     });
 
+    // System message: rời nhóm
+    try {
+      const leaver = await User.findById(meId).select("fullName").lean();
+      await createSystemMessage(room._id, `${leaver?.fullName || "Ai đó"} đã rời nhóm`, "LEAVE_GROUP", { actorId: meId });
+    } catch (_) {}
     return res.status(200).json({
       code: 200,
       message: "BÃ¡ÂºÂ¡n Ã„â€˜ÃƒÂ£ rÃ¡Â»Âi nhÃƒÂ³m",
@@ -1599,6 +1618,13 @@ module.exports.kickMember = async (req, res) => {
       removedBy: meId,
     });
 
+    // System message: kick thành viên
+    try {
+      const kicker = await User.findById(meId).select("fullName").lean();
+      const kicked = await User.findById(userId).select("fullName").lean();
+      await createSystemMessage(room._id, `${kicker?.fullName || "Ai đó"} đã xóa ${kicked?.fullName || "thành viên"} khỏi nhóm`, "KICK_MEMBER", { actorId: meId, targetUserId: userId });
+    } catch (_) {}
+
     return res.status(200).json({
       code: 200,
       message: "Ã„ÂÃƒÂ£ kick thÃƒÂ nh viÃƒÂªn khÃ¡Â»Âi nhÃƒÂ³m",
@@ -1696,6 +1722,16 @@ module.exports.updateMemberRole = async (req, res) => {
       room: responseRoom,
     });
 
+    // System message: thăng/hạ admin
+    try {
+      const actor = await User.findById(meId).select("fullName").lean();
+      const target = await User.findById(userId).select("fullName").lean();
+      const roleText = role === "admin"
+        ? `đã thăng ${target?.fullName || "thành viên"} lên Admin`
+        : `đã hạ ${target?.fullName || "Admin"} xuống thành viên`;
+      await createSystemMessage(room._id, `${actor?.fullName || "Ai đó"} ${roleText}`, "CHANGE_ROLE", { actorId: meId, targetUserId: userId, newRole: role });
+    } catch (_) {}
+
     return res.status(200).json({
       code: 200,
       message: "Ã„ÂÃ¡Â»â€¢i role thÃƒÂ nh cÃƒÂ´ng",
@@ -1791,6 +1827,13 @@ module.exports.transferOwner = async (req, res) => {
       newOwnerId: userId,
       room: responseRoom,
     });
+
+    // System message: chuyển quyền trưởng nhóm
+    try {
+      const oldOwner = await User.findById(meId).select("fullName").lean();
+      const newOwner = await User.findById(userId).select("fullName").lean();
+      await createSystemMessage(room._id, `${oldOwner?.fullName || "Ai đó"} đã chuyển quyền trưởng nhóm cho ${newOwner?.fullName || "thành viên"}`, "CHANGE_ROLE", { actorId: meId, targetUserId: userId });
+    } catch (_) {}
 
     return res.status(200).json({
       code: 200,
