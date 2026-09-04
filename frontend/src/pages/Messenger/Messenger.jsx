@@ -50,6 +50,7 @@ import TypingIndicator from './components/TypingIndicator';
 import RoomInfoPanel from './components/RoomInfoPanel';
 import CreateGroupModal from './components/CreateGroupModal';
 import NewChatModal from './components/NewChatModal';
+import EmojiPicker from './components/EmojiPicker';
 
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
@@ -78,6 +79,7 @@ function Messenger() {
     const [collapsedSystemGroups, setCollapsedSystemGroups] = useState(new Set());
     const [pendingImages, setPendingImages] = useState([]); // files chờ gửi
     const [uploadingImages, setUploadingImages] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const imageInputRef = useRef(null);
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
@@ -608,6 +610,12 @@ function Messenger() {
                             }),
                         );
                     }
+                },
+
+                onMessageReacted: ({ messageId, reactions }) => {
+                    setMessages((prev) =>
+                        prev.map((m) => m._id === messageId ? { ...m, reactions } : m),
+                    );
                 },
             });
         }, 300);
@@ -1260,6 +1268,9 @@ function Messenger() {
                                                             prev.map((m) => m._id === msgId ? { ...m, revoked: true, content: '', images: [] } : m)
                                                         )}
                                                         onDeletedForMe={(msgId) => setMessages((prev) => prev.filter((m) => m._id !== msgId))}
+                                                        onReacted={(msgId, reactions) => setMessages((prev) =>
+                                                            prev.map((m) => m._id === msgId ? { ...m, reactions } : m)
+                                                        )}
                                                     />
                                                 </div>
                                             );
@@ -1339,9 +1350,16 @@ function Messenger() {
                                     />
                                     <button
                                         type="button"
-                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary dark:hover:bg-white/10"
+                                        onClick={() => setShowEmojiPicker((p) => !p)}
+                                        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary dark:hover:bg-white/10"
                                     >
                                         <Smile className="h-5 w-5" />
+                                        {showEmojiPicker && (
+                                            <EmojiPicker
+                                                onSelect={(emoji) => setMessageText((prev) => prev + emoji)}
+                                                onClose={() => setShowEmojiPicker(false)}
+                                            />
+                                        )}
                                     </button>
                                     <button
                                         type="button"
