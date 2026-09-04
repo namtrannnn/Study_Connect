@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { MoreHorizontal, Trash2, RotateCcw, UserRound } from 'lucide-react';
 import { formatTime } from '../helpers';
-import { revokeMessage, deleteMessageForMe } from '../../../services/chatServices';
+import { revokeMessage, deleteMessageForMe, reactToMessage } from '../../../services/chatServices';
 import { toast } from 'react-toastify';
+
+const QUICK_REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 
 function renderSystemContent(content) {
     const daIdx = content.indexOf(' đã ');
@@ -39,6 +41,7 @@ function MessageBubble({
     alwaysShowTime = false,
     onRevoked,
     onDeletedForMe,
+    onReacted,
 }) {
     const [showMenu, setShowMenu] = useState(false);
     const [loading, setLoading] = useState('');
@@ -70,6 +73,15 @@ function MessageBubble({
             toast.error('Xóa thất bại');
         } finally {
             setLoading('');
+        }
+    };
+
+    const handleReact = async (emoji) => {
+        try {
+            const res = await reactToMessage(message._id, emoji);
+            onReacted?.(message._id, res?.data?.reactions);
+        } catch {
+            toast.error('Không thể thả cảm xúc');
         }
     };
 
@@ -200,6 +212,20 @@ function MessageBubble({
 
                 <div className={`flex items-center px-1 transition-opacity duration-150 ${alwaysShowTime ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     <span className="text-[11px] text-gray-400">{formatTime(message.createdAt)}</span>
+                </div>
+
+                {/* Quick reaction bar — hiện khi hover */}
+                <div className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {QUICK_REACTIONS.map((emoji) => (
+                        <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleReact(emoji)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-base transition hover:scale-125 hover:bg-gray-100 dark:hover:bg-white/10"
+                        >
+                            {emoji}
+                        </button>
+                    ))}
                 </div>
             </div>
 

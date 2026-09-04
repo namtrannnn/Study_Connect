@@ -74,3 +74,8 @@ export const deleteMessageForMe = async (messageId) => {
     const res = await httpRequest.patch(`/chat/message/${messageId}/delete-for-me`);
     return res.data;
 };
+
+export const reactToMessage = async (messageId, emoji) => {
+    const res = await httpRequest.patch(`/chat/message/${messageId}/react`, { emoji });
+    return res.data;
+};

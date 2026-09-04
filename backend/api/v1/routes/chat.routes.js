@@ -20,6 +20,9 @@ router.patch("/message/:messageId/revoke", userMiddleware.requireUser, controlle
 // PATCH /api/v1/chat/message/:messageId/delete-for-me
 router.patch("/message/:messageId/delete-for-me", userMiddleware.requireUser, controller.deleteMessageForMe);
 
+// PATCH /api/v1/chat/message/:messageId/react
+router.patch("/message/:messageId/react", userMiddleware.requireUser, controller.reactToMessage);
+
 // GET /api/v1/chat/:roomId/messages
 router.get(
   "/:roomId/messages",
