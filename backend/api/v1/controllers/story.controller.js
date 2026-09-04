@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Story = require("../models/story.model");
 const Post = require("../models/post.model");
 const User = require("../models/user.model");
+const RoomChat = require("../models/roomChat.model");
+const Chat = require("../models/chat.model");
 
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 
@@ -34,6 +36,19 @@ function parseJsonArray(value) {
   return [];
 }
 
+function parseJsonObject(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 // [POST] /api/v1/story/create
 exports.createStory = async (req, res) => {
   try {
@@ -46,19 +61,27 @@ exports.createStory = async (req, res) => {
       allowedUsers = [],
       allowReply = true,
       allowShare = true,
+      bgType = "media",
+      bgColor = "#1877F2",
+      textOverlays = [],
+      music = null,
     } = req.body;
 
-    const file = req.file;
+    // Support req.file or req.files fields
+    const mediaFile = req.files?.media?.[0] || req.file;
+    const audioFile = req.files?.audio?.[0];
 
-    if (!file) {
+    if (bgType === "media" && !mediaFile) {
       return res.status(400).json({
         code: 400,
-        message: "Story phải có ảnh hoặc video",
+        message: "Vui lòng chọn ảnh/video hoặc chuyển sang nền màu",
       });
     }
 
     caption = typeof caption === "string" ? caption.trim() : "";
     mentions = parseJsonArray(mentions);
+    textOverlays = parseJsonArray(textOverlays);
+    music = parseJsonObject(music) || {};
 
     visibility = normalizeVisibility(visibility);
     allowedUsers = parseAllowedUsers(allowedUsers);
@@ -67,21 +90,68 @@ exports.createStory = async (req, res) => {
       allowedUsers = [];
     }
 
-    const result = await uploadStreamToCloudinary(file.buffer, "/stories");
+    let mediaData = {
+      url: "",
+      public_id: "",
+      type: bgType === "color" ? "" : "image",
+      thumbnail: "",
+      width: 0,
+      height: 0,
+    };
 
-    const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+    let storyType = bgType === "color" ? "image" : "image";
 
-    const story = await Story.create({
-      author: userId,
-      type: mediaType,
-      media: {
+    if (mediaFile) {
+      const isVideo = mediaFile.mimetype.startsWith("video/");
+      const result = await uploadStreamToCloudinary(
+        mediaFile.buffer,
+        "/stories",
+        { resource_type: isVideo ? "video" : "image" }
+      );
+
+      mediaType = isVideo ? "video" : "image";
+      storyType = mediaType;
+      mediaData = {
         url: result.url,
         public_id: result.public_id,
         type: mediaType,
         thumbnail: "",
         width: result.width || 0,
         height: result.height || 0,
+      };
+    }
+
+    // Nếu có file audio tải lên thủ công
+    let musicData = {
+      url: music.url || "",
+      title: music.title || "",
+      artist: music.artist || "",
+      source: music.source || "none",
+      startTime: Number(music.startTime) || 0,
+      duration: Number(music.duration) || 15,
+    };
+
+    if (audioFile) {
+      const audioResult = await uploadStreamToCloudinary(
+        audioFile.buffer,
+        "/stories/audio",
+        { resource_type: "video" }
+      );
+      musicData.url = audioResult.url;
+      musicData.source = "upload";
+      if (!musicData.title) musicData.title = audioFile.originalname || "Bài hát đã tải lên";
+    }
+
+    const story = await Story.create({
+      author: userId,
+      type: storyType,
+      media: mediaData,
+      background: {
+        type: bgType === "color" ? "color" : "media",
+        color: bgColor || "#1877F2",
       },
+      textOverlays,
+      music: musicData,
       caption,
       mentions,
       visibility,
@@ -517,6 +587,102 @@ exports.deleteStory = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteStory error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [POST] /api/v1/story/reply/:storyId
+exports.replyStory = async (req, res) => {
+  try {
+    const senderId = req.user._id;
+    const { storyId } = req.params;
+    const { content = "" } = req.body;
+
+    if (!content.trim()) {
+      return res.status(400).json({
+        code: 400,
+        message: "Nội dung phản hồi không được để trống",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID story không hợp lệ",
+      });
+    }
+
+    const story = await Story.findOne({
+      _id: storyId,
+      status: "active",
+      expiresAt: { $gt: new Date() },
+    }).populate("author", "fullName username avatar");
+
+    if (!story) {
+      return res.status(404).json({
+        code: 404,
+        message: "Story không tồn tại hoặc đã hết hạn",
+      });
+    }
+
+    const receiverId = story.author._id;
+    if (senderId.toString() === receiverId.toString()) {
+      return res.status(400).json({
+        code: 400,
+        message: "Không thể tự phản hồi story của chính mình",
+      });
+    }
+
+    // Tìm hoặc tạo phòng chat 1-1
+    const friendKey = [senderId.toString(), receiverId.toString()].sort().join("_");
+    let room = await RoomChat.findOne({ friendKey, typeRoom: "friend" });
+
+    if (!room) {
+      room = await RoomChat.create({
+        typeRoom: "friend",
+        createdBy: senderId,
+        friendKey,
+        users: [
+          { user_id: senderId },
+          { user_id: receiverId },
+        ],
+      });
+    }
+
+    const messageContent = `Đã phản hồi story: "${content.trim()}"`;
+
+    const replyMsg = await Chat.create({
+      user_id: senderId,
+      room_chat_id: room._id,
+      type: "text",
+      content: messageContent,
+      metadata: {
+        storyId: story._id,
+        storyMedia: story.media?.url || "",
+        storyType: story.type,
+      },
+    });
+
+    room.lastMessage = {
+      message_id: replyMsg._id,
+      sender: senderId,
+      type: "text",
+      content: messageContent,
+      createdAt: replyMsg.createdAt,
+    };
+    await room.save();
+
+    return res.status(200).json({
+      code: 200,
+      message: "Đã gửi phản hồi thành công",
+      data: replyMsg,
+    });
+  } catch (error) {
+    console.error("replyStory error:", error);
     return res.status(500).json({
       code: 500,
       message: "Lỗi server",

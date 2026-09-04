@@ -44,7 +44,7 @@ module.exports = (app) => {
   app.use(version + "/search", Search);
   // app.use(version + "/slider-menu", SliderMenu);
   // app.use(version + "/account", Account);
-  // app.use(version + "/story", Story);
+  app.use(version + "/story", Story);
   app.use(version + "/post", Post);
   app.use(version + "/post", PostLike);
   app.use(version + "/post/comment", PostComment);
