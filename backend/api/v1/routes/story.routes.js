@@ -6,11 +6,14 @@ const upload = require("../middlewares/upload.middleware");
 
 const controller = require("../controllers/story.controller.js");
 
-// Tạo story ảnh/video
+// Tạo story ảnh/video/text
 router.post(
   "/create",
   userMiddleware.requireUser,
-  upload.single("media"),
+  upload.fields([
+    { name: "media", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+  ]),
   controller.createStory,
 );
 
@@ -42,6 +45,13 @@ router.get(
   "/viewers/:storyId",
   userMiddleware.requireUser,
   controller.getStoryViewers,
+);
+
+// Phản hồi (reply) story
+router.post(
+  "/reply/:storyId",
+  userMiddleware.requireUser,
+  controller.replyStory,
 );
 
 // Xóa story

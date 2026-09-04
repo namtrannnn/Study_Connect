@@ -43,6 +43,46 @@ const storySchema = new mongoose.Schema(
       maxlength: 500,
     },
 
+    background: {
+      type: {
+        type: String,
+        enum: ["media", "color"],
+        default: "media",
+      },
+      color: {
+        type: String,
+        default: "#1877F2",
+      },
+    },
+
+    textOverlays: [
+      {
+        text: { type: String, default: "" },
+        fontFamily: { type: String, default: "sans-serif" },
+        fontSize: { type: Number, default: 24 },
+        color: { type: String, default: "#ffffff" },
+        isBold: { type: Boolean, default: false },
+        isItalic: { type: Boolean, default: false },
+        position: {
+          x: { type: Number, default: 50 }, // % X (0-100)
+          y: { type: Number, default: 50 }, // % Y (0-100)
+        },
+      },
+    ],
+
+    music: {
+      url: { type: String, default: "", trim: true },
+      title: { type: String, default: "", trim: true },
+      artist: { type: String, default: "", trim: true },
+      source: {
+        type: String,
+        enum: ["upload", "jamendo", "none"],
+        default: "none",
+      },
+      startTime: { type: Number, default: 0 },
+      duration: { type: Number, default: 15 },
+    },
+
     mentions: [
       {
         type: mongoose.Schema.Types.ObjectId,

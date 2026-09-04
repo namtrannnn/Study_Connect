@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { RefreshCcw, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
-// import StoriesBar from './StoriesBar';
+import StoriesBar from './StoriesBar';
+import StoryEditorModal from './StoryEditorModal';
+import StoryViewerModal from './StoryViewerModal';
 import Modal from './Modal';
 import Post from './Post';
 import { useSelector } from 'react-redux';
 import * as PostServices from '../../services/posts.services';
+import * as StoryServices from '../../services/story.services';
 import { LoadingDashboard } from '../../components/Loading';
 
 function Dashboard({ user: propUser, theme }) {
@@ -15,17 +18,34 @@ function Dashboard({ user: propUser, theme }) {
     const user = propUser || reduxUser;
 
     const [text, setText] = useState('');
-
     const [attachment, setAttachment] = useState('');
     const [openModal, setOpenModal] = useState(false);
 
+    // Posts state
     const [posts, setPosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [nextCursor, setNextCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
 
+    // Stories state
+    const [feedGroups, setFeedGroups] = useState([]);
+    const [openStoryEditor, setOpenStoryEditor] = useState(false);
+    const [openStoryViewer, setOpenStoryViewer] = useState(false);
+    const [selectedStoryAuthorId, setSelectedStoryAuthorId] = useState(null);
+
     const firstLoadRef = useRef(false);
+
+    const loadStoryFeed = useCallback(async () => {
+        try {
+            const res = await StoryServices.getStoryFeed();
+            if (res.code === 200) {
+                setFeedGroups(res.data || []);
+            }
+        } catch (error) {
+            console.log('Load story feed error:', error);
+        }
+    }, []);
 
     const loadFeedPosts = async ({ cursor = null, mode = 'init' } = {}) => {
         try {
@@ -70,7 +90,6 @@ function Dashboard({ user: propUser, theme }) {
             toast.error(error?.response?.data?.message || 'Không thể tải danh sách bài viết');
         } finally {
             if (mode === 'init') {
-                // Short timeout to guarantee the transition doesn't look raw on high-speed local APIs
                 setTimeout(() => {
                     setLoadingPosts(false);
                 }, 500);
@@ -86,12 +105,14 @@ function Dashboard({ user: propUser, theme }) {
 
         firstLoadRef.current = true;
         loadFeedPosts();
-    }, []);
+        loadStoryFeed();
+    }, [loadStoryFeed]);
 
     const handleRefreshFeed = () => {
         setNextCursor(null);
         setHasMore(false);
         loadFeedPosts({ mode: 'refresh' });
+        loadStoryFeed();
     };
 
     const handleLoadMore = () => {
@@ -175,7 +196,10 @@ function Dashboard({ user: propUser, theme }) {
         }
     };
 
-
+    const handleOpenStoryGroup = (authorId) => {
+        setSelectedStoryAuthorId(authorId);
+        setOpenStoryViewer(true);
+    };
 
     return (
         <>
@@ -190,6 +214,33 @@ function Dashboard({ user: propUser, theme }) {
                     theme={theme}
                     createNewPost={createNewPost}
                     onCreated={handleCreatedPost}
+                />
+            )}
+
+            {openStoryEditor && (
+                <StoryEditorModal
+                    isOpen={openStoryEditor}
+                    onClose={() => setOpenStoryEditor(false)}
+                    currentUser={user}
+                    onSuccess={() => {
+                        loadStoryFeed();
+                    }}
+                />
+            )}
+
+            {openStoryViewer && (
+                <StoryViewerModal
+                    isOpen={openStoryViewer}
+                    onClose={() => {
+                        setOpenStoryViewer(false);
+                        loadStoryFeed();
+                    }}
+                    feedGroups={feedGroups}
+                    initialAuthorId={selectedStoryAuthorId}
+                    currentUser={user}
+                    onDeleteSuccess={() => {
+                        loadStoryFeed();
+                    }}
                 />
             )}
 
@@ -233,7 +284,15 @@ function Dashboard({ user: propUser, theme }) {
                 </div>
 
                 {/* Feed Content */}
-                <div className="min-h-0 flex-1">
+                <div className="min-h-0 flex-1 p-3 sm:p-4 overflow-y-auto">
+                    {/* Story Bar */}
+                    <StoriesBar
+                        user={user}
+                        feedGroups={feedGroups}
+                        onOpenStoryGroup={handleOpenStoryGroup}
+                        onCreateStory={() => setOpenStoryEditor(true)}
+                    />
+
                     {loadingPosts && <LoadingDashboard />}
 
                     {!loadingPosts && posts.length === 0 && (
