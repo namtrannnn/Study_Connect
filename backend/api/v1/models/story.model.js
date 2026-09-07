@@ -116,6 +116,11 @@ const storySchema = new mongoose.Schema(
           type: Date,
           default: Date.now,
         },
+        reactions: [
+          {
+            type: String,
+          },
+        ],
       },
     ],
 

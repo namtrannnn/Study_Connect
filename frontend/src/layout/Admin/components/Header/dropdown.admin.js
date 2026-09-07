@@ -1,14 +1,9 @@
 import { Menu, Transition, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { Fragment } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { IoHomeOutline } from 'react-icons/io5';
-
 //icon
-import { AiOutlineSetting, AiOutlineMenu } from 'react-icons/ai';
-import { IoIosLogOut } from 'react-icons/io';
+import { Home, Settings, LogOut, ShieldAlert, Menu as MenuLucide } from 'lucide-react';
 import { toast } from 'react-toastify';
-
-import { MdAdminPanelSettings } from 'react-icons/md';
 // components
 import { useDispatch } from 'react-redux';
 import { LOGOUT } from '../../../../redux/userSlice';
@@ -26,7 +21,7 @@ export default function Dropdown({ user, theme }) {
             dropForMdScreen.push({
                 text: 'Admin-page',
                 bgColor: '#607D8B',
-                icon: <MdAdminPanelSettings className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <ShieldAlert className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/admin',
             });
         }
@@ -34,19 +29,19 @@ export default function Dropdown({ user, theme }) {
             {
                 text: 'Trang chủ',
                 bgColor: '#795548',
-                icon: <IoHomeOutline className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <Home className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/dash-board',
             },
             {
                 text: 'Chỉnh sửa hồ sơ',
                 bgColor: '#795548',
-                icon: <AiOutlineSetting className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <Settings className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/update-profile',
             },
             {
                 text: 'Đăng xuất',
                 bgColor: '#546E7A',
-                icon: <IoIosLogOut className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <LogOut className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/login',
             },
         ];
@@ -67,7 +62,7 @@ export default function Dropdown({ user, theme }) {
                         className="rounded-full border-black/40 border w-full h-full object-cover pl-[3px] pt- p-[2px] shrink-0 "
                     />
                 ) : (
-                    <AiOutlineMenu className="text-20px " />
+                    <MenuLucide className="w-5 h-5" />
                 )}
             </MenuButton>
             <Transition

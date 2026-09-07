@@ -11,27 +11,20 @@ import {
     Globe,
     Users,
     Lock,
-    Sparkles,
     Search,
-    Volume2,
     ArrowRight,
     ArrowLeft,
-    ChevronDown,
     Bold,
     Italic,
+    Volume2,
+    VolumeX,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { searchJamendoTracks } from '../../services/jamendo.services';
 import { createStory } from '../../services/story.services';
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuItem,
-} from '../../components/ui/dropdown-menu';
 
 const COLOR_PRESETS = [
-    { type: 'color', label: 'Indigo', value: '#4f46e5' },
+    { type: 'color', label: 'Blue', value: '#2189f8' },
     { type: 'color', label: 'Purple', value: '#7c3aed' },
     { type: 'color', label: 'Pink', value: '#db2777' },
     { type: 'color', label: 'Teal', value: '#0d9488' },
@@ -59,10 +52,11 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
 
     // Step 1: Background
     const [bgType, setBgType] = useState('color'); // 'color' | 'media'
-    const [bgColor, setBgColor] = useState('#4f46e5');
+    const [bgColor, setBgColor] = useState('#2189f8');
     const [mediaFile, setMediaFile] = useState(null);
     const [mediaPreview, setMediaPreview] = useState('');
     const [mediaType, setMediaType] = useState('image'); // 'image' | 'video'
+    const [isVideoMuted, setIsVideoMuted] = useState(false);
 
     // Step 2: Text Overlays
     const [textOverlays, setTextOverlays] = useState([]);
@@ -86,6 +80,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
     const [previewAudioUrl, setPreviewAudioUrl] = useState(null);
     const [isPlayingPreview, setIsPlayingPreview] = useState(false);
     const [musicStartTime, setMusicStartTime] = useState(0);
+    const [musicDuration, setMusicDuration] = useState(30); // Default 30s, up to 60s
 
     // Step 3: Visibility
     const [visibility, setVisibility] = useState('public');
@@ -162,14 +157,14 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                 prev.map((item) =>
                     item.id === selectedTextId
                         ? {
-                              ...item,
-                              text: editingText,
-                              fontFamily: editingFont,
-                              fontSize: editingSize,
-                              color: editingColor,
-                              isBold: editingBold,
-                              isItalic: editingItalic,
-                          }
+                            ...item,
+                            text: editingText,
+                            fontFamily: editingFont,
+                            fontSize: editingSize,
+                            color: editingColor,
+                            isBold: editingBold,
+                            isItalic: editingItalic,
+                        }
                         : item,
                 ),
             );
@@ -213,23 +208,32 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
         if (!container) return;
 
         const rect = container.getBoundingClientRect();
+        let animationFrameId = null;
 
         const onMouseMove = (moveEvent) => {
             const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
             const clientY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
 
-            let xPct = ((clientX - rect.left) / rect.width) * 100;
-            let yPct = ((clientY - rect.top) / rect.height) * 100;
+            if (animationFrameId) return;
 
-            xPct = Math.max(8, Math.min(92, xPct));
-            yPct = Math.max(8, Math.min(92, yPct));
+            animationFrameId = requestAnimationFrame(() => {
+                let xPct = ((clientX - rect.left) / rect.width) * 100;
+                let yPct = ((clientY - rect.top) / rect.height) * 100;
 
-            setTextOverlays((prev) =>
-                prev.map((item) => (item.id === id ? { ...item, position: { x: xPct, y: yPct } } : item)),
-            );
+                xPct = Math.max(8, Math.min(92, xPct));
+                yPct = Math.max(8, Math.min(92, yPct));
+
+                setTextOverlays((prev) =>
+                    prev.map((item) => (item.id === id ? { ...item, position: { x: xPct, y: yPct } } : item)),
+                );
+                animationFrameId = null;
+            });
         };
 
         const onMouseUp = () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
             window.removeEventListener('touchmove', onMouseMove);
@@ -263,7 +267,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
             artist: track.artist_name,
             source: 'jamendo',
             startTime: 0,
-            duration: 15,
+            duration: musicDuration || 30,
         });
         setAudioFile(null);
         setShowMusicModal(false);
@@ -281,7 +285,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
             artist: currentUser?.fullName || 'Tệp tải lên',
             source: 'upload',
             startTime: 0,
-            duration: 15,
+            duration: musicDuration || 30,
         });
         setShowMusicModal(false);
     };
@@ -307,6 +311,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                 const musicObj = {
                     ...selectedMusic,
                     startTime: musicStartTime,
+                    duration: musicDuration || 30,
                 };
                 formData.append('music', JSON.stringify(musicObj));
             }
@@ -342,7 +347,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
 
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="relative flex h-full max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl bg-white dark:bg-[#09090b] border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white shadow-2xl"
+                className="relative flex h-full max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl bg-white dark:bg-[#09090b] text-slate-900 dark:text-white shadow-2xl"
             >
                 <div className="flex w-full flex-col md:flex-row h-full">
                     {/* LEFT: FULL CANVAS PREVIEW */}
@@ -356,10 +361,23 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                         {/* Media Content */}
                         {bgType === 'media' && mediaPreview && (
                             mediaType === 'video' ? (
-                                <video src={mediaPreview} autoPlay loop muted className="h-full w-full object-cover" />
+                                <video src={mediaPreview} autoPlay loop muted={isVideoMuted} className="h-full w-full object-cover" />
                             ) : (
                                 <img src={mediaPreview} alt="preview" className="h-full w-full object-cover" />
                             )
+                        )}
+
+                        {/* Video Audio Toggle Pill */}
+                        {bgType === 'media' && mediaPreview && mediaType === 'video' && (
+                            <button
+                                type="button"
+                                onClick={() => setIsVideoMuted(!isVideoMuted)}
+                                className="absolute top-5 right-5 z-20 flex items-center gap-1.5 rounded-full bg-black/65 px-3.5 py-1.5 backdrop-blur-xl border border-white/20 text-xs font-bold text-white shadow-lg hover:bg-black/80 transition hover:scale-105"
+                                title={isVideoMuted ? 'Mở tiếng video' : 'Tắt tiếng video'}
+                            >
+                                {isVideoMuted ? <VolumeX size={15} className="text-red-400" /> : <Volume2 size={15} className="text-emerald-400 animate-pulse" />}
+                                <span>{isVideoMuted ? 'Tắt tiếng' : 'Có tiếng'}</span>
+                            </button>
                         )}
 
                         {/* Text Overlays */}
@@ -380,22 +398,26 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                     fontStyle: item.isItalic ? 'italic' : 'normal',
                                     textShadow: '0 2px 10px rgba(0,0,0,0.8)',
                                 }}
-                                className="absolute cursor-grab active:cursor-grabbing text-center select-none border border-transparent hover:border-dashed hover:border-white/70 rounded-xl px-3 py-1 backdrop-blur-[1px] transition-all z-10"
+                                className={`absolute cursor-grab active:cursor-grabbing text-center select-none border border-transparent hover:border-dashed hover:border-white/70 rounded-xl px-3 py-1 backdrop-blur-[1px] transition-all z-10 ${showMusicModal || showTextInputModal ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                                    }`}
                             >
                                 {item.text}
                             </div>
                         ))}
 
-                        {/* Music Badge Overlay */}
+                        {/* Music Badge Overlay (Instagram Sticker Style) */}
                         {selectedMusic && (
-                            <div className="absolute top-5 left-5 z-20 flex items-center gap-2 rounded-full bg-black/60 px-3.5 py-1.5 backdrop-blur-xl border border-white/20 text-xs shadow-lg animate-bounce">
-                                <div className="flex items-end gap-0.5 h-3">
-                                    <span className="w-0.5 h-full bg-pink-400 animate-pulse" />
-                                    <span className="w-0.5 h-2/3 bg-purple-400 animate-pulse" />
-                                    <span className="w-0.5 h-4/5 bg-indigo-400 animate-pulse" />
+                            <div className="absolute top-5 left-5 z-20 flex items-center gap-2.5 rounded-full bg-black/65 px-4 py-2 backdrop-blur-xl border border-white/20 text-xs shadow-2xl transition-all">
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 shadow-sm shrink-0">
+                                    <Music size={13} className="text-white animate-pulse" />
                                 </div>
-                                <div className="max-w-[160px] truncate font-semibold text-white">
-                                    {selectedMusic.title} <span className="text-white/60 font-normal">• {selectedMusic.artist}</span>
+                                <div className="flex flex-col max-w-[170px]">
+                                    <span className="truncate font-bold text-white text-xs leading-tight">
+                                        {selectedMusic.title}
+                                    </span>
+                                    <span className="truncate text-[10px] text-white/70 font-medium leading-tight">
+                                        {selectedMusic.artist}
+                                    </span>
                                 </div>
                             </div>
                         )}
@@ -484,9 +506,8 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                                         setMediaPreview('');
                                                     }}
                                                     style={{ background: c.value }}
-                                                    className={`h-11 rounded-xl transition-all duration-200 hover:scale-110 flex items-center justify-center shadow-md ${
-                                                        bgType === 'color' && bgColor === c.value ? 'ring-2 ring-indigo-600 dark:ring-white ring-offset-2 ring-offset-white dark:ring-offset-[#09090b] scale-105' : ''
-                                                    }`}
+                                                    className={`h-11 rounded-xl transition-all duration-200 hover:scale-110 flex items-center justify-center shadow-md ${bgType === 'color' && bgColor === c.value ? 'ring-2 ring-indigo-600 dark:ring-white ring-offset-2 ring-offset-white dark:ring-offset-[#09090b] scale-105' : ''
+                                                        }`}
                                                     title={c.label}
                                                 >
                                                     {bgType === 'color' && bgColor === c.value && <Check size={16} className="text-white drop-shadow" />}
@@ -524,6 +545,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                         <button
                                             type="button"
                                             onClick={() => {
+                                                setShowMusicModal(false);
                                                 setSelectedTextId(null);
                                                 setEditingText('');
                                                 setShowTextInputModal(true);
@@ -535,7 +557,10 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
 
                                         <button
                                             type="button"
-                                            onClick={() => setShowMusicModal(true)}
+                                            onClick={() => {
+                                                setShowTextInputModal(false);
+                                                setShowMusicModal(true);
+                                            }}
                                             className="flex items-center justify-center gap-2.5 rounded-2xl border border-pink-200 dark:border-pink-500/30 bg-pink-50 dark:bg-pink-500/10 py-3.5 text-sm font-semibold text-pink-700 dark:text-pink-300 hover:bg-pink-100 dark:hover:bg-pink-500/20 transition-all duration-200"
                                         >
                                             <Music size={18} /> Nhạc Nền (🎵)
@@ -566,26 +591,58 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
 
                                     {/* Selected Music info */}
                                     {selectedMusic && (
-                                        <div className="rounded-2xl bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/20 p-4 text-xs space-y-3">
+                                        <div className="rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-indigo-500/10 border border-pink-200 dark:border-pink-500/20 p-4 text-xs space-y-3.5 shadow-sm">
                                             <div className="flex items-center justify-between">
-                                                <div className="font-bold text-pink-700 dark:text-pink-300 truncate text-sm">{selectedMusic.title}</div>
-                                                <button type="button" onClick={() => setSelectedMusic(null)} className="text-slate-400 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white">
+                                                <div className="flex items-center gap-2.5 overflow-hidden">
+                                                    <div className="h-8 w-8 rounded-full bg-pink-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                                                        <Music size={16} />
+                                                    </div>
+                                                    <div className="truncate">
+                                                        <div className="font-bold text-slate-900 dark:text-white truncate text-sm">{selectedMusic.title}</div>
+                                                        <div className="text-[11px] text-slate-500 dark:text-gray-400 truncate">{selectedMusic.artist}</div>
+                                                    </div>
+                                                </div>
+                                                <button type="button" onClick={() => setSelectedMusic(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1">
                                                     <X size={16} />
                                                 </button>
                                             </div>
-                                            <div className="text-slate-500 dark:text-gray-400">{selectedMusic.artist}</div>
+
+                                            {/* Duration buttons */}
                                             <div>
-                                                <div className="flex justify-between text-[11px] text-slate-500 dark:text-gray-400 mb-1 font-medium">
-                                                    <span>Đoạn phát</span>
-                                                    <span className="text-pink-600 dark:text-pink-400 font-bold">{musicStartTime}s - {musicStartTime + 15}s</span>
+                                                <label className="block text-[11px] font-bold text-slate-600 dark:text-gray-300 mb-1.5">Thời lượng bài hát</label>
+                                                <div className="grid grid-cols-4 gap-1.5">
+                                                    {[15, 30, 45, 60].map((dur) => (
+                                                        <button
+                                                            key={dur}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setMusicDuration(dur);
+                                                                setSelectedMusic((prev) => prev ? { ...prev, duration: dur } : null);
+                                                            }}
+                                                            className={`py-1.5 rounded-full font-bold text-xs transition shadow-sm ${musicDuration === dur
+                                                                    ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-pink-500/25'
+                                                                    : 'bg-slate-200/70 dark:bg-white/10 text-slate-700 dark:text-gray-300 hover:bg-slate-300 dark:hover:bg-white/20'
+                                                                }`}
+                                                        >
+                                                            {dur === 60 ? '1 Phút' : `${dur}s`}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Start time seeker */}
+                                            <div>
+                                                <div className="flex justify-between text-[11px] text-slate-500 dark:text-gray-400 mb-1.5 font-medium">
+                                                    <span>Đoạn phát bắt đầu từ</span>
+                                                    <span className="text-pink-600 dark:text-pink-400 font-bold">{musicStartTime}s - {musicStartTime + musicDuration}s</span>
                                                 </div>
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="60"
+                                                    max="90"
                                                     value={musicStartTime}
                                                     onChange={(e) => setMusicStartTime(Number(e.target.value))}
-                                                    className="w-full accent-pink-500 h-1.5 bg-slate-200 dark:bg-white/20 rounded-lg cursor-pointer"
+                                                    className="w-full h-2 bg-slate-200 dark:bg-white/20 rounded-full cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-pink-500 [&::-webkit-slider-thumb]:to-purple-600 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-pink-500 [&::-moz-range-thumb]:border-0"
                                                 />
                                             </div>
                                         </div>
@@ -623,11 +680,10 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                             ].map((opt) => (
                                                 <label
                                                     key={opt.id}
-                                                    className={`flex items-center gap-3.5 rounded-2xl border p-3.5 cursor-pointer transition-all duration-200 ${
-                                                        visibility === opt.id
+                                                    className={`flex items-center gap-3.5 rounded-2xl border p-3.5 cursor-pointer transition-all duration-200 ${visibility === opt.id
                                                             ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/15 shadow-sm'
                                                             : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <input
                                                         type="radio"
@@ -681,70 +737,55 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                         e.stopPropagation();
                         setShowTextInputModal(false);
                     }}
-                    className="fixed inset-0 z-60 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#18181b] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-white/15 shadow-2xl space-y-4 animate-scaleUp"
+                        className="relative z-10 w-full max-w-md rounded-3xl bg-white dark:bg-[#18181b] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-white/15 shadow-2xl space-y-4 animate-scaleUp"
                     >
                         <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <Type className="text-indigo-600 dark:text-indigo-400" size={18} /> Nhập Nội Dung Text
                         </h4>
-                        
-                        <textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            placeholder="Gõ điều gì đó mượt mà..."
-                            rows={3}
+
+                        {/* Preview Box Container with story background so white text is crystal clear */}
+                        <div
+                            className="w-full rounded-2xl p-4 min-h-[110px] flex items-center justify-center relative overflow-hidden border border-slate-300 dark:border-white/15 transition-all shadow-inner"
                             style={{
-                                fontFamily: editingFont,
-                                fontSize: `${Math.min(editingSize, 22)}px`,
-                                color: editingColor,
-                                fontWeight: editingBold ? 'bold' : 'normal',
-                                fontStyle: editingItalic ? 'italic' : 'normal',
+                                background: bgType === 'color' ? bgColor : '#0f172a',
                             }}
-                            className="w-full rounded-2xl bg-slate-100 dark:bg-[#09090b] p-4 placeholder-slate-400 dark:placeholder-gray-500 border border-slate-200 dark:border-white/10 focus:border-indigo-500 focus:outline-none"
-                        />
+                        >
+                            <textarea
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                placeholder="Nhập nội dung tin của bạn ở đây..."
+                                rows={3}
+                                style={{
+                                    fontFamily: editingFont,
+                                    fontSize: `${Math.min(editingSize, 22)}px`,
+                                    color: editingColor,
+                                    fontWeight: editingBold ? 'bold' : 'normal',
+                                    fontStyle: editingItalic ? 'italic' : 'normal',
+                                    textShadow: '0 2px 10px rgba(0,0,0,0.85)',
+                                }}
+                                className="w-full bg-transparent text-center resize-none placeholder:text-white/85 dark:placeholder:text-white/85 placeholder:font-semibold placeholder:drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] border-0 focus:outline-none"
+                            />
+                        </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                            {/* Font Family - Custom Dropdown */}
+                            {/* Font Family Select */}
                             <div>
                                 <label className="block text-xs font-semibold text-slate-500 dark:text-gray-400 mb-1">Kiểu Font</label>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button
-                                            type="button"
-                                            className="flex items-center justify-between gap-2 w-full h-9 px-3.5 rounded-xl border text-xs font-bold transition shadow-sm outline-none border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#09090b] text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10"
-                                        >
-                                            <span className="truncate" style={{ fontFamily: editingFont }}>
-                                                {FONTS.find(f => f.value === editingFont)?.label || 'Chuẩn'}
-                                            </span>
-                                            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60 text-slate-400 dark:text-gray-400" />
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="min-w-[200px] p-1.5 rounded-2xl border shadow-xl backdrop-blur-xl animate-fade-in z-[99999] border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#18181b]/95 text-slate-900 dark:text-white shadow-slate-200/50 dark:shadow-black/50"
-                                    >
-                                        {FONTS.map((f) => {
-                                            const isSelected = editingFont === f.value;
-                                            return (
-                                                <DropdownMenuItem
-                                                    key={f.value}
-                                                    onClick={() => setEditingFont(f.value)}
-                                                    className={`flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition ${
-                                                        isSelected
-                                                            ? 'bg-indigo-600/15 text-indigo-600 dark:text-indigo-400 font-extrabold'
-                                                            : 'hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300'
-                                                    }`}
-                                                >
-                                                    <span style={{ fontFamily: f.value }}>{f.label}</span>
-                                                    {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
-                                                </DropdownMenuItem>
-                                            );
-                                        })}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <select
+                                    value={editingFont}
+                                    onChange={(e) => setEditingFont(e.target.value)}
+                                    className="w-full h-9 px-3 rounded-xl border text-xs font-bold transition outline-none border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#09090b] text-slate-900 dark:text-white focus:border-indigo-500"
+                                >
+                                    {FONTS.map((f) => (
+                                        <option key={f.value} value={f.value} className="bg-white dark:bg-[#18181b] text-slate-900 dark:text-white" style={{ fontFamily: f.value }}>
+                                            {f.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Font Size Slider */}
@@ -766,11 +807,10 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                             <button
                                 type="button"
                                 onClick={() => setEditingBold(!editingBold)}
-                                className={`flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-200 ${
-                                    editingBold
+                                className={`flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-200 ${editingBold
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/30'
                                         : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/20'
-                                }`}
+                                    }`}
                                 title="In đậm"
                             >
                                 <Bold size={16} />
@@ -778,11 +818,10 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                             <button
                                 type="button"
                                 onClick={() => setEditingItalic(!editingItalic)}
-                                className={`flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-200 ${
-                                    editingItalic
+                                className={`flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-200 ${editingItalic
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/30'
                                         : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/20'
-                                }`}
+                                    }`}
                                 title="Nghiêng"
                             >
                                 <Italic size={16} />
@@ -804,9 +843,8 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                     />
                                 ))}
                                 <label
-                                    className={`relative h-7 w-7 rounded-full overflow-hidden border border-slate-300 dark:border-white/20 cursor-pointer flex items-center justify-center shrink-0 transition-transform ${
-                                        !TEXT_COLOR_SWATCHES.includes(editingColor) ? 'scale-125 ring-2 ring-indigo-500' : ''
-                                    }`}
+                                    className={`relative h-7 w-7 rounded-full overflow-hidden border border-slate-300 dark:border-white/20 cursor-pointer flex items-center justify-center shrink-0 transition-transform ${!TEXT_COLOR_SWATCHES.includes(editingColor) ? 'scale-125 ring-2 ring-indigo-500' : ''
+                                        }`}
                                     title="Tùy chọn màu chữ khác"
                                 >
                                     <input
@@ -844,11 +882,11 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                         e.stopPropagation();
                         setShowMusicModal(false);
                     }}
-                    className="fixed inset-0 z-60 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#18181b] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-white/15 shadow-2xl space-y-4 animate-scaleUp"
+                        className="relative z-10 w-full max-w-lg rounded-3xl bg-white dark:bg-[#18181b] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-white/15 shadow-2xl space-y-4 animate-scaleUp"
                     >
                         <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
                             <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -919,7 +957,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                                         e.stopPropagation();
                                                         handleSelectJamendoTrack(track);
                                                     }}
-                                                    className="px-3.5 py-1.5 rounded-xl bg-pink-600 text-white font-bold hover:bg-pink-500 transition shrink-0"
+                                                    className="px-3.5 py-1.5 rounded-full bg-pink-600 text-white font-bold hover:bg-pink-500 transition shrink-0"
                                                 >
                                                     Chọn
                                                 </button>

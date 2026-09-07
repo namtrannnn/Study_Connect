@@ -10,7 +10,7 @@ import Paper from "@mui/material/Paper";
 import { Avatar, Tooltip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 //icon
-import { AiOutlineDelete } from "react-icons/ai";
+import { Trash2 } from "lucide-react";
 // app context
 import { useSelector } from "react-redux";
 
@@ -154,8 +154,8 @@ export default function CustomizedTables({
                     >
                       <Tooltip title={`Delete post`} placement="top">
                         <div className="flex w-full items-center justify-center">
-                          <AiOutlineDelete
-                            className="text-xl text-red-400 dark:text-red-800 "
+                          <Trash2
+                            className="w-5 h-5 text-red-400 dark:text-red-800 "
                             onClick={() => {
                               if (typeTable === "posts") {
                                 if (window.confirm("Do u delete this post?")) {

@@ -1,20 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import { TiHomeOutline } from 'react-icons/ti';
-import { FaRegUser } from 'react-icons/fa6';
-// icon
-import { AiFillHome } from 'react-icons/ai';
-import { BsSun } from 'react-icons/bs';
+import { Home, User, Sun, Moon, LogIn, Search, MessageCircle, ShieldCheck, Users } from 'lucide-react';
 import ReactLoading from 'react-loading';
-import { IoMoonOutline } from 'react-icons/io5';
-import { AiOutlineLogin } from 'react-icons/ai';
 
 import logo from '../../../assets/logo-slime.png';
-
-import { IoSearchSharp } from 'react-icons/io5';
-import { SiMessenger } from 'react-icons/si';
-import { MdAdminPanelSettings } from 'react-icons/md';
-import { FaUserFriends } from 'react-icons/fa';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -146,7 +135,7 @@ function Header({ user }) {
                 hover: '#c24269',
                 bgAfter: '#c24269',
                 link: config.routes.dashboard,
-                icon: <AiFillHome />,
+                icon: <Home size={25} />,
                 className: 'dashboard',
             },
             {
@@ -154,7 +143,7 @@ function Header({ user }) {
                 hover: '#c24269',
                 bgAfter: '#c24269',
                 link: config.routes.friends,
-                icon: <FaUserFriends />,
+                icon: <Users size={25} />,
                 className: 'dashboard',
             },
             {
@@ -162,7 +151,7 @@ function Header({ user }) {
                 hover: '#00897B',
                 bgAfter: '#26A69A',
                 link: config.routes.messenger,
-                icon: <SiMessenger className="text-[22px] " />,
+                icon: <MessageCircle size={22} />,
                 className: 'messenger',
             },
         ];
@@ -173,7 +162,7 @@ function Header({ user }) {
                 hover: '#455A64',
                 bgAfter: '#607D8B',
                 link: '/admin',
-                icon: <MdAdminPanelSettings className="text-[28px] " />,
+                icon: <ShieldCheck size={28} />,
                 className: 'admin',
             });
         }
@@ -206,7 +195,7 @@ function Header({ user }) {
                 {/* search */}
                 {user && (
                     <div className="flex items-center border overflow-hidden border-black/40 dark:bg-[#4E4F50] dark:text-[#b9bbbe] w-[190px] md:w-[240px] h-auto md:h-[40px] rounded-full px-1 ml-2 ">
-                        <IoSearchSharp className="text-16px md:text-[20px] mx-1" />
+                        <Search size={20} className="mx-1" />
                         <div ref={searchRef} className="h-full flex items-center flex-1 pr-2">
                             <input
                                 type="text"
@@ -258,7 +247,7 @@ function Header({ user }) {
                             }
                             role="button"
                         >
-                            <TiHomeOutline />
+                            <Home size={23} />
                         </NavLink>
                         <NavLink
                             to={config.routes.login}
@@ -269,7 +258,7 @@ function Header({ user }) {
                             }
                             role="button"
                         >
-                            <AiOutlineLogin />
+                            <LogIn size={23} />
                         </NavLink>
                         <NavLink
                             to={config.routes.register}
@@ -280,7 +269,7 @@ function Header({ user }) {
                             }
                             role="button"
                         >
-                            <FaRegUser />
+                            <User size={23} />
                         </NavLink>
                     </>
                 )}
@@ -302,8 +291,8 @@ function Header({ user }) {
                     className="flex items-center p-1 w-[55px] h-[30px] rounded-full border-2 cursor-pointer border-black/70 dark:bg-[#3A3B3C] bg-[#333]/10 dark:border-[#929292] relative "
                     onClick={handleToggleTheme}
                 >
-                    <BsSun className="absolute left-1.5 text-[20px] text-black/80 font-extrabold transition-50 dark:translate-x-[15px] dark:opacity-0" />
-                    <IoMoonOutline className="absolute text-[20px] right-1 font-extrabold text-white transition-50 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
+                    <Sun size={20} className="absolute left-1.5 text-black/80 font-extrabold transition-50 dark:translate-x-[15px] dark:opacity-0" />
+                    <Moon size={20} className="absolute right-1 font-extrabold text-white transition-50 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
                 </div>
             </div>
         </header>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import { AiOutlineEye, AiOutlineEyeInvisible, AiOutlineLoading } from 'react-icons/ai';
-import { CiMail } from 'react-icons/ci';
+
+import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import * as yup from 'yup';
@@ -93,7 +93,7 @@ const Login = () => {
                                         placeholder="User@gmail.com"
                                         disabled={loading}
                                     />
-                                    <CiMail className="text-black/60 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40" />
+                                    <Mail className="text-black/60 absolute right-2 cursor-pointer dark:text-white/40" size={20} />
                                 </div>
                                 {errors.email && (
                                     <p className="text-red-500 text-sm mt-1 font-medium">{errors.email.message}</p>
@@ -110,13 +110,15 @@ const Login = () => {
                                         disabled={loading}
                                     />
                                     {eye ? (
-                                        <AiOutlineEye
-                                            className="text-black/20 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40"
+                                        <Eye
+                                            className="text-black/20 absolute right-2 cursor-pointer dark:text-white/40"
+                                            size={20}
                                             onClick={() => setEye(!eye)}
                                         />
                                     ) : (
-                                        <AiOutlineEyeInvisible
-                                            className="text-black/60 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40"
+                                        <EyeOff
+                                            className="text-black/60 absolute right-2 cursor-pointer dark:text-white/40"
+                                            size={20}
                                             onClick={() => setEye(!eye)}
                                         />
                                     )}
@@ -143,7 +145,7 @@ const Login = () => {
                                 type="submit"
                                 disabled={loading}
                             >
-                                {loading ? <AiOutlineLoading className="animate-spin size-5 font-bold" /> : 'Đăng nhập'}
+                                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Đăng nhập'}
                             </button>
                         </form>
                         <div className="mt-[15px] md:mt-[20px] font-normal text-[13px] text-center ">

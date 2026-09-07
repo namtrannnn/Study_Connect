@@ -77,7 +77,7 @@ const Sidebar = ({ user, open, toggleDrawer, drawerWidth }) => {
                 className={({ isActive }) =>
                   `w-full block rounded-md px-4 py-[10px] my-[2px] transition-20 ${
                     isActive
-                      ? "bg-[#1877f229] hover:bg-[#1877f229] text-[#1877f2]"
+                      ? "bg-[#2189f829] hover:bg-[#2189f829] text-[#2189f8]"
                       : "text-[#637381] hover:bg-[#919eab14]"
                   }`
                 }

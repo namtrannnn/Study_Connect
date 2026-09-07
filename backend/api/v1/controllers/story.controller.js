@@ -4,6 +4,7 @@ const Post = require("../models/post.model");
 const User = require("../models/user.model");
 const RoomChat = require("../models/roomChat.model");
 const Chat = require("../models/chat.model");
+const { createNotification } = require("../services/notification.service");
 
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 
@@ -534,12 +535,22 @@ exports.getStoryViewers = async (req, res) => {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const allViewers = story.viewers || [];
+    const startIndex = (page - 1) * limit;
+    const paginatedViewers = allViewers.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < allViewers.length;
+
     return res.status(200).json({
       code: 200,
       message: "Lấy danh sách người xem thành công",
       data: {
-        viewersCount: story.viewersCount,
-        viewers: story.viewers,
+        viewersCount: story.viewersCount || allViewers.length,
+        viewers: paginatedViewers,
+        hasMore,
+        page,
+        totalPages: Math.ceil(allViewers.length / limit),
       },
     });
   } catch (error) {
@@ -637,6 +648,27 @@ exports.replyStory = async (req, res) => {
       });
     }
 
+    // Save reaction to viewer's reactions array (keep up to 5)
+    let viewerObj = story.viewers.find(
+      (v) => v.user.toString() === senderId.toString(),
+    );
+    if (!viewerObj) {
+      viewerObj = {
+        user: senderId,
+        viewedAt: new Date(),
+        reactions: [content.trim()],
+      };
+      story.viewers.push(viewerObj);
+      story.viewersCount = (story.viewersCount || 0) + 1;
+    } else {
+      if (!viewerObj.reactions) viewerObj.reactions = [];
+      viewerObj.reactions.push(content.trim());
+      if (viewerObj.reactions.length > 5) {
+        viewerObj.reactions = viewerObj.reactions.slice(-5);
+      }
+    }
+    await story.save();
+
     // Tìm hoặc tạo phòng chat 1-1
     const friendKey = [senderId.toString(), receiverId.toString()].sort().join("_");
     let room = await RoomChat.findOne({ friendKey, typeRoom: "friend" });
@@ -675,6 +707,28 @@ exports.replyStory = async (req, res) => {
       createdAt: replyMsg.createdAt,
     };
     await room.save();
+
+    if (global._io) {
+      global._io.to(room._id.toString()).emit("SERVER_RETURN_MESSAGE", replyMsg);
+      global._io.to(receiverId.toString()).emit("SERVER_CHAT_LIST_UPDATED", {
+        roomId: room._id,
+        lastMessage: room.lastMessage,
+      });
+    }
+
+    try {
+      await createNotification({
+        receiver: receiverId,
+        sender: senderId,
+        type: "STORY_REPLY",
+        title: "Phản hồi story",
+        message: `${req.user.fullName || "Ai đó"} đã phản hồi story của bạn: "${content.trim()}"`,
+        refId: story._id,
+        refType: "Story",
+      });
+    } catch (notifErr) {
+      console.error("Error creating notification for story reply:", notifErr);
+    }
 
     return res.status(200).json({
       code: 200,

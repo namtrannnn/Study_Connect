@@ -7,7 +7,7 @@ import Divider from "@mui/material/Divider";
 import ListItemAvatar from "@mui/material/ListItemAvatar";
 import Avatar from "@mui/material/Avatar";
 // icon
-import { TiTick } from "react-icons/ti";
+import { Check } from "lucide-react";
 const ADD_USER_TO_SEND_NEW_MESSAGE = "ADD_USER_TO_SEND_NEW_MESSAGE";
 const CLEAR_WHEN_DUPLICATE = "CLEAR_WHEN_DUPLICATE";
 
@@ -80,7 +80,7 @@ export default function ItemsList({
                 <div className="text-[18px] font-medium flex items-center gap-x-0.5 ">
                   {v.user.fullName}
                   {/* {v.role === "Admin" && (
-                    <TiTick className="text-[14px] text-white rounded-full bg-sky-500 " />
+                    <Check className="w-3.5 h-3.5 text-white rounded-full bg-sky-500 " />
                   )} */}
                 </div>
               </ListItem>

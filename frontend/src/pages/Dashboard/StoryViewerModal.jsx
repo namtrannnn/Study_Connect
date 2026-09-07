@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     X,
     ChevronLeft,
@@ -20,6 +21,7 @@ moment.locale('vi');
 const EMOJI_REACTIONS = ['❤️', '🔥', '😮', '😂', '👏', '💯'];
 
 function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = null, currentUser, onDeleteSuccess }) {
+    const navigate = useNavigate();
     const [groupIndex, setGroupIndex] = useState(0);
     const [storyIndex, setStoryIndex] = useState(0);
 
@@ -32,8 +34,12 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
 
     const [showViewersModal, setShowViewersModal] = useState(false);
     const [viewersData, setViewersData] = useState({ count: 0, list: [] });
+    const [viewersPage, setViewersPage] = useState(1);
+    const [hasMoreViewers, setHasMoreViewers] = useState(false);
     const [loadingViewers, setLoadingViewers] = useState(false);
+    const [loadingMoreViewers, setLoadingMoreViewers] = useState(false);
 
+    const [floatingEmojis, setFloatingEmojis] = useState([]);
     const [replyText, setReplyText] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
 
@@ -98,7 +104,8 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         // Video stories handle progress via HTML5 video timeupdate & ended events
         if (currentStory.media?.type === 'video') return;
 
-        const durationMs = 5000;
+        const musicDurationSec = currentStory.music?.duration || 5;
+        const durationMs = currentStory.music?.url ? musicDurationSec * 1000 : 5000;
         const interval = 50;
         const stepPct = (interval / durationMs) * 100;
 
@@ -175,18 +182,43 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         setIsPaused(true);
         setShowViewersModal(true);
         setLoadingViewers(true);
+        setViewersPage(1);
         try {
-            const res = await getStoryViewers(currentStory._id);
+            const res = await getStoryViewers(currentStory._id, 1, 10);
             if (res.code === 200) {
                 setViewersData({
                     count: res.data.viewersCount || 0,
                     list: res.data.viewers || [],
                 });
+                setHasMoreViewers(!!res.data.hasMore);
             }
         } catch (err) {
             console.log('Get viewers error:', err);
         } finally {
             setLoadingViewers(false);
+        }
+    };
+
+    const handleViewersScroll = async (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop <= clientHeight + 40 && hasMoreViewers && !loadingMoreViewers && !loadingViewers) {
+            setLoadingMoreViewers(true);
+            const nextPage = viewersPage + 1;
+            try {
+                const res = await getStoryViewers(currentStory._id, nextPage, 10);
+                if (res.code === 200) {
+                    setViewersData((prev) => ({
+                        ...prev,
+                        list: [...prev.list, ...(res.data.viewers || [])],
+                    }));
+                    setViewersPage(nextPage);
+                    setHasMoreViewers(!!res.data.hasMore);
+                }
+            } catch (err) {
+                console.log('Load more viewers error:', err);
+            } finally {
+                setLoadingMoreViewers(false);
+            }
         }
     };
 
@@ -210,17 +242,34 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         const content = textToSend || replyText;
         if (!content.trim()) return;
 
+        const isEmoji = EMOJI_REACTIONS.includes(content.trim());
+
+        if (isEmoji) {
+            // Trigger floating emojis flying up (Facebook Story style)
+            const newFloating = Array.from({ length: 3 }).map((_, i) => ({
+                id: Date.now() + Math.random() + i,
+                emoji: content.trim(),
+                left: 25 + Math.random() * 50,
+                delay: i * 0.15,
+            }));
+            setFloatingEmojis((prev) => [...prev, ...newFloating]);
+
+            setTimeout(() => {
+                setFloatingEmojis((prev) => prev.filter((item) => !newFloating.includes(item)));
+            }, 1800);
+        }
+
         try {
             setSendingReply(true);
             const res = await replyStory(currentStory._id, content);
             if (res.code === 200) {
-                toast.success('Đã gửi phản hồi story!');
-                setReplyText('');
-            } else {
-                toast.error(res.message || 'Không thể phản hồi story');
+                if (!isEmoji) {
+                    toast.success('Đã gửi phản hồi');
+                    setReplyText('');
+                }
             }
         } catch (err) {
-            toast.error(err?.response?.data?.message || 'Gửi phản hồi thất bại');
+            if (!isEmoji) toast.error('Gửi phản hồi thất bại');
         } finally {
             setSendingReply(false);
         }
@@ -390,6 +439,20 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                     </div>
                 ))}
 
+                {/* FLOATING EMOJIS (FB Story style) */}
+                {floatingEmojis.map((item) => (
+                    <div
+                        key={item.id}
+                        style={{
+                            left: `${item.left}%`,
+                            animationDelay: `${item.delay}s`,
+                        }}
+                        className="absolute bottom-20 z-50 text-4xl pointer-events-none animate-floatEmoji select-none"
+                    >
+                        {item.emoji}
+                    </div>
+                ))}
+
                 {/* MUSIC BADGE AT BOTTOM */}
                 {currentStory.music?.title && (
                     <div className="absolute bottom-20 left-4 z-20 flex items-center gap-2 rounded-full bg-black/60 px-3.5 py-1.5 backdrop-blur-xl border border-white/15 text-xs shadow-lg">
@@ -432,8 +495,11 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                                     <button
                                         key={emoji}
                                         type="button"
-                                        onClick={() => handleSendReply(emoji)}
-                                        className="text-xl hover:scale-130 active:scale-90 transition-transform duration-150 p-1"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSendReply(emoji);
+                                        }}
+                                        className="text-xl hover:scale-130 active:scale-90 transition-transform duration-150 p-1 cursor-pointer"
                                     >
                                         {emoji}
                                     </button>
@@ -441,11 +507,19 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                             </div>
 
                             {/* Reply Input Form */}
-                            <form onSubmit={(e) => { e.preventDefault(); handleSendReply(); }} className="flex w-full items-center gap-2">
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSendReply();
+                                }}
+                                className="flex w-full items-center gap-2"
+                            >
                                 <input
                                     type="text"
                                     value={replyText}
                                     onChange={(e) => setReplyText(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
                                     onFocus={() => setIsPaused(true)}
                                     onBlur={() => setIsPaused(false)}
                                     placeholder={`Gửi phản hồi cho ${currentGroup?.author?.fullName || ''}...`}
@@ -453,8 +527,9 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                                 />
                                 <button
                                     type="submit"
+                                    onClick={(e) => e.stopPropagation()}
                                     disabled={sendingReply || !replyText.trim()}
-                                    className="rounded-full bg-indigo-600 p-2.5 text-white disabled:opacity-40 hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all shadow-md"
+                                    className="rounded-full bg-indigo-600 p-2.5 text-white disabled:opacity-40 hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
                                 >
                                     <Send size={16} />
                                 </button>
@@ -467,55 +542,88 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
             {/* VIEWERS DRAWER */}
             {showViewersModal && (
                 <div
-                    onClick={() => {
+                    onClick={(e) => {
+                        e.stopPropagation();
                         setShowViewersModal(false);
                         setIsPaused(false);
                     }}
-                    className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-black/70 p-4 backdrop-blur-md"
+                    className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#18181b] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-white/15 shadow-2xl space-y-4 max-h-[70vh] flex flex-col animate-scaleUp"
+                        className="w-full max-w-md sm:max-w-lg rounded-3xl bg-white dark:bg-[#18181b] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-white/15 shadow-2xl space-y-4 max-h-[75vh] flex flex-col animate-scaleUp"
                     >
-                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                <UserCheck className="text-indigo-600 dark:text-indigo-400" size={18} /> Danh Sách Người Xem ({viewersData.count})
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3.5">
+                            <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <UserCheck className="text-indigo-600 dark:text-indigo-400" size={20} /> Danh Sách Người Xem ({viewersData.count})
                             </h4>
                             <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     setShowViewersModal(false);
                                     setIsPaused(false);
                                 }}
-                                className="text-slate-400 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white"
+                                className="rounded-full bg-slate-100 dark:bg-white/10 p-1.5 text-slate-500 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-white/20 transition hover:scale-105"
                             >
                                 <X size={18} />
                             </button>
                         </div>
 
                         {loadingViewers ? (
-                            <div className="py-8 text-center text-xs text-slate-400 dark:text-gray-400 animate-pulse">Đang tải người xem...</div>
+                            <div className="py-10 text-center text-xs text-slate-400 dark:text-gray-400 animate-pulse">Đang tải người xem...</div>
                         ) : viewersData.list.length === 0 ? (
-                            <div className="py-8 text-center text-xs text-slate-400 dark:text-gray-400">Chưa có ai xem story này</div>
+                            <div className="py-10 text-center text-xs text-slate-400 dark:text-gray-400">Chưa có ai xem story này</div>
                         ) : (
-                            <div className="overflow-y-auto space-y-3 pr-1 flex-1">
+                            <div onScroll={handleViewersScroll} className="overflow-y-auto space-y-2.5 pr-1 flex-1">
                                 {viewersData.list.map((v, i) => (
-                                    <div key={v.user?._id || i} className="flex items-center justify-between text-xs p-2 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/5">
-                                        <div className="flex items-center gap-3">
+                                    <div
+                                        key={v.user?._id || i}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (v.user?._id) {
+                                                setShowViewersModal(false);
+                                                onClose();
+                                                navigate(`/profile/${v.user._id}`);
+                                            }
+                                        }}
+                                        className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/80 dark:hover:bg-indigo-500/15 border border-slate-200/70 dark:border-white/10 cursor-pointer transition-all duration-200 group"
+                                    >
+                                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
                                             <img
                                                 src={v.user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
                                                 alt="viewer"
-                                                className="h-9 w-9 rounded-full object-cover border border-slate-200 dark:border-white/10"
+                                                className="h-11 w-11 rounded-full object-cover border border-slate-200 dark:border-white/10 group-hover:scale-105 transition-transform shrink-0"
                                             />
-                                            <div>
-                                                <div className="font-bold text-slate-900 dark:text-white">{v.user?.fullName || 'Người dùng'}</div>
-                                                <div className="text-[10px] text-slate-500 dark:text-gray-400">@{v.user?.username || 'user'}</div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                                                    {v.user?.fullName || 'Người dùng'}
+                                                </div>
+                                                <div className="text-xs text-slate-500 dark:text-gray-400 truncate">
+                                                    @{v.user?.username || 'user'}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                                            {moment(v.viewedAt).format('HH:mm DD/MM')}
-                                        </div>
+                                        {/* Viewer Reactions */}
+                                        {v.reactions && v.reactions.length > 0 && (
+                                            <div className="flex items-center gap-0.5 shrink-0">
+                                                {v.reactions.slice(-5).map((emoji, eIdx) => (
+                                                    <span
+                                                        key={eIdx}
+                                                        className="text-base leading-none hover:scale-125 transition-transform"
+                                                        title={emoji}
+                                                    >
+                                                        {emoji}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
+                                {loadingMoreViewers && (
+                                    <div className="py-3 text-center text-xs text-indigo-500 font-semibold animate-pulse">
+                                        Đang tải thêm người xem...
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

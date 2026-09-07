@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import { Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) {
     const scrollerRef = useRef(null);
@@ -44,7 +43,7 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
     const otherGroups = feedGroups.filter((g) => g.author?._id !== user?._id);
 
     return (
-        <div className="relative mb-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] px-4 py-3.5 shadow-sm transition-all duration-300 select-none">
+        <div className="relative mb-1 rounded-2xl bg-white dark:bg-[#18181b] px-4 py-1 transition-all duration-300 select-none">
             {/* Left Scroll Button */}
             {canLeft && (
                 <button
@@ -56,7 +55,7 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                      hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 hover:scale-110 active:scale-95 transition-all duration-200"
                     aria-label="Scroll left"
                 >
-                    <FaChevronLeft className="text-xs" />
+                    <ChevronLeft size={14} />
                 </button>
             )}
 
@@ -71,7 +70,7 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                      hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 hover:scale-110 active:scale-95 transition-all duration-200"
                     aria-label="Scroll right"
                 >
-                    <FaChevronRight className="text-xs" />
+                    <ChevronRight size={14} />
                 </button>
             )}
 
@@ -89,13 +88,12 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                                     onCreateStory?.();
                                 }
                             }}
-                            className={`relative w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${
-                                myGroup
-                                    ? myGroup.hasUnviewed
-                                        ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-purple-500/20 group-hover:scale-105'
-                                        : 'bg-slate-300 dark:bg-slate-700 group-hover:scale-105'
-                                    : 'p-0'
-                            }`}
+                            className={`relative w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${myGroup
+                                ? myGroup.hasUnviewed
+                                    ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-purple-500/20 group-hover:scale-105'
+                                    : 'bg-slate-300 dark:bg-slate-700 group-hover:scale-105'
+                                : 'p-0'
+                                }`}
                         >
                             <div className="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-[#18181b]">
                                 <img
@@ -136,11 +134,10 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                             title={author.fullName}
                         >
                             <div
-                                className={`w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${
-                                    hasUnviewed
-                                        ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-pink-500/20 group-hover:scale-105 group-hover:rotate-1'
-                                        : 'bg-slate-300 dark:bg-slate-700/80 group-hover:scale-105'
-                                }`}
+                                className={`w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${hasUnviewed
+                                    ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-pink-500/20 group-hover:scale-105 group-hover:rotate-1'
+                                    : 'bg-slate-300 dark:bg-slate-700/80 group-hover:scale-105'
+                                    }`}
                             >
                                 <div className="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-[#18181b] bg-slate-100 dark:bg-slate-800">
                                     <img
