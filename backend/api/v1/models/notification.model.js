@@ -28,6 +28,8 @@ const notificationSchema = new mongoose.Schema(
         "comment_reply",
         "mention",
         "study_room_invite",
+        "story_reply",
+        "STORY_REPLY",
       ],
       required: true,
     },

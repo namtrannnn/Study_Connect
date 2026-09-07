@@ -301,16 +301,16 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
             onClick={handleClose}
         >
             <div
-                className="relative w-full max-w-3xl overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-2xl dark:border-white/10 dark:bg-[#17191f]"
+                className="relative w-full max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-2xl dark:bg-[#17191f]"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500 via-cyan-400 to-violet-500" />
+                <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-rose-400 via-fuchsia-400 to-violet-400" />
                 <div className="flex max-h-[92vh] flex-col">
                     <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#17191f]/90">
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/25">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow-lg shadow-fuchsia-500/25">
                                         {isEdit ? <Pencil size={20} /> : <Sparkles size={20} />}
                                     </div>
 
@@ -362,7 +362,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             </div>
 
                             <div className="relative mt-4">
-                                <div className="relative min-h-[100px] overflow-hidden rounded-2xl border border-gray-200 bg-white transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b]">
+                                <div className="relative min-h-[100px] overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/50 transition focus-within:border-gray-400 focus-within:ring-4 focus-within:ring-gray-400/10 dark:border-white/10 dark:bg-[#20232b] dark:focus-within:border-white/20 dark:focus-within:ring-white/5">
                                     {/* Lớp hiển thị text màu xanh cho @mention */}
                                     <div className="pointer-events-none absolute inset-0 min-h-[100px] whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-6 text-gray-900 dark:text-white">
                                         {caption ? (
@@ -648,7 +648,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3 font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 py-3 font-bold text-white shadow-lg shadow-fuchsia-500/20 transition hover:from-fuchsia-600 hover:to-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {loading && <Loader2 size={18} className="animate-spin" />}
                                 {loading ? (isEdit ? 'Đang lưu...' : 'Đang đăng bài...') : (isEdit ? 'Lưu thay đổi' : 'Đăng bài')}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AiOutlineEye, AiOutlineEyeInvisible, AiOutlineLoading } from 'react-icons/ai';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
@@ -137,13 +137,15 @@ const Register = () => {
                                         />
 
                                         {eye ? (
-                                            <AiOutlineEye
-                                                className="text-black/20 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40"
+                                            <Eye
+                                                className="text-black/20 absolute right-2 cursor-pointer dark:text-white/40"
+                                                size={20}
                                                 onClick={() => setEye(!eye)}
                                             />
                                         ) : (
-                                            <AiOutlineEyeInvisible
-                                                className="text-black/20 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40"
+                                            <EyeOff
+                                                className="text-black/20 absolute right-2 cursor-pointer dark:text-white/40"
+                                                size={20}
                                                 onClick={() => setEye(!eye)}
                                             />
                                         )}
@@ -168,13 +170,15 @@ const Register = () => {
                                             placeholder="Password"
                                         />
                                         {reEye ? (
-                                            <AiOutlineEye
-                                                className="text-black/20 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40"
+                                            <Eye
+                                                className="text-black/20 absolute right-2 cursor-pointer dark:text-white/40"
+                                                size={20}
                                                 onClick={() => setReEye(!reEye)}
                                             />
                                         ) : (
-                                            <AiOutlineEyeInvisible
-                                                className="text-black/20 text-[20px] absolute right-2 cursor-pointer h-full dark:text-white/40"
+                                            <EyeOff
+                                                className="text-black/20 absolute right-2 cursor-pointer dark:text-white/40"
+                                                size={20}
                                                 onClick={() => setReEye(!reEye)}
                                             />
                                         )}
@@ -194,7 +198,7 @@ const Register = () => {
                                 type="submit"
                                 disabled={loading}
                             >
-                                {loading ? <AiOutlineLoading className="animate-spin size-5 font-bold" /> : 'Đăng ký'}
+                                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Đăng ký'}
                             </button>
                         </form>
 

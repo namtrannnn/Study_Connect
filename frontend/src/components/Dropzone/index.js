@@ -1,5 +1,5 @@
 import { useDropzone } from "react-dropzone";
-import { MdAddPhotoAlternate, MdCancel } from "react-icons/md";
+import { ImagePlus, X } from "lucide-react";
 function MyDropzone({ media = [], setAttachment, setMedia, setFormData }) {
   const { getRootProps, getInputProps, open } = useDropzone({
     accept: {
@@ -42,8 +42,8 @@ function MyDropzone({ media = [], setAttachment, setMedia, setFormData }) {
 
         {/* Nút xoá toàn bộ */}
         {media?.length === 0 && (
-          <MdCancel
-            className="absolute top-2 right-2 text-[24px] text-white bg-black/60 hover:bg-black/80 p-1 rounded-full cursor-pointer z-10 transition-all duration-200"
+          <X
+            className="absolute top-2 right-2 w-6 h-6 text-white bg-black/60 hover:bg-black/80 p-1 rounded-full cursor-pointer z-10 transition-all duration-200"
             onClick={(e) => {
               e.stopPropagation();
               setAttachment("");
@@ -81,7 +81,7 @@ function MyDropzone({ media = [], setAttachment, setMedia, setFormData }) {
                       } aspect-video`}
                     >
                       <button
-                        className="absolute top-1 right-1 text-[16px] text-white bg-black/60 hover:bg-black/80 p-1 rounded-full cursor-pointer z-10 transition-all duration-200"
+                        className="absolute top-1 right-1 text-white bg-black/60 hover:bg-black/80 p-1 rounded-full cursor-pointer z-10 transition-all duration-200"
                         onClick={(e) => {
                           e.stopPropagation();
                           const updatedMedia = media.filter(
@@ -95,7 +95,7 @@ function MyDropzone({ media = [], setAttachment, setMedia, setFormData }) {
                           setFormData(newForm);
                         }}
                       >
-                        <MdCancel />
+                        <X className="w-4 h-4" />
                       </button>
 
                       {item.type === "image" ? (
@@ -119,7 +119,7 @@ function MyDropzone({ media = [], setAttachment, setMedia, setFormData }) {
           </>
         ) : (
           <div className="w-full h-full rounded-md flex flex-col items-center justify-center relative bg-[#EAEBED]/60 dark:bg-[#1E1F20]">
-            <MdAddPhotoAlternate className="w-10 h-10 rounded-full dark:bg-[#5A5C5C] p-1.5 text-black/60 bg-[#D8DADF]" />
+            <ImagePlus className="w-10 h-10 rounded-full dark:bg-[#5A5C5C] p-1.5 text-black/60 bg-[#D8DADF]" />
             <div className="font-semibold text-[18px] leading-5 text-black/60 dark:text-white/60">
               Thêm ảnh
             </div>

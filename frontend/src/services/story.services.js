@@ -23,8 +23,10 @@ export const viewStory = async (storyId) => {
 };
 
 // [GET] /api/v1/story/viewers/:storyId
-export const getStoryViewers = async (storyId) => {
-    const res = await httpRequest.get(`/story/viewers/${storyId}`);
+export const getStoryViewers = async (storyId, page = 1, limit = 10) => {
+    const res = await httpRequest.get(`/story/viewers/${storyId}`, {
+        params: { page, limit },
+    });
     return res.data;
 };
 

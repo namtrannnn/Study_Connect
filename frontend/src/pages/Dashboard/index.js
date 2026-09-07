@@ -244,10 +244,20 @@ function Dashboard({ user: propUser, theme }) {
                 />
             )}
 
+            {/* Stories Bar - above the main container */}
+            <div className="mb-3">
+                <StoriesBar
+                    user={user}
+                    feedGroups={feedGroups}
+                    onOpenStoryGroup={handleOpenStoryGroup}
+                    onCreateStory={() => setOpenStoryEditor(true)}
+                />
+            </div>
+
             {/* Threads Unified Container - flex column fills entire height */}
-            <div className="flex h-full flex-col rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+            <div className="flex h-full flex-col rounded-2xl bg-white shadow-sm dark:bg-[#18181b]">
                 {/* Fixed Header - never scrolls */}
-                <div className="shrink-0 border-b border-gray-200/80 p-4 dark:border-white/10 sm:p-5">
+                <div className="shrink-0 p-4 sm:p-5">
                     <div className="flex items-center gap-3">
                         <img
                             src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
@@ -285,13 +295,6 @@ function Dashboard({ user: propUser, theme }) {
 
                 {/* Feed Content */}
                 <div className="min-h-0 flex-1 p-3 sm:p-4 overflow-y-auto">
-                    {/* Story Bar */}
-                    <StoriesBar
-                        user={user}
-                        feedGroups={feedGroups}
-                        onOpenStoryGroup={handleOpenStoryGroup}
-                        onCreateStory={() => setOpenStoryEditor(true)}
-                    />
 
                     {loadingPosts && <LoadingDashboard />}
 

@@ -2,10 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 
 // icon
-import { BsSun } from 'react-icons/bs';
-import { IoMoonOutline } from 'react-icons/io5';
-
-import { SiMessenger } from 'react-icons/si';
+import { Sun, Moon, MessageCircle } from 'lucide-react';
 
 import { TOGGLE_THEME } from '../../../../redux/themeSlice';
 import { useDispatch, useSelector } from 'react-redux';
@@ -48,7 +45,7 @@ function Header({ user }) {
                 hover: '#00897B',
                 bgAfter: '#26A69A',
                 link: '/messenger',
-                icon: <SiMessenger className="text-[22px] " />,
+                icon: <MessageCircle className="w-[22px] h-[22px]" />,
                 className: 'messenger',
             },
         ];
@@ -88,8 +85,8 @@ function Header({ user }) {
                     className="flex items-center p-1 w-[55px] h-[30px] rounded-full border-2 cursor-pointer border-black/70 dark:bg-[#3A3B3C] bg-[#333]/10 dark:border-[#929292] relative "
                     onClick={handleToggleTheme}
                 >
-                    <BsSun className="absolute left-1.5 text-[20px] text-black/80 font-extrabold transition-50 dark:translate-x-[15px] dark:opacity-0" />
-                    <IoMoonOutline className="absolute text-[20px] right-1 font-extrabold text-white transition-50 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
+                    <Sun className="absolute left-1.5 w-5 h-5 text-black/80 font-extrabold transition-50 dark:translate-x-[15px] dark:opacity-0" />
+                    <Moon className="absolute w-5 h-5 right-1 font-extrabold text-white transition-50 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
                 </div>
             </div>
         </header>
