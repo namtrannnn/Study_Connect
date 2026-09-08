@@ -18,6 +18,8 @@ const TYPE_ICONS = {
     comment_reply: '↩️',
     mention: '@',
     study_room_invite: '📚',
+    story_reply: '🎬',
+    STORY_REPLY: '🎬',
 };
 
 function formatTime(dateStr) {
@@ -55,15 +57,10 @@ export default function NotificationsPanel({ onClose }) {
                 );
                 setNewlyUnreadIds(unreadSet);
 
-                // If there were unread notifications, automatically mark all as read
-                if (res.unreadCount > 0) {
-                    NotificationServices.markAllAsRead().catch(() => {});
-                    dispatch(setUnreadCount(0));
-                    setUnreadCountLocal(0);
-                } else {
-                    setUnreadCountLocal(0);
-                    dispatch(setUnreadCount(0));
-                }
+                // Automatically mark all as read in DB and reset badge count to 0
+                NotificationServices.markAllAsRead().catch(() => {});
+                dispatch(setUnreadCount(0));
+                setUnreadCountLocal(0);
             }
         } catch {
             toast.error('Không thể tải thông báo');
@@ -160,6 +157,8 @@ export default function NotificationsPanel({ onClose }) {
             case 'follow':
             case 'follow_request':
             case 'follow_accept':
+            case 'story_reply':
+            case 'STORY_REPLY':
                 if (senderUsername || senderId) navigate(`/profile/${senderUsername || senderId}`);
                 break;
             case 'post_like':

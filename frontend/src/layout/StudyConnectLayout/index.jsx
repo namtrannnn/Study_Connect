@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 import Slider from '../components/Slider';
 import Suggest from '../components/Suggest/Suggest';
@@ -53,7 +54,10 @@ function StudyConnectLayout({
         const socket = getSocket();
         if (!socket) return;
 
-        const handleNew = ({ unreadCount: serverCount }) => {
+        const handleNew = ({ notification, unreadCount: serverCount }) => {
+            if (notification?.message) {
+                toast.info(notification.message);
+            }
             if (typeof serverCount === 'number') {
                 dispatch(setUnreadCount(serverCount));
             } else {
@@ -94,6 +98,9 @@ function StudyConnectLayout({
     };
 
     const handleOpenNotifications = () => {
+        if (openPanel !== 'notifications') {
+            dispatch(setUnreadCount(0));
+        }
         setOpenPanel((prev) => (prev === 'notifications' ? null : 'notifications'));
     };
 

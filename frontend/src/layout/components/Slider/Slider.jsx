@@ -23,6 +23,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
+import { setUnreadCount } from '../../../redux/slices/notificationSlice';
 import config from '../../../config';
 import { resetTotalUnread } from '../../../redux/slices/chatSlice';
 import { getSocket } from '../../../config/socket';
@@ -88,6 +89,7 @@ export default function Slider({
         if (panelName === 'notifications') {
             setMoreOpen(false);
             setPanel(null);
+            dispatch(setUnreadCount(0));
             onOpenNotifications?.();
             return;
         }

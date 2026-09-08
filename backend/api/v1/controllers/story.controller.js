@@ -4,6 +4,7 @@ const Post = require("../models/post.model");
 const User = require("../models/user.model");
 const RoomChat = require("../models/roomChat.model");
 const Chat = require("../models/chat.model");
+const Notification = require("../models/notification.model");
 const { createNotification } = require("../services/notification.service");
 
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
@@ -648,7 +649,9 @@ exports.replyStory = async (req, res) => {
       });
     }
 
-    // Save reaction to viewer's reactions array (keep up to 5)
+    const isEmoji = ["❤️", "🔥", "😮", "😂", "👏", "💯"].includes(content.trim());
+
+    // 1. Save reaction to viewer's reactions array (keep up to 5)
     let viewerObj = story.viewers.find(
       (v) => v.user.toString() === senderId.toString(),
     );
@@ -669,70 +672,90 @@ exports.replyStory = async (req, res) => {
     }
     await story.save();
 
-    // Tìm hoặc tạo phòng chat 1-1
-    const friendKey = [senderId.toString(), receiverId.toString()].sort().join("_");
-    let room = await RoomChat.findOne({ friendKey, typeRoom: "friend" });
+    // 2. Chỉ tạo tin nhắn Chat trong Inbox nếu KHÔNG phải là emoji thả nhanh
+    let replyMsg = null;
+    if (!isEmoji) {
+      // Tìm hoặc tạo phòng chat 1-1
+      const friendKey = [senderId.toString(), receiverId.toString()].sort().join("_");
+      let room = await RoomChat.findOne({ friendKey, typeRoom: "friend" });
 
-    if (!room) {
-      room = await RoomChat.create({
-        typeRoom: "friend",
-        createdBy: senderId,
-        friendKey,
-        users: [
-          { user_id: senderId },
-          { user_id: receiverId },
-        ],
+      if (!room) {
+        room = await RoomChat.create({
+          typeRoom: "friend",
+          createdBy: senderId,
+          friendKey,
+          users: [
+            { user_id: senderId },
+            { user_id: receiverId },
+          ],
+        });
+      }
+
+      const messageContent = `Đã phản hồi story: "${content.trim()}"`;
+
+      replyMsg = await Chat.create({
+        user_id: senderId,
+        room_chat_id: room._id,
+        type: "text",
+        content: messageContent,
+        metadata: {
+          storyId: story._id,
+          storyMedia: story.media?.url || "",
+          storyType: story.type,
+        },
       });
+
+      room.lastMessage = {
+        message_id: replyMsg._id,
+        sender: senderId,
+        type: "text",
+        content: messageContent,
+        createdAt: replyMsg.createdAt,
+      };
+      await room.save();
+
+      if (global._io) {
+        global._io.to(room._id.toString()).emit("SERVER_RETURN_MESSAGE", replyMsg);
+        global._io.to(receiverId.toString()).emit("SERVER_CHAT_LIST_UPDATED", {
+          roomId: room._id,
+          lastMessage: room.lastMessage,
+          isStoryReply: true,
+        });
+      }
     }
 
-    const messageContent = `Đã phản hồi story: "${content.trim()}"`;
-
-    const replyMsg = await Chat.create({
-      user_id: senderId,
-      room_chat_id: room._id,
-      type: "text",
-      content: messageContent,
-      metadata: {
-        storyId: story._id,
-        storyMedia: story.media?.url || "",
-        storyType: story.type,
-      },
-    });
-
-    room.lastMessage = {
-      message_id: replyMsg._id,
-      sender: senderId,
-      type: "text",
-      content: messageContent,
-      createdAt: replyMsg.createdAt,
-    };
-    await room.save();
-
-    if (global._io) {
-      global._io.to(room._id.toString()).emit("SERVER_RETURN_MESSAGE", replyMsg);
-      global._io.to(receiverId.toString()).emit("SERVER_CHAT_LIST_UPDATED", {
-        roomId: room._id,
-        lastMessage: room.lastMessage,
-      });
-    }
-
+    // 3. Gửi thông báo (Notification) cho tác giả story (chỉ gửi 1 lần duy nhất cho mỗi story)
     try {
-      await createNotification({
+      const existingNotif = await Notification.findOne({
         receiver: receiverId,
         sender: senderId,
-        type: "STORY_REPLY",
-        title: "Phản hồi story",
-        message: `${req.user.fullName || "Ai đó"} đã phản hồi story của bạn: "${content.trim()}"`,
         refId: story._id,
-        refType: "Story",
+        refType: "story",
+        deleted: false,
       });
+
+      if (!existingNotif) {
+        const notifMessage = isEmoji
+          ? `${req.user.fullName || "Ai đó"} đã thả ${content.trim()} vào tin của bạn`
+          : `${req.user.fullName || "Ai đó"} đã phản hồi story của bạn: "${content.trim()}"`;
+
+        await createNotification({
+          receiver: receiverId,
+          sender: senderId,
+          type: "story_reply",
+          title: isEmoji ? "Tương tác story" : "Phản hồi story",
+          message: notifMessage,
+          refId: story._id,
+          refType: "story",
+        });
+      }
     } catch (notifErr) {
       console.error("Error creating notification for story reply:", notifErr);
     }
 
     return res.status(200).json({
       code: 200,
-      message: "Đã gửi phản hồi thành công",
+      message: isEmoji ? "Đã thả cảm xúc" : "Đã gửi phản hồi thành công",
       data: replyMsg,
     });
   } catch (error) {

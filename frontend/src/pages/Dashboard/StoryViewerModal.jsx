@@ -10,10 +10,12 @@ import {
     Volume2,
     VolumeX,
     UserCheck,
+    Loader2,
 } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/vi';
 import { toast } from 'react-toastify';
+import ConfirmModal from '../../components/ConfirmModal';
 import { viewStory, getStoryViewers, deleteStory, replyStory } from '../../services/story.services';
 
 moment.locale('vi');
@@ -42,6 +44,9 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
     const [floatingEmojis, setFloatingEmojis] = useState([]);
     const [replyText, setReplyText] = useState('');
     const [sendingReply, setSendingReply] = useState(false);
+
+    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+    const [deletingStory, setDeletingStory] = useState(false);
 
     useEffect(() => {
         if (isOpen && initialAuthorId && feedGroups.length > 0) {
@@ -222,19 +227,39 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         }
     };
 
-    const handleDeleteStory = async () => {
-        if (!window.confirm('Bạn có chắc chắn muốn xóa story này?')) return;
+    const handleDeleteClick = (e) => {
+        e?.stopPropagation();
+        setIsPaused(true);
+        setShowConfirmDelete(true);
+    };
+
+    const handleConfirmDeleteStory = async () => {
+        if (!currentStory?._id) return;
         try {
+            setDeletingStory(true);
             const res = await deleteStory(currentStory._id);
             if (res.code === 200) {
                 toast.success('Đã xóa story thành công');
-                onDeleteSuccess?.(currentStory._id);
-                handleNextStory();
+                const deletedId = currentStory._id;
+                setShowConfirmDelete(false);
+
+                if (currentStories.length <= 1) {
+                    onDeleteSuccess?.(deletedId);
+                    onClose();
+                } else {
+                    if (storyIndex >= currentStories.length - 1) {
+                        setStoryIndex((prev) => Math.max(0, prev - 1));
+                    }
+                    onDeleteSuccess?.(deletedId);
+                }
             } else {
                 toast.error(res.message || 'Không thể xóa story');
             }
         } catch (err) {
             toast.error('Lỗi khi xóa story');
+        } finally {
+            setDeletingStory(false);
+            setIsPaused(false);
         }
     };
 
@@ -339,6 +364,13 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                     background: currentStory.background?.type === 'color' ? currentStory.background.color : '#000000',
                 }}
             >
+                {/* DELETING OVERLAY */}
+                {deletingStory && (
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md text-white space-y-3 animate-fadeIn select-none">
+                        <Loader2 className="h-10 w-10 animate-spin text-rose-500" />
+                        <span className="text-sm font-bold tracking-wide">Đang xóa story...</span>
+                    </div>
+                )}
                 {/* 1. PROGRESS BARS */}
                 <div className="absolute top-4 left-4 right-4 z-30 flex gap-1.5">
                     {currentStories.map((st, idx) => {
@@ -480,11 +512,12 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
 
                             <button
                                 type="button"
-                                onClick={handleDeleteStory}
-                                className="rounded-full bg-red-500/20 p-2.5 text-red-400 backdrop-blur-xl border border-red-500/30 hover:bg-red-500/30 transition hover:scale-110"
+                                onClick={handleDeleteClick}
+                                disabled={deletingStory}
+                                className="rounded-full bg-red-500/20 p-2.5 text-red-400 backdrop-blur-xl border border-red-500/30 hover:bg-red-500/30 transition hover:scale-110 disabled:opacity-50"
                                 title="Xóa story này"
                             >
-                                <Trash2 size={18} />
+                                {deletingStory ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                             </button>
                         </div>
                     ) : (
@@ -629,6 +662,21 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                     </div>
                 </div>
             )}
+            {/* CONFIRM DELETE MODAL */}
+            <ConfirmModal
+                isOpen={showConfirmDelete}
+                title="Xóa Story"
+                message="Bạn có chắc chắn muốn xóa story này? Thao tác này không thể hoàn tác."
+                confirmText="Xóa story"
+                cancelText="Hủy"
+                type="danger"
+                loading={deletingStory}
+                onConfirm={handleConfirmDeleteStory}
+                onClose={() => {
+                    setShowConfirmDelete(false);
+                    setIsPaused(false);
+                }}
+            />
         </div>
     );
 }

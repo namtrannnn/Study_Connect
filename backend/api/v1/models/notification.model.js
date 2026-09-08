@@ -51,7 +51,7 @@ const notificationSchema = new mongoose.Schema(
 
     refType: {
       type: String,
-      enum: ["user", "post", "comment", "roomChat", "studyRoom", null],
+      enum: ["user", "post", "comment", "roomChat", "studyRoom", "story", "Story", null],
       default: null,
     },
 
