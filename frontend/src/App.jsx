@@ -14,9 +14,12 @@ import AdminProtectedRoute from './components/AdminProtectedRoute';
 import { publicRoute, privateRoute } from './Routes';
 
 import Cookies from 'js-cookie';
+import { toast } from 'react-toastify';
 import { connectSocket, disconnectSocket, getSocket } from './config/socket';
 import { registerFriendSocketEvents, unregisterFriendSocketEvents } from './sockets/friend.socket';
 import { setTotalUnread } from './redux/slices/chatSlice';
+import { setUnreadCount, incrementUnread } from './redux/slices/notificationSlice';
+import * as NotificationServices from './services/notification.services';
 import { playMessageSound } from './helper/sound';
 
 function App() {
@@ -35,6 +38,15 @@ function App() {
         const token = Cookies.get('accessToken');
 
         if (token && user?._id) {
+            // Initial fetch unread notifications count
+            NotificationServices.getNotifications()
+                .then((res) => {
+                    if (res?.code === 200) {
+                        dispatch(setUnreadCount(res.unreadCount || 0));
+                    }
+                })
+                .catch(() => {});
+
             connectSocket();
             registerFriendSocketEvents();
             registerPresenceSocketEvents(dispatch);
@@ -59,9 +71,10 @@ function App() {
 
                 // Phát âm thanh nếu tin nhắn do người khác gửi tới
                 // và user KHÔNG đang mở trực tiếp phòng chat đó
+                // Không phát âm thanh cho story reply/reaction
                 const senderId = data?.lastMessage?.sender;
                 const messageRoomId = data?.roomId;
-                if (senderId && user?._id && senderId.toString() !== user._id.toString()) {
+                if (senderId && user?._id && senderId.toString() !== user._id.toString() && !data?.isStoryReply) {
                     if (!activeRoomIdRef.current || activeRoomIdRef.current !== messageRoomId) {
                         playMessageSound();
                     }
@@ -74,15 +87,35 @@ function App() {
                 }
             };
 
+            const handleNotificationNew = ({ notification, unreadCount: serverCount }) => {
+                console.log('[NOTIF NEW RECEIVED]', notification, serverCount);
+                if (notification?.message) {
+                    toast.info(notification.message);
+                }
+                if (typeof serverCount === 'number') {
+                    dispatch(setUnreadCount(serverCount));
+                } else {
+                    dispatch(incrementUnread());
+                }
+            };
+
+            const handleNotificationReadAll = ({ unreadCount: count }) => {
+                dispatch(setUnreadCount(count ?? 0));
+            };
+
             socket.on('SERVER_ONLINE_READY', handleOnlineReady);
             socket.on('SERVER_CHAT_LIST_UPDATED', handleChatListUpdated);
             socket.on('SERVER_UNREAD_CHAT_COUNT_UPDATED', handleUnreadCountUpdated);
+            socket.on('SERVER_NOTIFICATION_NEW', handleNotificationNew);
+            socket.on('SERVER_NOTIFICATION_READ_ALL', handleNotificationReadAll);
 
             // Cleanup socket listeners
             return () => {
                 socket.off('SERVER_ONLINE_READY', handleOnlineReady);
                 socket.off('SERVER_CHAT_LIST_UPDATED', handleChatListUpdated);
                 socket.off('SERVER_UNREAD_CHAT_COUNT_UPDATED', handleUnreadCountUpdated);
+                socket.off('SERVER_NOTIFICATION_NEW', handleNotificationNew);
+                socket.off('SERVER_NOTIFICATION_READ_ALL', handleNotificationReadAll);
                 unregisterFriendSocketEvents();
                 unregisterPresenceSocketEvents();
             };

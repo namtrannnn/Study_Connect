@@ -89,6 +89,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
     const previewContainerRef = useRef(null);
     const previewAudioRef = useRef(null);
     const editorAudioRef = useRef(null);
+    const isDraggingTextRef = useRef(false);
 
     // Live music preview playback during story editing
     useEffect(() => {
@@ -207,10 +208,12 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
         const container = previewContainerRef.current;
         if (!container) return;
 
+        isDraggingTextRef.current = false;
         const rect = container.getBoundingClientRect();
         let animationFrameId = null;
 
         const onMouseMove = (moveEvent) => {
+            isDraggingTextRef.current = true;
             const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
             const clientY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
 
@@ -386,7 +389,7 @@ function StoryEditorModal({ isOpen, onClose, onSuccess, currentUser }) {
                                 key={item.id}
                                 onMouseDown={(e) => handleTextDragStart(e, item.id)}
                                 onTouchStart={(e) => handleTextDragStart(e, item.id)}
-                                onClick={() => handleEditText(item)}
+                                onClick={() => { if (!isDraggingTextRef.current) handleEditText(item); }}
                                 style={{
                                     left: `${item.position.x}%`,
                                     top: `${item.position.y}%`,
