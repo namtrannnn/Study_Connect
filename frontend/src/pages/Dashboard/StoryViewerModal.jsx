@@ -11,6 +11,8 @@ import {
     VolumeX,
     UserCheck,
     Loader2,
+    Play,
+    Pause,
 } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/vi';
@@ -97,6 +99,24 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         }
     }, [storyIndex, groupIndex, feedGroups]);
 
+    const handleNextGroup = useCallback(() => {
+        if (groupIndex < feedGroups.length - 1) {
+            setGroupIndex((prev) => prev + 1);
+            setStoryIndex(0);
+            setProgress(0);
+        } else {
+            onClose();
+        }
+    }, [groupIndex, feedGroups.length, onClose]);
+
+    const handlePrevGroup = useCallback(() => {
+        if (groupIndex > 0) {
+            setGroupIndex((prev) => prev - 1);
+            setStoryIndex(0);
+            setProgress(0);
+        }
+    }, [groupIndex]);
+
     useEffect(() => {
         if (currentStory && !isOwnStory && !currentStory.isViewed) {
             markAsViewed(currentStory._id);
@@ -139,35 +159,41 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         }
     }, [currentStory, isPaused, showViewersModal]);
 
+    // Reset music source & initial currentTime ONLY when story changes
     useEffect(() => {
-        if (!isOpen || !currentStory?.music?.url) {
-            if (audioRef.current) audioRef.current.pause();
+        const audio = audioRef.current;
+        if (!isOpen || !currentStory?.music?.url || !audio) {
+            if (audio) audio.pause();
             return;
         }
 
-        const audio = audioRef.current;
-        if (audio) {
-            const soundUrl = currentStory.music.url.startsWith('http://')
-                ? currentStory.music.url.replace('http://', 'https://')
-                : currentStory.music.url;
+        const soundUrl = currentStory.music.url.startsWith('http://')
+            ? currentStory.music.url.replace('http://', 'https://')
+            : currentStory.music.url;
 
-            if (audio.src !== soundUrl) {
-                audio.src = soundUrl;
-            }
-
-            audio.currentTime = currentStory.music.startTime || 0;
-            audio.muted = isMuted;
-
-            if (!isPaused && !showViewersModal) {
-                const playPromise = audio.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch((err) => console.log('Autoplay music blocked:', err));
-                }
-            } else {
-                audio.pause();
-            }
+        if (audio.src !== soundUrl) {
+            audio.src = soundUrl;
         }
-    }, [isOpen, currentStory, isPaused, showViewersModal, isMuted]);
+
+        audio.currentTime = currentStory.music.startTime || 0;
+    }, [isOpen, currentStory?._id, currentStory?.music?.url]);
+
+    // Handle audio play/pause and mute without resetting currentTime
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!isOpen || !currentStory?.music?.url || !audio) return;
+
+        audio.muted = isMuted;
+
+        if (!isPaused && !showViewersModal) {
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch((err) => console.log('Autoplay music blocked:', err));
+            }
+        } else {
+            audio.pause();
+        }
+    }, [isOpen, currentStory?.music?.url, isPaused, showViewersModal, isMuted]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -310,41 +336,56 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
         }
     };
 
+    const handleBackdropClick = (e) => {
+        const clickX = e.clientX;
+        const halfWidth = window.innerWidth / 2;
+        if (clickX < halfWidth) {
+            handlePrevStory();
+        } else {
+            handleNextStory();
+        }
+    };
+
     return (
         <div
-            onClick={onClose}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fadeIn select-none"
+            onClick={handleBackdropClick}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/75 backdrop-blur-md animate-fadeIn select-none cursor-pointer"
         >
             <audio ref={audioRef} loop hidden />
 
-            {/* Left Nav Arrow */}
-            {groupIndex > 0 || storyIndex > 0 ? (
+            {/* Left Nav Arrow (Jump to Previous User) */}
+            {groupIndex > 0 && (
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        handlePrevStory();
+                        handlePrevGroup();
                     }}
-                    className="absolute left-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 hover:scale-110 active:scale-95 transition-all duration-200 backdrop-blur-xl border border-white/10"
+                    title="Chuyển sang người dùng trước"
+                    className="absolute left-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 hover:scale-110 active:scale-95 transition-all duration-200 backdrop-blur-xl border border-white/10 cursor-pointer"
                 >
                     <ChevronLeft size={28} />
                 </button>
-            ) : null}
+            )}
 
-            {/* Right Nav Arrow */}
+            {/* Right Nav Arrow (Jump to Next User) */}
             <button
                 onClick={(e) => {
                     e.stopPropagation();
-                    handleNextStory();
+                    handleNextGroup();
                 }}
-                className="absolute right-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 hover:scale-110 active:scale-95 transition-all duration-200 backdrop-blur-xl border border-white/10"
+                title="Chuyển sang người dùng tiếp theo"
+                className="absolute right-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 hover:scale-110 active:scale-95 transition-all duration-200 backdrop-blur-xl border border-white/10 cursor-pointer"
             >
                 <ChevronRight size={28} />
             </button>
 
             {/* Close Button */}
             <button
-                onClick={onClose}
-                className="absolute right-5 top-5 z-50 rounded-full bg-black/60 p-2.5 text-white/80 transition hover:bg-black hover:text-white hover:scale-110"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                }}
+                className="absolute right-5 top-5 z-50 rounded-full bg-black/60 p-2.5 text-white/80 transition hover:bg-black hover:text-white hover:scale-110 cursor-pointer"
             >
                 <X size={24} />
             </button>
@@ -355,11 +396,7 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                     e.stopPropagation();
                     handleContainerClick(e);
                 }}
-                onMouseDown={() => setIsPaused(true)}
-                onMouseUp={() => setIsPaused(false)}
-                onTouchStart={() => setIsPaused(true)}
-                onTouchEnd={() => setIsPaused(false)}
-                className="relative aspect-[9/16] h-full max-h-[88vh] w-full max-w-[410px] overflow-hidden rounded-[2.5rem] shadow-[0_0_90px_rgba(0,0,0,0.9)] border border-white/15 bg-black cursor-pointer"
+                className="relative aspect-[9/16] h-full max-h-[92vh] w-full max-w-[450px] overflow-hidden rounded-xl bg-black cursor-pointer"
                 style={{
                     background: currentStory.background?.type === 'color' ? currentStory.background.color : '#000000',
                 }}
@@ -371,6 +408,14 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                         <span className="text-sm font-bold tracking-wide">Đang xóa story...</span>
                     </div>
                 )}
+
+                {/* PAUSED INDICATOR BADGE */}
+                {isPaused && !showViewersModal && (
+                    <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white tracking-wider animate-fadeIn select-none pointer-events-none">
+                        <Pause size={12} className="fill-white" /> ĐÃ TẠM DỪNG
+                    </div>
+                )}
+
                 {/* 1. PROGRESS BARS */}
                 <div className="absolute top-4 left-4 right-4 z-30 flex gap-1.5">
                     {currentStories.map((st, idx) => {
@@ -389,7 +434,7 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                     })}
                 </div>
 
-                {/* 2. HEADER USER INFO */}
+                {/* 2. HEADER USER INFO & CONTROLS */}
                 <div className="absolute top-8 left-4 right-4 z-30 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="relative p-[2px] rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 shadow-md">
@@ -400,16 +445,29 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                             />
                         </div>
                         <div>
-                            <div className="flex items-center gap-1.5 text-sm font-bold text-white drop-shadow-md">
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-white drop-shadow">
                                 {currentGroup?.author?.fullName || 'Người dùng'}
                             </div>
-                            <div className="text-[11px] font-medium text-white/70 drop-shadow">
+                            <div className="text-[11px] font-medium text-white/70">
                                 {moment(currentStory.createdAt).fromNow()}
                             </div>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* PAUSE / PLAY BUTTON */}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsPaused((prev) => !prev);
+                            }}
+                            className="rounded-full bg-black/40 p-2 text-white backdrop-blur-xl border border-white/15 hover:scale-110 hover:bg-black/60 transition cursor-pointer"
+                            title={isPaused ? "Tiếp tục xem" : "Tạm dừng story"}
+                        >
+                            {isPaused ? <Play size={16} className="fill-white ml-0.5 text-white" /> : <Pause size={16} />}
+                        </button>
+
                         {currentStory.music?.url && (
                             <button
                                 type="button"
@@ -417,7 +475,8 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                                     e.stopPropagation();
                                     setIsMuted(!isMuted);
                                 }}
-                                className="rounded-full bg-black/50 p-2 text-white backdrop-blur-xl border border-white/10 hover:scale-110 transition"
+                                className="rounded-full bg-black/40 p-2 text-white backdrop-blur-xl border border-white/15 hover:scale-110 hover:bg-black/60 transition"
+                                title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
                             >
                                 {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} className="text-pink-400 animate-pulse" />}
                             </button>
@@ -498,7 +557,7 @@ function StoryViewerModal({ isOpen, onClose, feedGroups = [], initialAuthorId = 
                 {/* 5. FOOTER */}
                 <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-0 left-0 right-0 z-30 flex flex-col gap-2.5 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-10"
+                    className="absolute bottom-0 left-0 right-0 z-30 flex flex-col gap-2.5 bg-gradient-to-t from-black/45 via-black/15 to-transparent p-4 pt-8"
                 >
                     {isOwnStory ? (
                         <div className="flex w-full items-center justify-between">

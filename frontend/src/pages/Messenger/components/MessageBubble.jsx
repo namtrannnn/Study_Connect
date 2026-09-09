@@ -178,6 +178,30 @@ function MessageBubble({
                     </div>
                 )}
 
+                {message.metadata?.storyMedia && (
+                    <div className={`mb-1.5 overflow-hidden rounded-2xl border p-1 border-white/20 shadow-md ${isMe ? 'bg-primary/20' : 'bg-blue-50/80 dark:bg-white/5'}`}>
+                        <div className="relative aspect-[9/16] w-32 overflow-hidden rounded-xl bg-black">
+                            {message.metadata.storyType === 'video' ? (
+                                <video
+                                    src={message.metadata.storyMedia}
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <img
+                                    src={message.metadata.storyMedia}
+                                    alt="Story preview"
+                                    className="h-full w-full object-cover"
+                                />
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 text-left">
+                                <span className="rounded-md bg-pink-500/80 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow">
+                                    Story
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {hasImages && (
                     <div className={`overflow-hidden rounded-2xl ${imageCount === 1 ? 'max-w-[220px]' : 'grid grid-cols-2 gap-1 max-w-[260px]'}`}>
                         {message.images.map((img, i) => (

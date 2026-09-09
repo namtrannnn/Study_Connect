@@ -71,10 +71,9 @@ function App() {
 
                 // Phát âm thanh nếu tin nhắn do người khác gửi tới
                 // và user KHÔNG đang mở trực tiếp phòng chat đó
-                // Không phát âm thanh cho story reply/reaction
                 const senderId = data?.lastMessage?.sender;
                 const messageRoomId = data?.roomId;
-                if (senderId && user?._id && senderId.toString() !== user._id.toString() && !data?.isStoryReply) {
+                if (senderId && user?._id && senderId.toString() !== user._id.toString()) {
                     if (!activeRoomIdRef.current || activeRoomIdRef.current !== messageRoomId) {
                         playMessageSound();
                     }
