@@ -160,8 +160,8 @@ const storySchema = new mongoose.Schema(
 // Index tối ưu
 storySchema.index({ author: 1, createdAt: -1 });
 
-// Auto delete khi hết hạn
-storySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Index cho query lọc story hết hạn (KHÔNG tự động xóa - giữ lại cho Archive & Highlights)
+storySchema.index({ expiresAt: 1 });
 
 const Story = mongoose.model("story", storySchema, "stories");
 

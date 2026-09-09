@@ -21,15 +21,22 @@ import {
     Grid3x3,
     Film,
     ArrowLeft,
+    Archive,
+    Plus,
+    Sparkles,
 } from 'lucide-react';
 
 import EditProfileModal from './EditProfileModal';
+import StoryArchiveModal from './StoryArchiveModal';
+import CreateHighlightModal from './CreateHighlightModal';
+import StoryHighlightModal from './StoryHighlightModal';
 import Post from '../../Dashboard/Post';
 import UnfollowConfirmModal from '../../../components/UnfollowConfirmModal';
 import { LoadingProfile } from '../../../components/Loading';
 import * as ProfileServices from '../../../services/ProfileServices';
 import * as FriendServices from '../../../services/friend.services';
 import * as PostServices from '../../../services/posts.services';
+import { getUserHighlights } from '../../../services/story.services';
 import httpRequest from '../../../config/axios';
 
 /* ────────────────────────── Main Component ────────────────────────── */
@@ -71,6 +78,14 @@ export default function ProfilePage() {
     const [showUnfollowModal, setShowUnfollowModal] = useState(false);
     const [relationStatus, setRelationStatus] = useState('none');
 
+    // Story Highlights & Archive States
+    const [highlights, setHighlights] = useState([]);
+    const [loadingHighlights, setLoadingHighlights] = useState(false);
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [showCreateHighlightModal, setShowCreateHighlightModal] = useState(false);
+    const [selectedArchiveStories, setSelectedArchiveStories] = useState([]);
+    const [activeHighlight, setActiveHighlight] = useState(null);
+
     const [formData, setFormData] = useState({
         fullName: '',
         username: '',
@@ -109,8 +124,40 @@ export default function ProfilePage() {
                 loadSavedPosts({ reset: true });
                 loadLikedPosts({ reset: true });
             }
+            loadHighlights();
         }
     }, [currentProfileUserId]); // eslint-disable-line
+
+    const loadHighlights = async () => {
+        if (!currentProfileUserId) return;
+        try {
+            setLoadingHighlights(true);
+            const res = await getUserHighlights(currentProfileUserId);
+            if (res?.code === 200) {
+                setHighlights(res.data || []);
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải tin nổi bật:', err);
+        } finally {
+            setLoadingHighlights(false);
+        }
+    };
+
+    const handleCreateHighlightFromArchive = (selectedStories) => {
+        setSelectedArchiveStories(selectedStories);
+        setShowArchiveModal(false);
+        setShowCreateHighlightModal(true);
+    };
+
+    const handleHighlightCreated = (newHighlight) => {
+        setHighlights((prev) => [newHighlight, ...prev]);
+        setShowCreateHighlightModal(false);
+    };
+
+    const handleHighlightDeleted = (deletedId) => {
+        setHighlights((prev) => prev.filter((h) => h._id !== deletedId));
+        setActiveHighlight(null);
+    };
 
     useEffect(() => {
         if (relation?.relationStatus) {
@@ -468,14 +515,25 @@ export default function ProfilePage() {
                     {/* Action Buttons Row */}
                     <div className="mt-4 flex gap-2">
                         {isOwnProfile ? (
-                            <button
-                                type="button"
-                                onClick={handleOpenEdit}
-                                className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                            >
-                                <Edit3 className="h-4 w-4" />
-                                Chỉnh sửa hồ sơ
-                            </button>
+                            <div className="flex w-full gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleOpenEdit}
+                                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                >
+                                    <Edit3 className="h-4 w-4" />
+                                    Chỉnh sửa hồ sơ
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowArchiveModal(true)}
+                                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 px-4 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                    title="Kho lưu trữ Story"
+                                >
+                                    <Archive className="h-4 w-4 text-indigo-500" />
+                                    <span className="hidden sm:inline">Kho lưu trữ</span>
+                                </button>
+                            </div>
                         ) : (
                             <>
                                 {relationStatus === 'pending_received' ? (
@@ -544,6 +602,50 @@ export default function ProfilePage() {
                             </>
                         )}
                     </div>
+
+                    {/* ─── Story Highlights Horizontal Bar ─── */}
+                    {(highlights.length > 0 || isOwnProfile) && (
+                        <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/10">
+                            <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
+                                {/* Create New Highlight button (for own profile) */}
+                                {isOwnProfile && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowArchiveModal(true)}
+                                        className="group flex flex-col items-center gap-1.5 shrink-0"
+                                    >
+                                        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition group-hover:border-indigo-500 group-hover:bg-indigo-50/50 dark:border-white/20 dark:bg-white/5 dark:group-hover:border-indigo-400">
+                                            <Plus className="h-6 w-6 text-gray-500 group-hover:text-indigo-600 dark:text-gray-400 dark:group-hover:text-indigo-400" />
+                                        </div>
+                                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">
+                                            Mới
+                                        </span>
+                                    </button>
+                                )}
+
+                                {/* List of Highlights */}
+                                {highlights.map((item) => (
+                                    <button
+                                        key={item._id}
+                                        type="button"
+                                        onClick={() => setActiveHighlight(item)}
+                                        className="group flex flex-col items-center gap-1.5 shrink-0"
+                                    >
+                                        <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 transition group-hover:scale-105">
+                                            <img
+                                                src={item.coverImage || item.stories?.[0]?.mediaUrl || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                                                alt={item.title}
+                                                className="h-15 w-15 rounded-full border-2 border-white object-cover dark:border-[#18181b]"
+                                            />
+                                        </div>
+                                        <span className="max-w-[70px] truncate text-[11px] font-semibold text-gray-800 dark:text-gray-200">
+                                            {item.title}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Navigation Tabs Bar */}
                     <div className="-mb-5 mt-5 flex border-t border-gray-200/80 dark:border-white/10 sm:-mb-6">
@@ -767,6 +869,30 @@ export default function ProfilePage() {
                 onClose={() => setShowUnfollowModal(false)}
                 onConfirm={executeFollowAction}
                 loading={friendLoading}
+            />
+
+            {/* Story Archive Modal */}
+            <StoryArchiveModal
+                isOpen={showArchiveModal}
+                onClose={() => setShowArchiveModal(false)}
+                onCreateHighlight={handleCreateHighlightFromArchive}
+            />
+
+            {/* Create Highlight Modal */}
+            <CreateHighlightModal
+                isOpen={showCreateHighlightModal}
+                onClose={() => setShowCreateHighlightModal(false)}
+                selectedStories={selectedArchiveStories}
+                onCreated={handleHighlightCreated}
+            />
+
+            {/* Story Highlight Viewer Modal */}
+            <StoryHighlightModal
+                isOpen={!!activeHighlight}
+                onClose={() => setActiveHighlight(null)}
+                highlight={activeHighlight}
+                currentUser={currentUser}
+                onHighlightDeleted={handleHighlightDeleted}
             />
         </div>
     );

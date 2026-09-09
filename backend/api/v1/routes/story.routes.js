@@ -61,4 +61,39 @@ router.patch(
   controller.deleteStory,
 );
 
+// ══════════════════════════════════════
+// STORY ARCHIVE & HIGHLIGHTS
+// ══════════════════════════════════════
+
+// Kho lưu trữ story (chỉ bản thân xem)
+router.get("/archive", userMiddleware.requireUser, controller.getStoryArchive);
+
+// Tạo tin nổi bật mới
+router.post(
+  "/highlights",
+  userMiddleware.requireUser,
+  controller.createHighlight,
+);
+
+// Lấy danh sách tin nổi bật của user
+router.get(
+  "/highlights/user/:userId",
+  userMiddleware.requireUser,
+  controller.getUserHighlights,
+);
+
+// Cập nhật tin nổi bật
+router.put(
+  "/highlights/:highlightId",
+  userMiddleware.requireUser,
+  controller.updateHighlight,
+);
+
+// Xóa tin nổi bật
+router.delete(
+  "/highlights/:highlightId",
+  userMiddleware.requireUser,
+  controller.deleteHighlight,
+);
+
 module.exports = router;

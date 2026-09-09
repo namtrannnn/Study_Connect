@@ -41,3 +41,47 @@ export const replyStory = async (storyId, content) => {
     const res = await httpRequest.post(`/story/reply/${storyId}`, { content });
     return res.data;
 };
+
+// ══════════════════════════════════════
+// STORY ARCHIVE & HIGHLIGHTS
+// ══════════════════════════════════════
+
+// [GET] /api/v1/story/archive
+export const getStoryArchive = async (page = 1, limit = 20) => {
+    const res = await httpRequest.get('/story/archive', {
+        params: { page, limit },
+    });
+    return res.data;
+};
+
+// [POST] /api/v1/story/highlights
+export const createHighlight = async ({ title, storyIds, coverImage }) => {
+    const res = await httpRequest.post('/story/highlights', {
+        title,
+        storyIds,
+        coverImage,
+    });
+    return res.data;
+};
+
+// [GET] /api/v1/story/highlights/user/:userId
+export const getUserHighlights = async (userId) => {
+    const res = await httpRequest.get(`/story/highlights/user/${userId}`);
+    return res.data;
+};
+
+// [PUT] /api/v1/story/highlights/:highlightId
+export const updateHighlight = async (highlightId, { title, storyIds, coverImage }) => {
+    const res = await httpRequest.put(`/story/highlights/${highlightId}`, {
+        title,
+        storyIds,
+        coverImage,
+    });
+    return res.data;
+};
+
+// [DELETE] /api/v1/story/highlights/:highlightId
+export const deleteHighlight = async (highlightId) => {
+    const res = await httpRequest.delete(`/story/highlights/${highlightId}`);
+    return res.data;
+};

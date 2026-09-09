@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const RoomChat = require("../models/roomChat.model");
 const Chat = require("../models/chat.model");
 const Notification = require("../models/notification.model");
+const StoryHighlight = require("../models/storyHighlight.model");
 const { createNotification } = require("../services/notification.service");
 
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
@@ -705,6 +706,17 @@ exports.replyStory = async (req, res) => {
         },
       });
 
+      // Tăng unreadCount cho receiver trong room.users
+      let receiverUnread = 1;
+      for (const u of room.users) {
+        if (u.user_id.toString() === receiverId.toString()) {
+          u.unreadCount = (u.unreadCount || 0) + 1;
+          receiverUnread = u.unreadCount;
+        } else if (u.user_id.toString() === senderId.toString()) {
+          u.unreadCount = 0;
+        }
+      }
+
       room.lastMessage = {
         message_id: replyMsg._id,
         sender: senderId,
@@ -714,12 +726,16 @@ exports.replyStory = async (req, res) => {
       };
       await room.save();
 
+      const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
+      const receiverChatBadge = await syncUserChatBadge(receiverId.toString());
+
       if (global._io) {
         global._io.to(room._id.toString()).emit("SERVER_RETURN_MESSAGE", replyMsg);
         global._io.to(receiverId.toString()).emit("SERVER_CHAT_LIST_UPDATED", {
           roomId: room._id,
           lastMessage: room.lastMessage,
-          isStoryReply: true,
+          roomUnreadCount: receiverUnread,
+          chatBadgeCount: receiverChatBadge,
         });
       }
     }
@@ -760,6 +776,283 @@ exports.replyStory = async (req, res) => {
     });
   } catch (error) {
     console.error("replyStory error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// STORY ARCHIVE & HIGHLIGHTS
+// ══════════════════════════════════════════════════════════════
+
+// [GET] /api/v1/story/archive
+exports.getStoryArchive = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      author: userId,
+      status: { $ne: "deleted" },
+    };
+
+    const [stories, total] = await Promise.all([
+      Story.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("author", "fullName username avatar isVerified")
+        .lean(),
+      Story.countDocuments(filter),
+    ]);
+
+    // Mark which stories are still active (within 24h)
+    const now = new Date();
+    const enriched = stories.map((s) => ({
+      ...s,
+      isExpired: s.expiresAt < now,
+    }));
+
+    return res.status(200).json({
+      code: 200,
+      message: "Lấy kho lưu trữ story thành công",
+      data: {
+        stories: enriched,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + stories.length < total,
+      },
+    });
+  } catch (error) {
+    console.error("getStoryArchive error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [POST] /api/v1/story/highlights
+exports.createHighlight = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { title, storyIds = [], coverImage = "" } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        code: 400,
+        message: "Vui lòng nhập tên cho tin nổi bật",
+      });
+    }
+
+    if (!Array.isArray(storyIds) || storyIds.length === 0) {
+      return res.status(400).json({
+        code: 400,
+        message: "Vui lòng chọn ít nhất 1 story",
+      });
+    }
+
+    // Verify all stories belong to this user
+    const validStories = await Story.find({
+      _id: { $in: storyIds },
+      author: userId,
+      status: { $ne: "deleted" },
+    }).select("_id");
+
+    if (validStories.length === 0) {
+      return res.status(400).json({
+        code: 400,
+        message: "Không tìm thấy story hợp lệ",
+      });
+    }
+
+    const validIds = validStories.map((s) => s._id);
+
+    // Auto cover: use first story's media thumbnail or bg color
+    let finalCover = coverImage;
+    if (!finalCover) {
+      const firstStory = await Story.findById(validIds[0]).lean();
+      if (firstStory?.media?.url) {
+        finalCover = firstStory.media.url;
+      }
+    }
+
+    const highlight = await StoryHighlight.create({
+      author: userId,
+      title: title.trim(),
+      coverImage: finalCover,
+      stories: validIds,
+    });
+
+    const populated = await StoryHighlight.findById(highlight._id)
+      .populate("author", "fullName username avatar isVerified")
+      .populate({
+        path: "stories",
+        populate: { path: "author", select: "fullName username avatar isVerified" },
+      });
+
+    return res.status(201).json({
+      code: 201,
+      message: "Tạo tin nổi bật thành công",
+      data: populated,
+    });
+  } catch (error) {
+    console.error("createHighlight error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [GET] /api/v1/story/highlights/user/:userId
+exports.getUserHighlights = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID người dùng không hợp lệ",
+      });
+    }
+
+    const highlights = await StoryHighlight.find({ author: userId })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "stories",
+        populate: { path: "author", select: "fullName username avatar isVerified" },
+      })
+      .lean();
+
+    // Filter out deleted stories within each highlight
+    const cleaned = highlights.map((h) => ({
+      ...h,
+      stories: (h.stories || []).filter((s) => s && s.status !== "deleted"),
+    }));
+
+    return res.status(200).json({
+      code: 200,
+      message: "Lấy danh sách tin nổi bật thành công",
+      data: cleaned,
+    });
+  } catch (error) {
+    console.error("getUserHighlights error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [PUT] /api/v1/story/highlights/:highlightId
+exports.updateHighlight = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { highlightId } = req.params;
+    const { title, storyIds, coverImage } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID tin nổi bật không hợp lệ",
+      });
+    }
+
+    const highlight = await StoryHighlight.findOne({
+      _id: highlightId,
+      author: userId,
+    });
+
+    if (!highlight) {
+      return res.status(404).json({
+        code: 404,
+        message: "Không tìm thấy tin nổi bật",
+      });
+    }
+
+    if (title !== undefined) {
+      highlight.title = title.trim();
+    }
+
+    if (coverImage !== undefined) {
+      highlight.coverImage = coverImage;
+    }
+
+    if (Array.isArray(storyIds)) {
+      const validStories = await Story.find({
+        _id: { $in: storyIds },
+        author: userId,
+        status: { $ne: "deleted" },
+      }).select("_id");
+
+      highlight.stories = validStories.map((s) => s._id);
+    }
+
+    await highlight.save();
+
+    const populated = await StoryHighlight.findById(highlight._id)
+      .populate("author", "fullName username avatar isVerified")
+      .populate({
+        path: "stories",
+        populate: { path: "author", select: "fullName username avatar isVerified" },
+      });
+
+    return res.status(200).json({
+      code: 200,
+      message: "Cập nhật tin nổi bật thành công",
+      data: populated,
+    });
+  } catch (error) {
+    console.error("updateHighlight error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [DELETE] /api/v1/story/highlights/:highlightId
+exports.deleteHighlight = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { highlightId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID tin nổi bật không hợp lệ",
+      });
+    }
+
+    const highlight = await StoryHighlight.findOneAndDelete({
+      _id: highlightId,
+      author: userId,
+    });
+
+    if (!highlight) {
+      return res.status(404).json({
+        code: 404,
+        message: "Không tìm thấy tin nổi bật hoặc bạn không có quyền xóa",
+      });
+    }
+
+    return res.status(200).json({
+      code: 200,
+      message: "Xóa tin nổi bật thành công",
+    });
+  } catch (error) {
+    console.error("deleteHighlight error:", error);
     return res.status(500).json({
       code: 500,
       message: "Lỗi server",
