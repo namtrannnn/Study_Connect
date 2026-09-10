@@ -80,6 +80,13 @@ export const updateHighlight = async (highlightId, { title, storyIds, coverImage
     return res.data;
 };
 
+// [GET] /api/v1/story/user/:userId or /api/v1/story/me
+export const getUserActiveStories = async (userId) => {
+    const endpoint = userId ? `/story/user/${userId}` : '/story/me';
+    const res = await httpRequest.get(endpoint);
+    return res.data;
+};
+
 // [DELETE] /api/v1/story/highlights/:highlightId
 export const deleteHighlight = async (highlightId) => {
     const res = await httpRequest.delete(`/story/highlights/${highlightId}`);

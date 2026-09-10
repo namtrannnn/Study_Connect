@@ -3,9 +3,18 @@ import { X, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createHighlight } from '../../../services/story.services';
 
-export default function CreateHighlightModal({ isOpen, onClose, selectedStoryIds = [], onSuccess }) {
+export default function CreateHighlightModal({
+    isOpen,
+    onClose,
+    selectedStoryIds = [],
+    selectedStories = [],
+    onCreated,
+    onSuccess,
+}) {
     const [title, setTitle] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    const actualStoryIds = selectedStoryIds.length > 0 ? selectedStoryIds : selectedStories;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -13,7 +22,7 @@ export default function CreateHighlightModal({ isOpen, onClose, selectedStoryIds
             toast.warn('Vui lòng nhập tên cho tin nổi bật');
             return;
         }
-        if (selectedStoryIds.length === 0) {
+        if (actualStoryIds.length === 0) {
             toast.warn('Vui lòng chọn ít nhất 1 story');
             return;
         }
@@ -22,11 +31,12 @@ export default function CreateHighlightModal({ isOpen, onClose, selectedStoryIds
             setSubmitting(true);
             const res = await createHighlight({
                 title: title.trim(),
-                storyIds: selectedStoryIds,
+                storyIds: actualStoryIds,
                 coverImage: '',
             });
             if (res.code === 201) {
                 toast.success('Tạo tin nổi bật thành công!');
+                onCreated?.(res.data);
                 onSuccess?.(res.data);
                 onClose();
                 setTitle('');
@@ -88,7 +98,7 @@ export default function CreateHighlightModal({ isOpen, onClose, selectedStoryIds
 
                     <div className="rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 p-3">
                         <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                            📌 {selectedStoryIds.length} story đã được chọn
+                            📌 {actualStoryIds.length} story đã được chọn
                         </p>
                         <p className="text-[10px] text-indigo-600/70 dark:text-indigo-400/60 mt-0.5">
                             Ảnh bìa sẽ được tự động lấy từ story đầu tiên

@@ -4,10 +4,11 @@ import moment from 'moment';
 import 'moment/locale/vi';
 import { toast } from 'react-toastify';
 import { getStoryArchive } from '../../../services/story.services';
+import StoryViewerModal from '../../../components/StoryViewerModal';
 
 moment.locale('vi');
 
-export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight }) {
+export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight, currentUser }) {
     const [stories, setStories] = useState([]);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(1);
@@ -18,6 +19,9 @@ export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight }
     // Selection mode for creating highlights
     const [selectMode, setSelectMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
+
+    // Viewer for archived story
+    const [viewerIndex, setViewerIndex] = useState(null);
 
     const fetchArchive = useCallback(async (pageNum = 1, append = false) => {
         try {
@@ -46,6 +50,7 @@ export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight }
             fetchArchive(1);
             setSelectMode(false);
             setSelectedIds([]);
+            setViewerIndex(null);
         }
     }, [isOpen, fetchArchive]);
 
@@ -188,6 +193,9 @@ export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight }
                                                         onClick={() => {
                                                             if (selectMode) {
                                                                 toggleSelect(story._id);
+                                                            } else {
+                                                                const globalIdx = stories.findIndex((s) => s._id === story._id);
+                                                                setViewerIndex(globalIdx !== -1 ? globalIdx : 0);
                                                             }
                                                         }}
                                                         className={`relative aspect-[9/16] rounded-xl overflow-hidden border-2 transition-all duration-200 cursor-pointer group ${
@@ -274,6 +282,19 @@ export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight }
                     )}
                 </div>
             </div>
+
+            {/* Archived Story Fullscreen Viewer */}
+            {viewerIndex !== null && (
+                <StoryViewerModal
+                    isOpen={viewerIndex !== null}
+                    onClose={() => setViewerIndex(null)}
+                    mode="archive"
+                    stories={stories}
+                    initialStoryIndex={viewerIndex}
+                    currentUser={currentUser}
+                />
+            )}
         </div>
     );
 }
+
