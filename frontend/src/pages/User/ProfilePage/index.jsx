@@ -29,14 +29,14 @@ import {
 import EditProfileModal from './EditProfileModal';
 import StoryArchiveModal from './StoryArchiveModal';
 import CreateHighlightModal from './CreateHighlightModal';
-import StoryHighlightModal from './StoryHighlightModal';
+import StoryViewerModal from '../../../components/StoryViewerModal';
 import Post from '../../Dashboard/Post';
 import UnfollowConfirmModal from '../../../components/UnfollowConfirmModal';
 import { LoadingProfile } from '../../../components/Loading';
 import * as ProfileServices from '../../../services/ProfileServices';
 import * as FriendServices from '../../../services/friend.services';
 import * as PostServices from '../../../services/posts.services';
-import { getUserHighlights } from '../../../services/story.services';
+import { getUserHighlights, getUserActiveStories } from '../../../services/story.services';
 import httpRequest from '../../../config/axios';
 
 /* ────────────────────────── Main Component ────────────────────────── */
@@ -86,6 +86,10 @@ export default function ProfilePage() {
     const [selectedArchiveStories, setSelectedArchiveStories] = useState([]);
     const [activeHighlight, setActiveHighlight] = useState(null);
 
+    // Active 24h Stories State
+    const [activeStories, setActiveStories] = useState([]);
+    const [showActiveStoriesModal, setShowActiveStoriesModal] = useState(false);
+
     const [formData, setFormData] = useState({
         fullName: '',
         username: '',
@@ -125,8 +129,21 @@ export default function ProfilePage() {
                 loadLikedPosts({ reset: true });
             }
             loadHighlights();
+            loadActiveStories();
         }
     }, [currentProfileUserId]); // eslint-disable-line
+
+    const loadActiveStories = async () => {
+        if (!currentProfileUserId) return;
+        try {
+            const res = await getUserActiveStories(isOwnProfile ? null : currentProfileUserId);
+            if (res?.code === 200) {
+                setActiveStories(res.data || []);
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải active stories:', err);
+        }
+    };
 
     const loadHighlights = async () => {
         if (!currentProfileUserId) return;
@@ -439,15 +456,27 @@ export default function ProfilePage() {
                 <div className="rounded-[28px] border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#18181b] sm:p-6">
                     {/* Header Row: Avatar on LEFT, Name/Username on RIGHT */}
                     <div className="flex items-start gap-4 sm:gap-5">
-                        {/* Avatar on LEFT */}
-                        <div className="relative shrink-0">
+                        {/* Avatar on LEFT with Active 24h Story Ring */}
+                        <div
+                            onClick={() => {
+                                if (activeStories.length > 0) {
+                                    setShowActiveStoriesModal(true);
+                                }
+                            }}
+                            className={`relative shrink-0 transition-all duration-300 ${
+                                activeStories.length > 0
+                                    ? 'p-[3px] rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 cursor-pointer hover:scale-105 shadow-md shadow-pink-500/20'
+                                    : ''
+                            }`}
+                            title={activeStories.length > 0 ? `Xem tin mới 24h của ${user.fullName}` : ''}
+                        >
                             <img
                                 src={
                                     user.avatar ||
                                     'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
                                 }
                                 alt={user.fullName}
-                                className="h-24 w-24 rounded-full border-2 border-gray-100 object-cover shadow-sm dark:border-white/10 sm:h-28 sm:w-28"
+                                className="h-24 w-24 rounded-full border-2 border-white object-cover shadow-sm dark:border-[#18181b] sm:h-28 sm:w-28"
                             />
                             {user.isVerified && (
                                 <CheckCircle2 className="absolute bottom-1 right-1 h-6 w-6 text-blue-500 fill-white dark:fill-[#18181b]" />
@@ -606,13 +635,13 @@ export default function ProfilePage() {
                     {/* ─── Story Highlights Horizontal Bar ─── */}
                     {(highlights.length > 0 || isOwnProfile) && (
                         <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/10">
-                            <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
+                            <div className="flex items-center gap-4 overflow-x-auto pb-3 pt-2.5 px-2 scrollbar-none">
                                 {/* Create New Highlight button (for own profile) */}
                                 {isOwnProfile && (
                                     <button
                                         type="button"
                                         onClick={() => setShowArchiveModal(true)}
-                                        className="group flex flex-col items-center gap-1.5 shrink-0"
+                                        className="group flex flex-col items-center gap-1.5 shrink-0 py-0.5"
                                     >
                                         <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition group-hover:border-indigo-500 group-hover:bg-indigo-50/50 dark:border-white/20 dark:bg-white/5 dark:group-hover:border-indigo-400">
                                             <Plus className="h-6 w-6 text-gray-500 group-hover:text-indigo-600 dark:text-gray-400 dark:group-hover:text-indigo-400" />
@@ -629,13 +658,18 @@ export default function ProfilePage() {
                                         key={item._id}
                                         type="button"
                                         onClick={() => setActiveHighlight(item)}
-                                        className="group flex flex-col items-center gap-1.5 shrink-0"
+                                        className="group flex flex-col items-center gap-1.5 shrink-0 py-0.5 overflow-visible"
                                     >
-                                        <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 transition group-hover:scale-105">
+                                        <div className="relative p-[3px] rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 transition-transform duration-200 group-hover:scale-105 shrink-0">
                                             <img
-                                                src={item.coverImage || item.stories?.[0]?.mediaUrl || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                                                src={
+                                                    item.coverImage ||
+                                                    item.stories?.[0]?.mediaUrl ||
+                                                    item.stories?.[0]?.media?.url ||
+                                                    'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
+                                                }
                                                 alt={item.title}
-                                                className="h-15 w-15 rounded-full border-2 border-white object-cover dark:border-[#18181b]"
+                                                className="h-16 w-16 rounded-full border-2 border-white object-cover dark:border-[#18181b] shrink-0"
                                             />
                                         </div>
                                         <span className="max-w-[70px] truncate text-[11px] font-semibold text-gray-800 dark:text-gray-200">
@@ -876,23 +910,34 @@ export default function ProfilePage() {
                 isOpen={showArchiveModal}
                 onClose={() => setShowArchiveModal(false)}
                 onCreateHighlight={handleCreateHighlightFromArchive}
+                currentUser={currentUser}
             />
 
             {/* Create Highlight Modal */}
             <CreateHighlightModal
                 isOpen={showCreateHighlightModal}
                 onClose={() => setShowCreateHighlightModal(false)}
-                selectedStories={selectedArchiveStories}
+                selectedStoryIds={selectedArchiveStories}
                 onCreated={handleHighlightCreated}
             />
 
             {/* Story Highlight Viewer Modal */}
-            <StoryHighlightModal
+            <StoryViewerModal
                 isOpen={!!activeHighlight}
                 onClose={() => setActiveHighlight(null)}
+                mode="highlight"
                 highlight={activeHighlight}
                 currentUser={currentUser}
                 onHighlightDeleted={handleHighlightDeleted}
+            />
+
+            {/* Active 24h Story Viewer Modal */}
+            <StoryViewerModal
+                isOpen={showActiveStoriesModal}
+                onClose={() => setShowActiveStoriesModal(false)}
+                mode="active"
+                stories={activeStories}
+                currentUser={currentUser}
             />
         </div>
     );

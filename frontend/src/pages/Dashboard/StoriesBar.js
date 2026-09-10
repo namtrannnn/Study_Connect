@@ -88,12 +88,13 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                                     onCreateStory?.();
                                 }
                             }}
-                            className={`relative w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${myGroup
-                                ? myGroup.hasUnviewed
-                                    ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-purple-500/20 group-hover:scale-105'
-                                    : 'bg-slate-300 dark:bg-slate-700 group-hover:scale-105'
-                                : 'p-0'
-                                }`}
+                            className={`relative w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${
+                                myGroup && myGroup.stories?.length > 0
+                                    ? myGroup.hasUnviewed
+                                        ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-purple-500/20 group-hover:scale-105'
+                                        : 'bg-gradient-to-tr from-pink-500/80 via-purple-500/80 to-amber-400/80 shadow-sm group-hover:scale-105'
+                                    : 'p-0'
+                            }`}
                         >
                             <div className="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-[#18181b]">
                                 <img

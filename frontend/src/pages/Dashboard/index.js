@@ -5,7 +5,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 
 import StoriesBar from './StoriesBar';
 import StoryEditorModal from './StoryEditorModal';
-import StoryViewerModal from './StoryViewerModal';
+import StoryViewerModal from '../../components/StoryViewerModal';
 import Modal from './Modal';
 import Post from './Post';
 import { useSelector } from 'react-redux';
