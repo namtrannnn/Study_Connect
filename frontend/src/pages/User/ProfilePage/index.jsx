@@ -938,6 +938,10 @@ export default function ProfilePage() {
                 mode="active"
                 stories={activeStories}
                 currentUser={currentUser}
+                onDeleteSuccess={(deletedId) => {
+                    setActiveStories((prev) => prev.filter((s) => s._id !== deletedId));
+                    if (typeof loadActiveStories === 'function') loadActiveStories();
+                }}
             />
         </div>
     );

@@ -288,6 +288,7 @@ exports.getStoryFeed = async (req, res) => {
         "author",
         "fullName username avatar isVerified followers following",
       )
+      .populate("mentions", "fullName username avatar isVerified")
       .populate({
         path: "post",
         populate: {
@@ -355,6 +356,7 @@ exports.getMyStories = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("author", "fullName username avatar isVerified")
+      .populate("mentions", "fullName username avatar isVerified")
       .populate({
         path: "post",
         populate: {
@@ -409,6 +411,7 @@ exports.getStoriesByUser = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("author", "fullName username avatar isVerified")
+      .populate("mentions", "fullName username avatar isVerified")
       .populate({
         path: "post",
         populate: {
@@ -472,19 +475,21 @@ exports.viewStory = async (req, res) => {
       });
     }
 
-    const alreadyViewed = story.viewers.some(
-      (item) => item.user.toString() === viewerId.toString(),
+    const alreadyViewed = (story.viewers || []).some(
+      (item) => item.user && item.user.toString() === viewerId.toString(),
     );
 
+    let finalViewersCount = story.viewersCount || 0;
+
     if (!alreadyViewed) {
-      story.viewers.push({
-        user: viewerId,
-        viewedAt: new Date(),
-      });
-
-      story.viewersCount += 1;
-
-      await story.save();
+      await Story.updateOne(
+        { _id: storyId, "viewers.user": { $ne: viewerId } },
+        {
+          $push: { viewers: { user: viewerId, viewedAt: new Date(), reactions: [] } },
+          $inc: { viewersCount: 1 },
+        }
+      );
+      finalViewersCount += 1;
     }
 
     return res.status(200).json({
@@ -492,7 +497,7 @@ exports.viewStory = async (req, res) => {
       message: "Đã xem story",
       data: {
         storyId: story._id,
-        viewersCount: story.viewersCount,
+        viewersCount: finalViewersCount,
       },
     });
   } catch (error) {
@@ -631,47 +636,59 @@ exports.replyStory = async (req, res) => {
 
     const story = await Story.findOne({
       _id: storyId,
-      status: "active",
-      expiresAt: { $gt: new Date() },
+      status: { $ne: "deleted" },
     }).populate("author", "fullName username avatar");
 
     if (!story) {
       return res.status(404).json({
         code: 404,
-        message: "Story không tồn tại hoặc đã hết hạn",
+        message: "Story không tồn tại hoặc đã bị xóa",
       });
     }
 
     const receiverId = story.author._id;
-    if (senderId.toString() === receiverId.toString()) {
-      return res.status(400).json({
-        code: 400,
-        message: "Không thể tự phản hồi story của chính mình",
-      });
-    }
-
+    const isSelf = senderId.toString() === receiverId.toString();
     const isEmoji = ["❤️", "🔥", "😮", "😂", "👏", "💯"].includes(content.trim());
 
-    // 1. Save reaction to viewer's reactions array (keep up to 5)
-    let viewerObj = story.viewers.find(
-      (v) => v.user.toString() === senderId.toString(),
+    // 1. Save reaction to viewer's reactions array using atomic MongoDB update (prevents VersionError OCC concurrency issues)
+    const existingViewer = (story.viewers || []).find(
+      (v) => v.user && v.user.toString() === senderId.toString(),
     );
-    if (!viewerObj) {
-      viewerObj = {
-        user: senderId,
-        viewedAt: new Date(),
-        reactions: [content.trim()],
-      };
-      story.viewers.push(viewerObj);
-      story.viewersCount = (story.viewersCount || 0) + 1;
+
+    if (!existingViewer) {
+      await Story.updateOne(
+        { _id: storyId },
+        {
+          $push: {
+            viewers: {
+              user: senderId,
+              viewedAt: new Date(),
+              reactions: [content.trim()],
+            },
+          },
+          $inc: { viewersCount: 1 },
+        }
+      );
     } else {
-      if (!viewerObj.reactions) viewerObj.reactions = [];
-      viewerObj.reactions.push(content.trim());
-      if (viewerObj.reactions.length > 5) {
-        viewerObj.reactions = viewerObj.reactions.slice(-5);
-      }
+      await Story.updateOne(
+        { _id: storyId, "viewers.user": senderId },
+        {
+          $push: {
+            "viewers.$.reactions": {
+              $each: [content.trim()],
+              $slice: -5,
+            },
+          },
+        }
+      );
     }
-    await story.save();
+
+    if (isSelf) {
+      return res.status(200).json({
+        code: 200,
+        message: "Phản hồi story thành công",
+      });
+    }
 
     // 2. Chỉ tạo tin nhắn Chat trong Inbox nếu KHÔNG phải là emoji thả nhanh
     let replyMsg = null;
@@ -807,6 +824,7 @@ exports.getStoryArchive = async (req, res) => {
         .skip(skip)
         .limit(limit)
         .populate("author", "fullName username avatar isVerified")
+        .populate("mentions", "fullName username avatar isVerified")
         .lean(),
       Story.countDocuments(filter),
     ]);
@@ -929,7 +947,10 @@ exports.getUserHighlights = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate({
         path: "stories",
-        populate: { path: "author", select: "fullName username avatar isVerified" },
+        populate: [
+          { path: "author", select: "fullName username avatar isVerified" },
+          { path: "mentions", select: "fullName username avatar isVerified" },
+        ],
       })
       .lean();
 
