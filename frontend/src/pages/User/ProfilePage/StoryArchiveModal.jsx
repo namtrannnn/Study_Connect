@@ -292,6 +292,9 @@ export default function StoryArchiveModal({ isOpen, onClose, onCreateHighlight, 
                     stories={stories}
                     initialStoryIndex={viewerIndex}
                     currentUser={currentUser}
+                    onDeleteSuccess={(deletedId) => {
+                        setStories((prev) => prev.filter((s) => s._id !== deletedId));
+                    }}
                 />
             )}
         </div>

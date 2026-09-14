@@ -502,3 +502,31 @@
 .custom-modal-scroll::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, rgba(37, 99, 235, 0.8), rgba(8, 145, 178, 0.8));
 }
+
+/* Floating Emoji Reaction Animation (FB / IG Story Style) */
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(0.6) rotate(0deg);
+    }
+    20% {
+        opacity: 1;
+        transform: translateY(-80px) scale(1.3) rotate(-12deg);
+    }
+    50% {
+        opacity: 0.95;
+        transform: translateY(-240px) scale(1.1) rotate(10deg);
+    }
+    80% {
+        opacity: 0.7;
+        transform: translateY(-400px) scale(0.9) rotate(-8deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-540px) scale(0.5) rotate(5deg);
+    }
+}
+
+.animate-floatUp {
+    animation: floatUp 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

@@ -78,24 +78,32 @@ export default function StoryViewerModal({
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const [showConfirmDeleteHighlight, setShowConfirmDeleteHighlight] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [deletedStoryIds, setDeletedStoryIds] = useState([]);
 
     const audioRef = useRef(null);
     const videoRef = useRef(null);
 
     // ── Build normalized feed structure ──
     const effectiveGroups = React.useMemo(() => {
+        let rawGroups = [];
         if (mode === 'feed' && feedGroups.length > 0) {
-            return feedGroups;
-        }
-        if (mode === 'highlight' && highlight) {
-            return [{ author: highlight.author || currentUser, stories: highlight.stories || [] }];
-        }
-        if (stories.length > 0) {
+            rawGroups = feedGroups;
+        } else if (mode === 'highlight' && highlight) {
+            rawGroups = [{ author: highlight.author || currentUser, stories: highlight.stories || [] }];
+        } else if (stories.length > 0) {
             const author = stories[0]?.author || highlight?.author || currentUser;
-            return [{ author, stories }];
+            rawGroups = [{ author, stories }];
         }
-        return [];
-    }, [mode, feedGroups, highlight, stories, currentUser]);
+
+        if (deletedStoryIds.length === 0) return rawGroups;
+
+        return rawGroups
+            .map((g) => ({
+                ...g,
+                stories: (g.stories || []).filter((s) => !deletedStoryIds.includes(s._id)),
+            }))
+            .filter((g) => g.stories && g.stories.length > 0);
+    }, [mode, feedGroups, highlight, stories, currentUser, deletedStoryIds]);
 
     // Ref to track modal open state
     const prevIsOpenRef = useRef(false);
@@ -103,6 +111,7 @@ export default function StoryViewerModal({
     // Reset when modal opens or input props change on open
     useEffect(() => {
         if (isOpen && (!prevIsOpenRef.current || mode === 'highlight' || mode === 'archive')) {
+            setDeletedStoryIds([]);
             if (mode === 'feed' && initialAuthorId && effectiveGroups.length > 0) {
                 const idx = effectiveGroups.findIndex((g) => g.author?._id === initialAuthorId);
                 setGroupIndex(idx !== -1 ? idx : 0);
@@ -304,27 +313,36 @@ export default function StoryViewerModal({
 
         const isEmoji = EMOJI_REACTIONS.includes(content.trim());
         if (isEmoji) {
-            const newFloating = Array.from({ length: 3 }).map((_, i) => ({
+            const count = 6;
+            const newFloating = Array.from({ length: count }).map((_, i) => ({
                 id: Date.now() + Math.random() + i,
                 emoji: content.trim(),
-                left: 25 + Math.random() * 50,
-                delay: i * 0.15,
+                left: 15 + Math.random() * 70,
+                delay: i * 0.12,
             }));
             setFloatingEmojis((prev) => [...prev, ...newFloating]);
             setTimeout(() => {
                 setFloatingEmojis((prev) => prev.filter((item) => !newFloating.includes(item)));
-            }, 1800);
+            }, 2500);
         }
 
         try {
             setSendingReply(true);
             const res = await replyStory(currentStory._id, content);
-            if (res.code === 200 && !isEmoji) {
-                toast.success('Đã gửi phản hồi');
-                setReplyText('');
+            if (res && (res.code === 200 || res.status === 200)) {
+                if (!isEmoji) {
+                    toast.success('Đã gửi phản hồi');
+                    setReplyText('');
+                }
+            } else {
+                if (!isEmoji) {
+                    toast.error(res?.message || 'Gửi phản hồi thất bại');
+                }
             }
         } catch (err) {
-            if (!isEmoji) toast.error('Gửi phản hồi thất bại');
+            if (!isEmoji) {
+                toast.error(err?.response?.data?.message || err?.message || 'Gửi phản hồi thất bại');
+            }
         } finally {
             setSendingReply(false);
         }
@@ -333,18 +351,26 @@ export default function StoryViewerModal({
     // Delete story handler
     const handleDeleteCurrentStory = async () => {
         if (!currentStory?._id) return;
+        const deletedId = currentStory._id;
         setDeleting(true);
         try {
-            const res = await deleteStory(currentStory._id);
+            const res = await deleteStory(deletedId);
             if (res.code === 200) {
                 toast.success('Đã xóa story');
                 setShowConfirmDelete(false);
-                if (onDeleteSuccess) onDeleteSuccess(currentStory._id);
 
-                if (currentStories.length === 1) {
+                // Instantly filter out deleted story locally
+                setDeletedStoryIds((prev) => [...prev, deletedId]);
+
+                const remainingStories = currentStories.filter((s) => s._id !== deletedId);
+
+                if (onDeleteSuccess) onDeleteSuccess(deletedId);
+
+                if (remainingStories.length === 0) {
                     onClose();
                 } else {
-                    handleNextStory();
+                    setStoryIndex((prevIdx) => Math.min(prevIdx, remainingStories.length - 1));
+                    setProgress(0);
                 }
             }
         } catch (err) {
@@ -457,12 +483,12 @@ export default function StoryViewerModal({
                     </div>
                 )}
 
-                {/* Floating Emojis */}
+                {/* Floating Emojis Overlay */}
                 <div className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
                     {floatingEmojis.map((item) => (
                         <span
                             key={item.id}
-                            className="absolute bottom-16 text-3xl animate-floatUp opacity-0 drop-shadow-md"
+                            className="absolute bottom-16 text-4xl animate-floatUp pointer-events-none select-none drop-shadow-lg"
                             style={{
                                 left: `${item.left}%`,
                                 animationDelay: `${item.delay}s`,
@@ -490,8 +516,18 @@ export default function StoryViewerModal({
 
                 {/* 2. Header: User Info & Controls */}
                 <div className="absolute top-8 left-4 right-4 z-30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="relative p-[2px] rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 shadow-md">
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (currentAuthor?.username || currentAuthor?._id) {
+                                onClose();
+                                navigate(`/profile/${currentAuthor.username || currentAuthor._id}`);
+                            }
+                        }}
+                        className="flex items-center gap-3 cursor-pointer group/author"
+                        title={`Xem trang cá nhân của ${currentAuthor?.fullName || ''}`}
+                    >
+                        <div className="relative p-[2px] rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 shadow-md group-hover/author:scale-105 transition-transform">
                             <img
                                 src={currentAuthor?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
                                 alt="avatar"
@@ -499,7 +535,7 @@ export default function StoryViewerModal({
                             />
                         </div>
                         <div>
-                            <div className="flex items-center gap-1.5 text-sm font-bold text-white drop-shadow">
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-white drop-shadow group-hover/author:underline">
                                 <span>{currentAuthor?.fullName || 'Người dùng'}</span>
                                 {highlight?.title && (
                                     <span className="rounded-full bg-indigo-500/80 px-2 py-0.5 font-semibold text-[10px] text-white backdrop-blur-sm">
@@ -628,8 +664,8 @@ export default function StoryViewerModal({
                     </div>
                 )}
 
-                {/* Case B: Non-Owner on Active Story -> Reply bar & Emojis */}
-                {!isOwnStory && (mode === 'feed' || mode === 'active') && (
+                {/* Case B: Non-Owner on Story -> Reply bar & Emojis */}
+                {!isOwnStory && (mode === 'feed' || mode === 'active' || mode === 'highlight') && (
                     <div
                         onClick={(e) => e.stopPropagation()}
                         className="absolute bottom-4 left-4 right-4 z-30 flex flex-col gap-2"
@@ -639,7 +675,10 @@ export default function StoryViewerModal({
                                 <button
                                     key={emoji}
                                     type="button"
-                                    onClick={() => handleSendReply(emoji)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSendReply(emoji);
+                                    }}
                                     className="text-2xl hover:scale-130 active:scale-90 transition-transform duration-150 drop-shadow cursor-pointer"
                                 >
                                     {emoji}
