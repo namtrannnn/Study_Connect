@@ -64,7 +64,7 @@
     html {
         font-family: 'Roboto', serif;
         font-weight: 500;
-        @apply dark:bg-[#18191A] dark:text-[#e4e6eb] transition-50 bg-[#F0F2F5] text-[#050505];
+        @apply dark:bg-[#18191A] dark:text-[#e4e6eb] transition-colors duration-300 bg-[#F0F2F5] text-[#050505];
     }
     .game {
         font-family: PressStart2P, ui-serif, Georgia;

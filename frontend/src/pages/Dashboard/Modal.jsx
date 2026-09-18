@@ -4,6 +4,7 @@ import {
     X,
     ImagePlus,
     Sparkles,
+    Wand2,
     Globe2,
     Users,
     Lock,
@@ -74,6 +75,75 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
     const [hideShare, setHideShare] = useState(false);
 
     const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+
+    // AI Caption Generator (Mock)
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState([]);
+    const [showAiPanel, setShowAiPanel] = useState(false);
+    const [aiPromptHint, setAiPromptHint] = useState('');
+
+    const handleGenerateAiCaption = () => {
+        if (images.length === 0 && existingMedia.length === 0) {
+            toast.info('💡 Vui lòng thêm ít nhất 1 hình ảnh bên dưới để AI phân tích và gợi ý caption!');
+            return;
+        }
+
+        setShowAiPanel(true);
+        setAiLoading(true);
+        setAiSuggestions([]);
+
+        const hint = aiPromptHint.trim();
+
+        // Giả lập Gemini Vision API phân tích hình ảnh + prompt hint trong 1.2 giây
+        setTimeout(() => {
+            setAiLoading(false);
+
+            if (hint) {
+                setAiSuggestions([
+                    {
+                        tone: '🎓 Cá nhân hóa',
+                        text: `Góc nhỏ làm việc với "${hint}". Nỗ lực không ngừng nghỉ vì mục tiêu lớn phía trước! 📚✨ #StudyWithMe #StudyConnect`,
+                    },
+                    {
+                        tone: '🔥 Quyết tâm',
+                        text: `Tập trung cao độ cho "${hint}"! Mọi sự cố gắng đều sẽ được đền đáp xứng đáng 💪🚀 #Motivation #StudyHard`,
+                    },
+                    {
+                        tone: '😆 Hài hước / Chill',
+                        text: `Khi vừa làm "${hint}" vừa chill cùng ly cà phê đậm đặc... ☕😂 #WorkLifeBalance #StudyConnect`,
+                    },
+                    {
+                        tone: '🎯 Tóm tắt',
+                        text: `Focusing on: ${hint}. Chinh phục ước mơ! 🎯 #StudyConnect`,
+                    },
+                ]);
+            } else {
+                setAiSuggestions([
+                    {
+                        tone: '🎓 Học thuật',
+                        text: 'Vươn tới mục tiêu mỗi ngày! Cố gắng hôm nay là chìa khóa mở ra thành công ngày mai 📚✨ #StudyWithMe #StudyConnect #Focus',
+                    },
+                    {
+                        tone: '🔥 Motivation',
+                        text: 'Hành trình vạn dặm bắt đầu từ những bước chân kiên trì. Giữ vững ngọn lửa đam mê nhé 💪☕ #Motivation #StudyHard',
+                    },
+                    {
+                        tone: '🌿 Chill Vibes',
+                        text: 'Góc nhỏ thân quen cho một ngày học tập thật tập trung và hiệu quả 🍵💻 #ChillStudy #StudyConnect',
+                    },
+                    {
+                        tone: '🎯 Ngắn gọn',
+                        text: 'Focus & Discipline. Chinh phục từng mục tiêu! 🚀 #StudyConnect',
+                    },
+                ]);
+            }
+        }, 1200);
+    };
+
+    const handleApplyAiCaption = (suggestedText) => {
+        setCaption(suggestedText);
+        toast.success('✨ Đã áp dụng Caption AI!');
+    };
 
     // Điền dữ liệu cũ khi ở mode edit
     useEffect(() => {
@@ -440,8 +510,18 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             </div>
                         </div>
 
-                        {/* Nút bật/tắt Tùy chọn nâng cao nhỏ gọn */}
-                        <div className="mt-3 flex items-center justify-between">
+                        {/* Nút AI Gợi ý Caption & Tùy chọn nâng cao */}
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <button
+                                type="button"
+                                onClick={handleGenerateAiCaption}
+                                className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/30 active:scale-95"
+                            >
+                                <Wand2 size={14} className="animate-bounce" />
+                                <span>AI Gợi ý Caption</span>
+                                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">MOCK</span>
+                            </button>
+
                             <button
                                 type="button"
                                 onClick={() => setShowAdvancedOptions((prev) => !prev)}
@@ -455,6 +535,85 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                 <span>Tùy chọn nâng cao</span>
                             </button>
                         </div>
+
+                        {/* AI Caption Suggestion Panel (Mock Demonstration) */}
+                        {showAiPanel && (
+                            <div className="mt-3 rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50/80 via-indigo-50/50 to-pink-50/60 p-4 shadow-sm dark:border-purple-500/20 dark:from-purple-950/20 dark:via-indigo-950/20 dark:to-pink-950/20">
+                                <div className="mb-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white shadow-sm">
+                                            <Wand2 size={14} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs font-bold text-gray-900 dark:text-white">
+                                                AI Smart Caption Suggestions (Mock)
+                                            </h4>
+                                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                                {aiLoading ? 'Đang phân tích hình ảnh với Gemini Vision AI...' : 'Bấm vào 1 caption bên dưới để áp dụng:'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAiPanel(false)}
+                                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                    >
+                                        Đóng ✕
+                                    </button>
+                                </div>
+
+                                {/* Ô nhập mô tả bổ sung cho AI */}
+                                <div className="mb-3 flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={aiPromptHint}
+                                        onChange={(e) => setAiPromptHint(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleGenerateAiCaption())}
+                                        placeholder="💡 Thêm chi tiết / ý đồ của bạn (vd: Thức đêm làm đồ án, Đã đỗ kỳ thi...)"
+                                        className="flex-1 rounded-xl border border-purple-200 bg-white/90 px-3 py-1.5 text-xs text-gray-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-400/20 dark:border-white/10 dark:bg-[#1c1f26] dark:text-white dark:placeholder-gray-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateAiCaption}
+                                        disabled={aiLoading}
+                                        className="flex shrink-0 items-center gap-1.5 rounded-xl bg-purple-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-purple-700 disabled:opacity-50"
+                                    >
+                                        <Sparkles size={13} />
+                                        <span>{aiPromptHint ? 'Tạo lại AI' : 'Làm mới'}</span>
+                                    </button>
+                                </div>
+
+                                {aiLoading ? (
+                                    <div className="flex items-center justify-center gap-2.5 py-6 text-xs font-semibold text-purple-600 dark:text-purple-400 animate-pulse">
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span>Gemini AI đang nhận diện hình ảnh và sáng tạo caption...</span>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                                        {aiSuggestions.map((item, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => handleApplyAiCaption(item.text)}
+                                                className="group cursor-pointer rounded-xl border border-purple-100 bg-white/90 p-3 shadow-sm transition-all hover:border-purple-300 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#20232b] dark:hover:border-purple-500/40"
+                                            >
+                                                <div className="mb-1.5 flex items-center justify-between">
+                                                    <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-500/20 dark:text-purple-300">
+                                                        {item.tone}
+                                                    </span>
+                                                    <span className="text-[11px] font-bold text-purple-600 opacity-0 transition group-hover:opacity-100 dark:text-purple-400">
+                                                        Áp dụng ✨
+                                                    </span>
+                                                </div>
+                                                <p className="line-clamp-3 text-xs leading-relaxed text-gray-700 dark:text-gray-300">
+                                                    {item.text}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                             {showAdvancedOptions && (
                                 <div className="mt-3 space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5">

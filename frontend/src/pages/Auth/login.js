@@ -70,7 +70,7 @@ const Login = () => {
         <div>
             <Header />
             <div
-                className="pt-12 bg-[#d9d0cb] h-screen w-screen flex items-center relative transition-50 "
+                className="pt-12 bg-[#d9d0cb] h-screen w-screen flex items-center relative transition-colors duration-300 "
                 style={{
                     backgroundImage: !dark ? 'none' : `url(${bg3})`,
                     backgroundSize: 'cover',

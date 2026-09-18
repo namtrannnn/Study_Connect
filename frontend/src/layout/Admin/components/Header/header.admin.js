@@ -67,7 +67,7 @@ function Header({ user }) {
         ));
     };
     return (
-        <header className="flex fixed top-0 left-0 w-screen bg-[#f9fafb] px-1 sm:px-2 md:px-4 z-[100] items-center dark:bg-bg-header-d transition-50 dark:text-[#DDDFE3] border-b-[#8a8a8a] py-2 ">
+        <header className="flex fixed top-0 left-0 w-screen bg-[#f9fafb] px-1 sm:px-2 md:px-4 z-[100] items-center dark:bg-bg-header-d transition-colors duration-300 dark:text-[#DDDFE3] border-b-[#8a8a8a] py-2 ">
             <div
                 className="flex items-center justify-end min-w-[33%] gap-x-1 sm:gap-x-2 md:gap-x-3 "
                 style={{ flex: '1 1 auto' }}
@@ -85,8 +85,8 @@ function Header({ user }) {
                     className="flex items-center p-1 w-[55px] h-[30px] rounded-full border-2 cursor-pointer border-black/70 dark:bg-[#3A3B3C] bg-[#333]/10 dark:border-[#929292] relative "
                     onClick={handleToggleTheme}
                 >
-                    <Sun className="absolute left-1.5 w-5 h-5 text-black/80 font-extrabold transition-50 dark:translate-x-[15px] dark:opacity-0" />
-                    <Moon className="absolute w-5 h-5 right-1 font-extrabold text-white transition-50 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
+                    <Sun className="absolute left-1.5 w-5 h-5 text-black/80 font-extrabold transition-all duration-300 dark:translate-x-[15px] dark:opacity-0" />
+                    <Moon className="absolute w-5 h-5 right-1 font-extrabold text-white transition-all duration-300 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
                 </div>
             </div>
         </header>

@@ -113,7 +113,7 @@ function StudyConnectLayout({
             <div className="flex h-full w-full">
                 {/* Sidebar */}
                 <aside
-                    className="relative hidden h-full shrink-0 flex-col border-r border-blue-100 bg-white/80 shadow-sm backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-[#181b22]/80 md:flex"
+                    className="relative hidden h-full shrink-0 flex-col border-r border-blue-100 bg-white/80 shadow-sm backdrop-blur-xl transition-[width] duration-300 dark:border-white/10 dark:bg-[#181b22]/80 md:flex"
                     style={{ width: sidebarWidth }}
                 >
                     <Slider

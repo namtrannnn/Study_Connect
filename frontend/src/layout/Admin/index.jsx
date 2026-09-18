@@ -118,7 +118,7 @@ function AdminLayout({ children }) {
             >
                 {/* Sidebar */}
                 <aside
-                    className={`group/sidebar relative flex flex-col border-r transition-all duration-300 ${
+                    className={`group/sidebar relative flex flex-col border-r transition-[width] duration-300 ${
                         collapsed ? 'w-[76px]' : 'w-72'
                     } ${isDark
                         ? 'border-white/[0.06] bg-gradient-to-b from-[#0c1222] via-[#0f172a] to-[#0c1222]'
