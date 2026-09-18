@@ -20,7 +20,7 @@ const Home = () => {
     <div>
       <Header />
 
-      <div className="w-screen h-screen flex justify-between align-center overflow-hidden transition-50">
+      <div className="w-screen h-screen flex justify-between align-center overflow-hidden transition-colors duration-300">
         {dark === "dark" && (
           <div
             style={{ backgroundImage: `url('${darkBackground}')` }}

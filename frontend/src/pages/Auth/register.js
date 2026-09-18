@@ -67,7 +67,7 @@ const Register = () => {
         <div>
             <Header />
             <div
-                className={`h-screen w-screen flex items-center relative transition-50 overflow-hidden md:grid-cols-3 `}
+                className={`h-screen w-screen flex items-center relative transition-colors duration-300 overflow-hidden md:grid-cols-3 `}
                 style={{
                     backgroundImage: !theme ? `url(${bgRegister2})` : `url(${bgEarthDark})`,
                     backgroundSize: 'cover',
@@ -76,7 +76,7 @@ const Register = () => {
                 }}
             >
                 {/* image background */}
-                <div className="hidden md:flex h-full items-center justify-center relative transition-50">
+                <div className="hidden md:flex h-full items-center justify-center relative transition-opacity duration-300">
                     <img
                         src={!theme ? theSun : theMoon}
                         alt="theSun"
@@ -86,7 +86,7 @@ const Register = () => {
                 </div>
                 {/* form */}
                 <div className="flex w-full h-auto items-center justify-center z-10">
-                    <div className="bg-[#1e3a8a]/80 mx-[5%] md:mx-0 w-full mt-[60px] dark:bg-[#3a3a3a]/80 text-white/90 dark:text-white/70 md:w-auto px-[20px] md:px-[40px] py-[15px] sm:py-[30px] md:py-[30px] rounded-3xl transition-50 ">
+                    <div className="bg-[#1e3a8a]/80 mx-[5%] md:mx-0 w-full mt-[60px] dark:bg-[#3a3a3a]/80 text-white/90 dark:text-white/70 md:w-auto px-[20px] md:px-[40px] py-[15px] sm:py-[30px] md:py-[30px] rounded-3xl transition-colors duration-300 ">
                         <div className="text-center mb-[18px] text-xl sm:text-2xl md:text-[30px] text-[#38bdf8] dark:text-[#38bdf8]/80 font-extrabold ">
                             Đăng ký
                         </div>
