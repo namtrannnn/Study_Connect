@@ -1323,3 +1323,153 @@ async function updateLastAudienceSetting(
     },
   );
 }
+
+// [POST] /api/v1/post/ai-caption
+module.exports.generateAiCaption = async (req, res) => {
+  try {
+    const files = req.files || [];
+    const promptHint = req.body.promptHint || "";
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({
+        code: 400,
+        message: "Chưa cấu hình GEMINI_API_KEY trong file .env",
+      });
+    }
+
+    if (files.length === 0) {
+      return res.status(400).json({
+        code: 400,
+        message: "Vui lòng tải lên ít nhất 1 hình ảnh để AI phân tích",
+      });
+    }
+
+    const imageFile = files[0];
+    const base64Image = imageFile.buffer.toString("base64");
+    const mimeType = imageFile.mimetype || "image/jpeg";
+
+    const promptText = `Bạn là trợ lý AI sáng tạo caption mạng xã hội thông minh.
+Nhiệm vụ: Phân tích KỸ BỨC ẢNH ĐƯỢC GỬI KÈM${promptHint ? ` kết hợp với yêu cầu/ghi chú từ người dùng: "${promptHint}"` : ""}.
+
+LƯU Ý ĐẶC BIỆT VỀ ĐỘ DÀI NỘI DUNG:
+- NẾU NGƯỜI DÙNG CÓ YÊU CẦU CAPTION DÀI/CHI TIẾT TRONG GHI CHÚ (${promptHint || "Không có"}), HÃY VIẾT CAPTION DÀI VÀ CỰC KỲ CHI TIẾT (từ 2 đến 4 đoạn văn phong phú, giàu cảm xúc) THEO ĐÚNG YÊU CẦU CỦA HỌ!
+- Bám sát đối tượng chính trong ảnh (cầu thủ, bóng đá, chó/mèo, đồ ăn, học tập...).
+- Tự chọn 4 Tone phù hợp nhất.
+
+Trả về ĐÚNG 1 MẢNG JSON duy nhất (không bọc markdown, không giải thích):
+[
+  {
+    "tone": "<Tên tone 1>",
+    "text": "<Nội dung caption 1 bám sát bức ảnh và đúng độ dài yêu cầu kèm 2-3 hashtag>"
+  },
+  {
+    "tone": "<Tên tone 2>",
+    "text": "<Nội dung caption 2 kèm hashtag>"
+  },
+  {
+    "tone": "<Tên tone 3>",
+    "text": "<Nội dung caption 3 kèm hashtag>"
+  },
+  {
+    "tone": "<Tên tone 4>",
+    "text": "<Nội dung caption 4 kèm hashtag>"
+  }
+]`;
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            { text: promptText },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    };
+
+    const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+    let response;
+    let data;
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      data = await response.json();
+
+      if (!data?.error) break;
+
+      const isHighDemand =
+        data?.error?.code === 503 ||
+        data?.error?.status === "UNAVAILABLE" ||
+        data?.error?.message?.includes("high demand") ||
+        data?.error?.message?.includes("temporarily overloaded");
+
+      if (isHighDemand && attempt < maxRetries) {
+        console.warn(`[Gemini AI] Quá tải server (Lần ${attempt}/${maxRetries}), đang tự động thử lại sau ${attempt * 1.5}s...`);
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+      } else {
+        break;
+      }
+    }
+
+    if (data?.error) {
+      console.error("Gemini Vision AI error:", data.error);
+      const userMsg = data.error.message?.includes("high demand")
+        ? "Máy chủ Gemini AI hiện đang quá tải cục bộ. Vui lòng bấm 'Tải lại' hoặc thử lại sau vài giây!"
+        : `Lỗi từ Gemini AI: ${data.error.message}`;
+      return res.status(500).json({
+        code: 500,
+        message: userMsg,
+      });
+    }
+
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    let suggestions = [];
+    try {
+      const match = rawText.match(/\[[\s\S]*\]/);
+      const jsonString = match ? match[0] : rawText;
+      const parsed = JSON.parse(jsonString);
+
+      if (Array.isArray(parsed)) {
+        suggestions = parsed.map((item) => ({
+          tone: item.tone || "✨ AI Caption",
+          text: typeof item.text === "string" ? item.text : String(item),
+        }));
+      }
+    } catch (parseErr) {
+      console.error("JSON parse error:", parseErr, "Raw text:", rawText);
+      suggestions = [];
+    }
+
+    return res.status(200).json({
+      code: 200,
+      message: "Tạo caption từ ảnh thành công",
+      data: suggestions,
+    });
+  } catch (error) {
+    console.error("Generate AI caption error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Không thể phân tích ảnh vào lúc này",
+    });
+  }
+};
+

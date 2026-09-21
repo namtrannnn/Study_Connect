@@ -789,17 +789,19 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     };
 
     return (
-        <article className="group relative border-b border-gray-200/80 px-4 py-3 sm:px-5 sm:py-3 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
+        <article className="group relative border-b border-gray-200/80 px-4 py-3.5 sm:px-5 sm:py-4 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
             <div>
                 <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <Avatar
-                            onClick={handleGoAuthorProfile}
-                            className="h-12 w-12 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10 transition hover:opacity-85"
-                        >
-                            <AvatarImage src={authorAvatar} />
-                            <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <div className="w-[52px] flex shrink-0 items-center justify-center">
+                            <Avatar
+                                onClick={handleGoAuthorProfile}
+                                className="h-10 w-10 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10 transition hover:opacity-85"
+                            >
+                                <AvatarImage src={authorAvatar} />
+                                <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </div>
 
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
