@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     X,
     ImagePlus,
     Sparkles,
     Wand2,
-    Globe2,
-    Users,
-    Lock,
+    RotateCcw,
+    ChevronDown,
+    ChevronUp,
     Loader2,
     Trash2,
     Settings2,
@@ -15,43 +15,15 @@ import {
     EyeOff,
     Share2,
     MapPin,
-    UserCheck,
     Pencil,
+    StopCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import * as PostServices from '../../services/posts.services';
 import * as UserServices from '../../services/user.services';
 import VisibilitySelector from '../../components/VisibilitySelector';
-
-
-const VISIBILITIES = [
-    {
-        value: 'public',
-        label: 'Công khai',
-        icon: Globe2,
-    },
-    {
-        value: 'followers',
-        label: 'Người theo dõi',
-        icon: Users,
-    },
-    {
-        value: 'friends',
-        label: 'Bạn bè (Mutual follow)',
-        icon: Users,
-    },
-    {
-        value: 'private',
-        label: 'Chỉ mình tôi',
-        icon: Lock,
-    },
-    {
-        value: 'custom',
-        label: 'Tùy chỉnh',
-        icon: UserCheck,
-    },
-];
+import { Input } from '../../components/ui/input';
 
 function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated }) {
     const isEdit = mode === 'edit';
@@ -68,7 +40,6 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
     const [mentionSuggestions, setMentionSuggestions] = useState([]);
     const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
     const [selectedCustomUsers, setSelectedCustomUsers] = useState([]);
-    const [allowedUsersText, setAllowedUsersText] = useState('');
 
     const [allowComments, setAllowComments] = useState(true);
     const [hideLikeCount, setHideLikeCount] = useState(false);
@@ -76,68 +47,84 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
 
     const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
-    // AI Caption Generator (Mock)
+    // Synchronized scrolling for textarea and mention highlight layer
+    const textareaRef = useRef(null);
+    const highlightRef = useRef(null);
+
+    const handleScrollTextarea = (e) => {
+        if (highlightRef.current) {
+            highlightRef.current.scrollTop = e.target.scrollTop;
+        }
+    };
+
+    // AI Caption Generator
     const [aiLoading, setAiLoading] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState([]);
     const [showAiPanel, setShowAiPanel] = useState(false);
     const [aiPromptHint, setAiPromptHint] = useState('');
+    const [expandedCards, setExpandedCards] = useState({});
+    const abortControllerRef = useRef(null);
 
-    const handleGenerateAiCaption = () => {
+    const toggleExpandCard = (index) => {
+        setExpandedCards((prev) => ({
+            ...prev,
+            [index]: !prev[index],
+        }));
+    };
+
+    const handleCancelAiAnalysis = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setAiLoading(false);
+        toast.info('⏹️ Đã dừng phân tích AI');
+    };
+
+    const handleGenerateAiCaption = async () => {
         if (images.length === 0 && existingMedia.length === 0) {
             toast.info('💡 Vui lòng thêm ít nhất 1 hình ảnh bên dưới để AI phân tích và gợi ý caption!');
             return;
         }
 
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         setShowAiPanel(true);
         setAiLoading(true);
         setAiSuggestions([]);
 
-        const hint = aiPromptHint.trim();
-
-        // Giả lập Gemini Vision API phân tích hình ảnh + prompt hint trong 1.2 giây
-        setTimeout(() => {
-            setAiLoading(false);
-
-            if (hint) {
-                setAiSuggestions([
-                    {
-                        tone: '🎓 Cá nhân hóa',
-                        text: `Góc nhỏ làm việc với "${hint}". Nỗ lực không ngừng nghỉ vì mục tiêu lớn phía trước! 📚✨ #StudyWithMe #StudyConnect`,
-                    },
-                    {
-                        tone: '🔥 Quyết tâm',
-                        text: `Tập trung cao độ cho "${hint}"! Mọi sự cố gắng đều sẽ được đền đáp xứng đáng 💪🚀 #Motivation #StudyHard`,
-                    },
-                    {
-                        tone: '😆 Hài hước / Chill',
-                        text: `Khi vừa làm "${hint}" vừa chill cùng ly cà phê đậm đặc... ☕😂 #WorkLifeBalance #StudyConnect`,
-                    },
-                    {
-                        tone: '🎯 Tóm tắt',
-                        text: `Focusing on: ${hint}. Chinh phục ước mơ! 🎯 #StudyConnect`,
-                    },
-                ]);
-            } else {
-                setAiSuggestions([
-                    {
-                        tone: '🎓 Học thuật',
-                        text: 'Vươn tới mục tiêu mỗi ngày! Cố gắng hôm nay là chìa khóa mở ra thành công ngày mai 📚✨ #StudyWithMe #StudyConnect #Focus',
-                    },
-                    {
-                        tone: '🔥 Motivation',
-                        text: 'Hành trình vạn dặm bắt đầu từ những bước chân kiên trì. Giữ vững ngọn lửa đam mê nhé 💪☕ #Motivation #StudyHard',
-                    },
-                    {
-                        tone: '🌿 Chill Vibes',
-                        text: 'Góc nhỏ thân quen cho một ngày học tập thật tập trung và hiệu quả 🍵💻 #ChillStudy #StudyConnect',
-                    },
-                    {
-                        tone: '🎯 Ngắn gọn',
-                        text: 'Focus & Discipline. Chinh phục từng mục tiêu! 🚀 #StudyConnect',
-                    },
-                ]);
+        try {
+            const formData = new FormData();
+            if (aiPromptHint.trim()) {
+                formData.append('promptHint', aiPromptHint.trim());
             }
-        }, 1200);
+
+            if (images.length > 0) {
+                images.forEach((img) => formData.append('images', img));
+            }
+
+            const res = await PostServices.generateAiCaption(formData, { signal: controller.signal });
+            if (res?.code === 200 && Array.isArray(res.data)) {
+                setAiSuggestions(res.data);
+                toast.success('✨ Gemini AI đã phân tích ảnh xong!');
+            } else {
+                toast.error(res?.message || 'Không thể tạo caption lúc này');
+            }
+        } catch (error) {
+            if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+                console.log('AI Caption analysis was canceled by user.');
+                return;
+            }
+            console.error('AI Caption generation error:', error);
+            toast.error(error?.response?.data?.message || 'Lỗi khi gọi Gemini Vision AI');
+        } finally {
+            setAiLoading(false);
+            abortControllerRef.current = null;
+        }
     };
 
     const handleApplyAiCaption = (suggestedText) => {
@@ -159,8 +146,6 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
         // Load ảnh cũ đã có trên server
         setExistingMedia(Array.isArray(post.media) ? post.media : []);
     }, [isEdit, post]);
-    const selectedVisibility = VISIBILITIES.find((item) => item.value === visibility);
-    const SelectedVisibilityIcon = selectedVisibility?.icon || Globe2;
 
     useEffect(() => {
         if (!showMentionSuggestions) {
@@ -253,12 +238,6 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
         setImages((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const parseIdList = (text) => {
-        return text
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-    };
     const validateForm = () => {
         if (!caption.trim() && images.length === 0) {
             toast.error('Vui lòng nhập nội dung hoặc thêm ảnh');
@@ -347,7 +326,6 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                     setLocation('');
                     setShowMentionSuggestions(false);
                     setSelectedMentions([]);
-                    setAllowedUsersText('');
                     setAllowComments(true);
                     setHideLikeCount(false);
                     setHideShare(false);
@@ -374,13 +352,13 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                 className="relative w-full max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-2xl dark:bg-[#17191f]"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-rose-400 via-fuchsia-400 to-violet-400" />
+                <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500" />
                 <div className="flex max-h-[92vh] flex-col">
                     <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#17191f]/90">
                         <div className="flex items-center justify-between">
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow-lg shadow-fuchsia-500/25">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25">
                                         {isEdit ? <Pencil size={20} /> : <Sparkles size={20} />}
                                     </div>
 
@@ -406,8 +384,9 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="custom-modal-scroll overflow-y-auto px-5 py-5">
-                        <div className="rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-4 dark:border-white/10 dark:from-white/5 dark:to-white/[0.02]">
+                    <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                        <div className="custom-modal-scroll flex-1 overflow-y-auto px-5 py-5">
+                            <div className="rounded-3xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-4 dark:border-white/10 dark:from-white/5 dark:to-white/[0.02]">
                             <div className="flex items-center gap-3">
                                 <img
                                     src={user?.avatar || 'https://i.pravatar.cc/150?img=3'}
@@ -432,9 +411,12 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             </div>
 
                             <div className="relative mt-4">
-                                <div className="relative min-h-[100px] overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/50 transition focus-within:border-gray-400 focus-within:ring-4 focus-within:ring-gray-400/10 dark:border-white/10 dark:bg-[#20232b] dark:focus-within:border-white/20 dark:focus-within:ring-white/5">
+                                <div className="relative min-h-[110px] max-h-[260px] overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/50 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:focus-within:border-blue-400/20 dark:focus-within:ring-blue-400/5">
                                     {/* Lớp hiển thị text màu xanh cho @mention */}
-                                    <div className="pointer-events-none absolute inset-0 min-h-[100px] whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-6 text-gray-900 dark:text-white">
+                                    <div
+                                        ref={highlightRef}
+                                        className="pointer-events-none absolute inset-0 min-h-[110px] max-h-[260px] overflow-hidden whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-6 text-gray-900 dark:text-white"
+                                    >
                                         {caption ? (
                                             renderCaptionHighlight(caption)
                                         ) : (
@@ -446,10 +428,11 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
 
                                     {/* Textarea thật để nhập, nhưng chữ transparent */}
                                     <textarea
+                                        ref={textareaRef}
                                         value={caption}
                                         onChange={(e) => handleCaptionChange(e.target.value)}
-                                        rows={3}
-                                        className="relative z-10 min-h-[100px] w-full resize-none border-none bg-transparent px-4 py-3 text-[15px] leading-6 text-transparent caret-gray-900 outline-none placeholder:text-transparent focus:outline-none dark:caret-white"
+                                        onScroll={handleScrollTextarea}
+                                        className="relative z-10 min-h-[110px] max-h-[260px] w-full resize-none border-none bg-transparent px-4 py-3 text-[15px] leading-6 text-transparent caret-gray-900 overflow-y-auto outline-none placeholder:text-transparent focus:outline-none dark:caret-white"
                                     />
                                 </div>
 
@@ -515,11 +498,10 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             <button
                                 type="button"
                                 onClick={handleGenerateAiCaption}
-                                className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/30 active:scale-95"
+                                className="group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/30 active:scale-95"
                             >
                                 <Wand2 size={14} className="animate-bounce" />
                                 <span>AI Gợi ý Caption</span>
-                                <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">MOCK</span>
                             </button>
 
                             <button
@@ -536,20 +518,23 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             </button>
                         </div>
 
-                        {/* AI Caption Suggestion Panel (Mock Demonstration) */}
+                        {/* AI Caption Suggestion Panel - Refined Modern UI */}
                         {showAiPanel && (
-                            <div className="mt-3 rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50/80 via-indigo-50/50 to-pink-50/60 p-4 shadow-sm dark:border-purple-500/20 dark:from-purple-950/20 dark:via-indigo-950/20 dark:to-pink-950/20">
-                                <div className="mb-3 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white shadow-sm">
-                                            <Wand2 size={14} />
+                            <div className="mt-3 rounded-3xl border border-blue-200/90 bg-gradient-to-br from-blue-50/90 via-sky-50/40 to-indigo-50/60 p-4 shadow-lg shadow-blue-500/5 backdrop-blur-xl dark:border-blue-500/30 dark:from-[#151922] dark:via-[#192131] dark:to-[#141824]">
+                                {/* Header */}
+                                <div className="mb-3.5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-blue-500/25">
+                                            <Wand2 size={16} />
                                         </div>
                                         <div>
-                                            <h4 className="text-xs font-bold text-gray-900 dark:text-white">
-                                                AI Smart Caption Suggestions (Mock)
+                                            <h4 className="bg-gradient-to-r from-blue-700 via-indigo-700 to-cyan-600 bg-clip-text text-sm font-extrabold text-transparent dark:from-blue-400 dark:via-cyan-300 dark:to-indigo-300">
+                                                AI Smart Caption Suggestions
                                             </h4>
-                                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                                                {aiLoading ? 'Đang phân tích hình ảnh với Gemini Vision AI...' : 'Bấm vào 1 caption bên dưới để áp dụng:'}
+                                            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                                {aiLoading
+                                                    ? 'Gemini AI đang phân tích chi tiết bức ảnh của bạn...'
+                                                    : 'Chọn 1 gợi ý bên dưới để tự động chèn vào bài viết:'}
                                             </p>
                                         </div>
                                     </div>
@@ -557,59 +542,156 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                     <button
                                         type="button"
                                         onClick={() => setShowAiPanel(false)}
-                                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                        className="flex h-7 w-7 items-center justify-center rounded-full text-xs text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/20 dark:hover:text-red-300"
+                                        title="Đóng bảng gợi ý"
                                     >
-                                        Đóng ✕
+                                        ✕
                                     </button>
                                 </div>
 
-                                {/* Ô nhập mô tả bổ sung cho AI */}
-                                <div className="mb-3 flex items-center gap-2">
-                                    <input
-                                        type="text"
+                                {/* Ô nhập ghi chú / gợi ý phong cách cho AI bằng UI Input component */}
+                                <div className="mb-3.5">
+                                    <Input
+                                        icon={Sparkles}
                                         value={aiPromptHint}
                                         onChange={(e) => setAiPromptHint(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleGenerateAiCaption())}
-                                        placeholder="💡 Thêm chi tiết / ý đồ của bạn (vd: Thức đêm làm đồ án, Đã đỗ kỳ thi...)"
-                                        className="flex-1 rounded-xl border border-purple-200 bg-white/90 px-3 py-1.5 text-xs text-gray-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-400/20 dark:border-white/10 dark:bg-[#1c1f26] dark:text-white dark:placeholder-gray-500"
+                                        placeholder="Gợi ý chi tiết thêm (vd: Cần caption dài xúc động, Đã đỗ thủ khoa...)"
+                                        rightElement={
+                                            aiLoading ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCancelAiAnalysis}
+                                                    className="flex items-center gap-1.5 rounded-xl bg-red-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-red-600 active:scale-95"
+                                                    title="Hủy quá trình phân tích AI"
+                                                >
+                                                    <StopCircle size={14} />
+                                                    <span>Dừng phân tích</span>
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleGenerateAiCaption}
+                                                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/25 transition hover:scale-[1.02] active:scale-95"
+                                                >
+                                                    <Sparkles size={13} />
+                                                    <span>{aiPromptHint ? 'Tạo lại' : 'Tạo mới'}</span>
+                                                </button>
+                                            )
+                                        }
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={handleGenerateAiCaption}
-                                        disabled={aiLoading}
-                                        className="flex shrink-0 items-center gap-1.5 rounded-xl bg-purple-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-purple-700 disabled:opacity-50"
-                                    >
-                                        <Sparkles size={13} />
-                                        <span>{aiPromptHint ? 'Tạo lại AI' : 'Làm mới'}</span>
-                                    </button>
                                 </div>
 
+                                {/* Main Content / Loading */}
                                 {aiLoading ? (
-                                    <div className="flex items-center justify-center gap-2.5 py-6 text-xs font-semibold text-purple-600 dark:text-purple-400 animate-pulse">
-                                        <Loader2 size={18} className="animate-spin" />
-                                        <span>Gemini AI đang nhận diện hình ảnh và sáng tạo caption...</span>
+                                    <div className="my-2 flex flex-col items-center justify-center rounded-2xl border border-blue-100 bg-white/80 py-7 shadow-inner dark:border-white/10 dark:bg-[#1a1e28]">
+                                        <div className="relative mb-3 flex items-center justify-center">
+                                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 dark:border-blue-900 dark:border-t-blue-400" />
+                                            <Wand2 size={16} className="absolute text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                                            Gemini Vision AI đang sáng tạo caption...
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                            Đang nhận diện nội dung hình ảnh & bóc tách 4 phong cách độc đáo
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={handleCancelAiAnalysis}
+                                            className="mt-3.5 inline-flex items-center gap-1.5 rounded-2xl border border-red-200 bg-red-50 px-4 py-1.5 text-xs font-bold text-red-600 shadow-sm transition hover:bg-red-100 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/50"
+                                        >
+                                            <StopCircle size={14} />
+                                            <span>Dừng phân tích ngay</span>
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                                        {aiSuggestions.map((item, idx) => (
-                                            <div
-                                                key={idx}
-                                                onClick={() => handleApplyAiCaption(item.text)}
-                                                className="group cursor-pointer rounded-xl border border-purple-100 bg-white/90 p-3 shadow-sm transition-all hover:border-purple-300 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#20232b] dark:hover:border-purple-500/40"
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            {aiSuggestions.map((item, idx) => {
+                                                const isExpanded = !!expandedCards[idx];
+                                                const textContent = typeof item.text === 'string' ? item.text : JSON.stringify(item.text);
+                                                const isLongText = textContent.length > 130;
+
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className="group relative flex flex-col justify-between rounded-2xl border border-blue-100/90 bg-white/95 p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md dark:border-white/10 dark:bg-[#1c202c] dark:hover:border-blue-500/40"
+                                                    >
+                                                        <div>
+                                                            {/* Header của từng thẻ card */}
+                                                            <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-gray-100 pb-2 dark:border-white/5">
+                                                                <span className="inline-flex items-center gap-1 rounded-lg border border-blue-200/60 bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 dark:border-blue-500/20 dark:bg-blue-950/40 dark:text-blue-300">
+                                                                    <Sparkles size={11} className="text-blue-500" />
+                                                                    {item.tone || `Gợi ý ${idx + 1}`}
+                                                                </span>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleApplyAiCaption(textContent)}
+                                                                    className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-3 py-1 text-[11px] font-bold text-white shadow-sm shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-700 active:scale-95"
+                                                                >
+                                                                    <span>Áp dụng</span>
+                                                                    <Sparkles size={11} />
+                                                                </button>
+                                                            </div>
+
+                                                            {/* Nội dung caption */}
+                                                            <p
+                                                                className={`whitespace-pre-wrap text-xs leading-relaxed text-gray-800 dark:text-gray-200 ${
+                                                                    !isExpanded && isLongText ? 'line-clamp-3' : ''
+                                                                }`}
+                                                            >
+                                                                {textContent}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Nút Xem thêm / Thu gọn cho văn bản dài */}
+                                                        {isLongText && (
+                                                            <div className="mt-2.5 flex items-center justify-between border-t border-gray-100 pt-2 dark:border-white/5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleExpandCard(idx)}
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                                                >
+                                                                    {isExpanded ? (
+                                                                        <>
+                                                                            <span>Thu gọn</span>
+                                                                            <ChevronUp size={13} />
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span>Xem đầy đủ</span>
+                                                                            <ChevronDown size={13} />
+                                                                        </>
+                                                                    )}
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleApplyAiCaption(textContent)}
+                                                                    className="text-[11px] font-bold text-cyan-600 transition hover:underline dark:text-cyan-400"
+                                                                >
+                                                                    Chọn caption này
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Nút Tải thêm 4 gợi ý khác */}
+                                        <div className="flex items-center justify-center pt-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={handleGenerateAiCaption}
+                                                disabled={aiLoading}
+                                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-200/90 bg-white/90 px-5 py-2.5 text-xs font-bold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50/80 hover:shadow-md disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-blue-300 dark:hover:bg-white/10"
                                             >
-                                                <div className="mb-1.5 flex items-center justify-between">
-                                                    <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-500/20 dark:text-purple-300">
-                                                        {item.tone}
-                                                    </span>
-                                                    <span className="text-[11px] font-bold text-purple-600 opacity-0 transition group-hover:opacity-100 dark:text-purple-400">
-                                                        Áp dụng ✨
-                                                    </span>
-                                                </div>
-                                                <p className="line-clamp-3 text-xs leading-relaxed text-gray-700 dark:text-gray-300">
-                                                    {item.text}
-                                                </p>
-                                            </div>
-                                        ))}
+                                                <RotateCcw size={14} className="text-blue-600 dark:text-blue-400" />
+                                                <span>Tải thêm 4 gợi ý khác từ AI</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -802,12 +884,13 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                 </div>
                             )}
                         </div>
+                    </div>
 
-                        <div className="sticky bottom-0 -mx-5 mt-5 border-t border-gray-100 bg-white/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#17191f]/90">
+                    <div className="shrink-0 border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#17191f]/95">
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 py-3 font-bold text-white shadow-lg shadow-fuchsia-500/20 transition hover:from-fuchsia-600 hover:to-violet-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 py-3 font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-700 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {loading && <Loader2 size={18} className="animate-spin" />}
                                 {loading ? (isEdit ? 'Đang lưu...' : 'Đang đăng bài...') : (isEdit ? 'Lưu thay đổi' : 'Đăng bài')}

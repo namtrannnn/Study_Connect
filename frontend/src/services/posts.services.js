@@ -111,3 +111,15 @@ export const getPostLikes = async ({ postId, page = 1, limit = 10, search = '' }
 
     return res.data;
 };
+
+// [POST] /api/v1/post/ai-caption
+export const generateAiCaption = async (formData, options = {}) => {
+    const res = await httpRequest.post('/post/ai-caption', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+        ...options,
+    });
+
+    return res.data;
+};

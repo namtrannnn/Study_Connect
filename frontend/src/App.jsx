@@ -147,6 +147,7 @@ function App() {
                 draggable
                 pauseOnHover
                 theme={dark ? 'dark' : 'light'}
+                style={{ zIndex: 999999 }}
             />
 
             <div className="app">

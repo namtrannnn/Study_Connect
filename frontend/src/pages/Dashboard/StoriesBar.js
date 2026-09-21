@@ -43,7 +43,7 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
     const otherGroups = feedGroups.filter((g) => g.author?._id !== user?._id);
 
     return (
-        <div className="relative mb-1 rounded-2xl bg-white dark:bg-[#18181b] px-4 py-1 transition-all duration-300 select-none">
+        <div className="relative mb-3 rounded-2xl bg-white dark:bg-[#18181b] px-4 sm:px-5 py-3 transition-all duration-300 select-none">
             {/* Left Scroll Button */}
             {canLeft && (
                 <button
@@ -75,10 +75,10 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
             )}
 
             {/* Stories Scroller */}
-            <div ref={scrollerRef} className="flex items-center gap-4 overflow-x-auto no-scrollbar scroll-smooth px-1 py-0.5">
+            <div ref={scrollerRef} className="flex items-center gap-4 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
                 {/* CREATE STORY / MY STORY */}
-                <div className="shrink-0 flex flex-col items-center gap-1.5 w-[78px] group">
-                    <div className="relative">
+                <div className="shrink-0 flex flex-col items-center gap-1.5 w-[52px] group">
+                    <div className="relative flex items-center justify-center w-[52px]">
                         <button
                             type="button"
                             onClick={() => {
@@ -88,7 +88,7 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                                     onCreateStory?.();
                                 }
                             }}
-                            className={`relative w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${
+                            className={`relative w-12 h-12 rounded-full p-[2.5px] transition-all duration-300 ${
                                 myGroup && myGroup.stories?.length > 0
                                     ? myGroup.hasUnviewed
                                         ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-purple-500/20 group-hover:scale-105'
@@ -110,13 +110,13 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                             type="button"
                             onClick={() => onCreateStory?.()}
                             title="Tạo story mới"
-                            className="absolute -bottom-0.5 -right-0.5 z-10 w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-[#18181b] shadow-md hover:scale-110 active:scale-95 transition-all duration-200"
+                            className="absolute -bottom-0.5 right-0.5 z-10 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-[#18181b] shadow-md hover:scale-110 active:scale-95 transition-all duration-200"
                         >
-                            <Plus size={15} className="stroke-[3]" />
+                            <Plus size={13} className="stroke-[3]" />
                         </button>
                     </div>
 
-                    <div className="text-[12px] font-medium tracking-tight text-slate-800 dark:text-slate-200 max-w-[78px] truncate text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    <div className="text-[11px] font-medium tracking-tight text-slate-800 dark:text-slate-200 w-full truncate text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                         Tin của bạn
                     </div>
                 </div>
@@ -130,12 +130,12 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                         <button
                             key={author._id}
                             onClick={() => onOpenStoryGroup?.(author._id)}
-                            className="shrink-0 flex flex-col items-center gap-1.5 w-[78px] group text-left cursor-pointer"
+                            className="shrink-0 flex flex-col items-center gap-1.5 w-[52px] group text-left cursor-pointer"
                             type="button"
                             title={author.fullName}
                         >
                             <div
-                                className={`w-[66px] h-[66px] rounded-full p-[3px] transition-all duration-300 ${hasUnviewed
+                                className={`w-12 h-12 rounded-full p-[2.5px] transition-all duration-300 ${hasUnviewed
                                     ? 'bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 shadow-md shadow-pink-500/20 group-hover:scale-105 group-hover:rotate-1'
                                     : 'bg-slate-300 dark:bg-slate-700/80 group-hover:scale-105'
                                     }`}
@@ -149,7 +149,7 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
                                 </div>
                             </div>
 
-                            <div className="text-[12px] font-medium tracking-tight text-slate-800 dark:text-slate-200 max-w-[78px] truncate text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            <div className="text-[11px] font-medium tracking-tight text-slate-800 dark:text-slate-200 w-full truncate text-center group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                 {author.fullName}
                             </div>
                         </button>

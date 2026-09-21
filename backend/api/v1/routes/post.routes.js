@@ -13,6 +13,14 @@ router.post(
   controller.createPost,
 );
 
+// POST /api/v1/post/ai-caption
+router.post(
+  "/ai-caption",
+  userMiddleware.requireUser,
+  upload.array("images", 5),
+  controller.generateAiCaption,
+);
+
 // PATCH /api/v1/post/edit/:id
 router.patch(
   "/edit/:id",

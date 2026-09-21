@@ -257,13 +257,15 @@ function Dashboard({ user: propUser, theme }) {
             {/* Threads Unified Container - flex column fills entire height */}
             <div className="flex h-full flex-col rounded-2xl bg-white shadow-sm dark:bg-[#18181b]">
                 {/* Fixed Header - never scrolls */}
-                <div className="shrink-0 p-4 sm:p-5">
-                    <div className="flex items-center gap-3">
-                        <img
-                            src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
-                            alt="avatar"
-                            className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
-                        />
+                <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-3.5 border-b border-gray-100 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-[52px] flex shrink-0 items-center justify-center">
+                            <img
+                                src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                                alt="avatar"
+                                className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
+                            />
+                        </div>
 
                         <button
                             type="button"
@@ -294,7 +296,7 @@ function Dashboard({ user: propUser, theme }) {
                 </div>
 
                 {/* Feed Content */}
-                <div className="min-h-0 flex-1 p-3 sm:p-4 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto">
 
                     {loadingPosts && <LoadingDashboard />}
 
