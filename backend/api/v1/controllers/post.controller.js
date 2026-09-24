@@ -4,6 +4,7 @@ const Like = require("../models/postLike.model");
 const PostSave = require("../models/postsave.model");
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { deleteMultipleFromCloudinary } = uploadStreamToCloudinary;
+const { moderatePostContent } = require("../../../helpers/aiModerator.helper");
 const mongoose = require("mongoose");
 
 let sharp;
@@ -242,6 +243,26 @@ module.exports.createPost = async (req, res) => {
       return res.status(400).json({
         code: 400,
         message: "Một bài viết chỉ được tối đa 10 media",
+      });
+    }
+
+    // ----------------------------------------------------
+    // AI MODERATOR BOT (Kiểm duyệt Text + Hình ảnh)
+    // ----------------------------------------------------
+    let textToModerate = caption;
+    if (question?.title) textToModerate += `\n${question.title}`;
+    if (quiz?.title) textToModerate += `\n${quiz.title}`;
+
+    const moderation = await moderatePostContent({
+      text: textToModerate,
+      files,
+    });
+
+    if (!moderation.isAllowed) {
+      return res.status(400).json({
+        code: 400,
+        message: `Bài viết bị AI Moderator từ chối: ${moderation.reason || "Nội dung vi phạm quy chuẩn cộng đồng."}`,
+        category: moderation.category,
       });
     }
 
