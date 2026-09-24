@@ -411,7 +411,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                             </div>
 
                             <div className="relative mt-4">
-                                <div className="relative min-h-[110px] max-h-[260px] overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/50 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-white/10 dark:bg-[#20232b] dark:focus-within:border-blue-400/20 dark:focus-within:ring-blue-400/5">
+                                <div className="relative min-h-[110px] max-h-[260px] overflow-hidden rounded-2xl bg-gray-50/50 transition dark:bg-[#20232b]">
                                     {/* Lớp hiển thị text màu xanh cho @mention */}
                                     <div
                                         ref={highlightRef}
@@ -432,7 +432,9 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                         value={caption}
                                         onChange={(e) => handleCaptionChange(e.target.value)}
                                         onScroll={handleScrollTextarea}
-                                        className="relative z-10 min-h-[110px] max-h-[260px] w-full resize-none border-none bg-transparent px-4 py-3 text-[15px] leading-6 text-transparent caret-gray-900 overflow-y-auto outline-none placeholder:text-transparent focus:outline-none dark:caret-white"
+                                        spellCheck={false}
+                                        autoComplete="off"
+                                        className="relative z-10 min-h-[110px] max-h-[260px] w-full resize-none border-none bg-transparent px-4 py-3 text-[15px] leading-6 text-transparent caret-gray-900 overflow-y-auto outline-none placeholder:text-transparent focus:outline-none selection:bg-blue-500/20 dark:caret-white"
                                     />
                                 </div>
 
