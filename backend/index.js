@@ -84,6 +84,11 @@ global._io = io;
 const socketIO = require("./api/v1/sockets/index");
 socketIO();
 // END SOCKET
+
+// KÍCH HOẠT AUTO-SCANNER BOT PHỄU 4 TẦNG (TẦNG 3 ASYNC WORKER)
+const { startStage3Worker } = require("./services/moderation/stage3_asyncQueue.service");
+startStage3Worker();
+
 server.listen(port, "0.0.0.0", () => {
   console.log(`Server running on port ${port}`);
 });

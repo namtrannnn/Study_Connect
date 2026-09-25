@@ -5,6 +5,7 @@ const PostSave = require("../models/postsave.model");
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { deleteMultipleFromCloudinary } = uploadStreamToCloudinary;
 const { moderatePostContent } = require("../../../helpers/aiModerator.helper");
+const { runFastPreModeration } = require("../../../helpers/moderation");
 const mongoose = require("mongoose");
 
 let sharp;
@@ -247,22 +248,22 @@ module.exports.createPost = async (req, res) => {
     }
 
     // ----------------------------------------------------
-    // AI MODERATOR BOT (Kiểm duyệt Text + Hình ảnh)
+    // PRE-MODERATION PHỄU 4 TẦNG (Tầng 1 & Tầng 2: 0ms - 50ms)
     // ----------------------------------------------------
     let textToModerate = caption;
     if (question?.title) textToModerate += `\n${question.title}`;
     if (quiz?.title) textToModerate += `\n${quiz.title}`;
 
-    const moderation = await moderatePostContent({
+    const fastModeration = await runFastPreModeration({
       text: textToModerate,
       files,
     });
 
-    if (!moderation.isAllowed) {
+    if (fastModeration && !fastModeration.isAllowed) {
       return res.status(400).json({
         code: 400,
-        message: `Bài viết bị AI Moderator từ chối: ${moderation.reason || "Nội dung vi phạm quy chuẩn cộng đồng."}`,
-        category: moderation.category,
+        message: `Bài viết bị hệ thống từ chối: ${fastModeration.reason || "Nội dung vi phạm quy chuẩn cộng đồng."}`,
+        category: fastModeration.category,
       });
     }
 
@@ -301,6 +302,7 @@ module.exports.createPost = async (req, res) => {
       hideShare: String(hideShare) === "true",
       visibility,
       allowedUsers,
+      isAudited: moderation.isAudited ?? false,
     });
 
     await newPost.save();

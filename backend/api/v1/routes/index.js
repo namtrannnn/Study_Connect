@@ -35,8 +35,11 @@ const Report = require("./report.routes");
 // [CONTACT NICKNAME]
 const ContactNickname = require("./contactNickname.routes");
 
+const adminModerationRoute = require("./adminModeration.route");
+
 module.exports = (app) => {
   const version = "/api/v1";
+  app.use(version + "/admin/moderation", adminModerationRoute);
   app.use(version + "/admin", Admin);
   app.use(version + "/report", Report);
   app.use(version + "/contact-nickname", ContactNickname);
