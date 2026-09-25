@@ -47,6 +47,7 @@ function fastRuleCheck(text = "") {
     if (pattern.test(text)) {
       return {
         isAllowed: false,
+        isAudited: true,
         category: "SCAM_FRAUD",
         reason: "Nội dung chứa từ khóa vi phạm quy chuẩn cộng đồng (lừa đảo/cờ bạc/từ ngữ cấm).",
       };
@@ -138,7 +139,8 @@ YÊU CẦU BẮT BUỘC: Trả về DUY NHẤT một chuỗi JSON (responseMimeT
 
     if (data?.error) {
       console.error("[AI Moderator API Error]:", data.error.message);
-      return { isAllowed: true, category: "NONE", reason: "" };
+      // Lớp 3 Safe Fallback -> Cho phép đăng nhưng isAudited = false để Bot quét lại sau
+      return { isAllowed: true, isAudited: false, category: "NONE", reason: "" };
     }
 
     const candidate = data?.candidates?.[0];
@@ -149,6 +151,7 @@ YÊU CẦU BẮT BUỘC: Trả về DUY NHẤT một chuỗi JSON (responseMimeT
     if (finishReason === "SAFETY" || blockReason === "SAFETY" || finishReason === "RECITATION") {
       return {
         isAllowed: false,
+        isAudited: true,
         category: "SAFETY",
         reason: "Hình ảnh hoặc nội dung vi phạm tiêu chuẩn an toàn của hệ thống.",
       };
@@ -161,13 +164,14 @@ YÊU CẦU BẮT BUỘC: Trả về DUY NHẤT một chuỗi JSON (responseMimeT
 
     return {
       isAllowed: parsed.isAllowed ?? true,
+      isAudited: true,
       category: parsed.category || "NONE",
       reason: parsed.reason || "",
     };
   } catch (error) {
     console.error("[AI Moderator System Error]:", error.message);
-    // LỚP 3: SAFE FALLBACK
-    return { isAllowed: true, category: "NONE", reason: "" };
+    // LỚP 3: SAFE FALLBACK -> Cho phép đăng nhưng isAudited = false để Bot quét lại sau
+    return { isAllowed: true, isAudited: false, category: "NONE", reason: "" };
   }
 }
 

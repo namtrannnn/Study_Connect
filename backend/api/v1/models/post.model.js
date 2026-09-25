@@ -178,6 +178,17 @@ const postSchema = new mongoose.Schema(
       default: "active",
     },
 
+    isAudited: {
+      type: Boolean,
+      default: false,
+    },
+
+    violationReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     isEdited: {
       type: Boolean,
       default: false,
