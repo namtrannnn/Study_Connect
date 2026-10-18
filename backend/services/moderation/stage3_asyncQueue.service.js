@@ -1,71 +1,248 @@
+const crypto = require("crypto");
 const Post = require("../../api/v1/models/post.model");
+const ModerationLog = require("../../api/v1/models/moderationLog.model");
 const { evaluateDeepContextAndRiskScore } = require("./stage3_deepContextAI.service");
+const { evaluateFinalDecision } = require("./decisionEngine.service");
+
+// Biến cờ kiểm soát tránh chạy chồng chéo worker
+let isWorkerRunning = false;
 
 /**
- * TẦNG 3: ASYNC QUEUE WORKER (Tiến trình quét ngầm đa phương thức)
+ * Xử lý kiểm duyệt cho một bài viết đơn lẻ
  */
-async function processAsyncModerationQueue() {
+async function processSinglePost(post) {
+  const startTime = Date.now();
+  const requestId = post.requestId || crypto.randomUUID();
+  const moderationRunId = `run_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+  const previousStatus = post.status;
+
   try {
-    // 1. Lấy các bài viết chưa audit (isAudited = false) và không ở trạng thái 'hidden'/'deleted'
-    const pendingPosts = await Post.find({
-      isAudited: false,
-      status: { $in: ["active", "pending_admin"] },
-    }).limit(10);
+    const mediaUrls = (post.media || []).map((m) => m.url);
+    let textToAnalyze = post.caption || "";
+    if (post.question?.title) textToAnalyze += `\n${post.question.title}`;
+    if (post.quiz?.title) textToAnalyze += `\n${post.quiz.title}`;
 
-    if (pendingPosts.length === 0) return;
+    // 1. Phân tích sâu Tầng 3 bằng Multimodal AI
+    const t3Signal = await evaluateDeepContextAndRiskScore({
+      text: textToAnalyze,
+      mediaUrls,
+    });
 
-    console.log(`🤖 [Tầng 3 Async Worker] Đang phân tích ngầm ${pendingPosts.length} bài viết...`);
+    // 2. Chuyển tín hiệu vào Decision Engine (Single Source of Truth)
+    const decision = evaluateFinalDecision({ t3: t3Signal });
 
-    for (const post of pendingPosts) {
-      const mediaUrls = (post.media || []).map((m) => m.url);
+    // 3. Bảo vệ Stale Worker & Optimistic Concurrency Check (Blueprint 10.5 & 10.7)
+    const freshPost = await Post.findById(post._id);
+    if (!freshPost) return;
 
-      // 2. Chạy Gemini Deep Context Scorer
-      const evaluation = await evaluateDeepContextAndRiskScore({
-        text: post.caption || "",
-        mediaUrls,
+    if (freshPost.status === "deleted") {
+      await ModerationLog.create({
+        requestId,
+        moderationRunId,
+        contentVersion: post.contentVersion || 1,
+        postId: post._id,
+        userId: post.author,
+        action: "hide",
+        source: "system",
+        reasonCode: "POST_DELETED",
+        reason: "Bài viết đã bị người dùng xóa trong quá trình kiểm duyệt",
+        stage: "SYSTEM",
+        processingTimeMs: Date.now() - startTime,
+        previousStatus: "deleted",
+        newStatus: "deleted",
+      });
+      return;
+    }
+
+    if (freshPost.contentVersion !== post.contentVersion) {
+      await ModerationLog.create({
+        requestId,
+        moderationRunId,
+        contentVersion: post.contentVersion || 1,
+        postId: post._id,
+        userId: post.author,
+        action: "hide",
+        source: "system",
+        reasonCode: "STALE_RESULT",
+        reason: "Bỏ qua kết quả cũ do người dùng đã chỉnh sửa bài viết sang version mới",
+        stage: "SYSTEM",
+        processingTimeMs: Date.now() - startTime,
+        previousStatus: freshPost.status,
+        newStatus: freshPost.status,
+      });
+      return;
+    }
+
+    // 4. Áp dụng quyết định của Decision Engine
+    freshPost.status = decision.status;
+    freshPost.moderationStatus = decision.moderationStatus;
+    freshPost.moderationSource = decision.moderationSource;
+    freshPost.violationReason = decision.reason || "";
+    freshPost.isAudited = true;
+    freshPost.activeModerationRunId = moderationRunId;
+    freshPost.lockedAt = null; // Giải phóng lock
+    await freshPost.save();
+
+    // 5. Ghi vết Audit Trail (ModerationLog)
+    await ModerationLog.create({
+      requestId,
+      moderationRunId,
+      contentVersion: freshPost.contentVersion || 1,
+      postId: freshPost._id,
+      userId: freshPost.author,
+      action: decision.action,
+      source: decision.moderationSource,
+      confidence: 1.0 - Math.abs(decision.overallRisk - 0.5) * 2, // Độ tin cậy logic
+      overallRisk: decision.overallRisk,
+      categories: decision.categories,
+      severity: decision.severity,
+      reason: decision.reason,
+      reasonCode: decision.reasonCode,
+      evidence: decision.evidence,
+      stage: "DECISION",
+      processingTimeMs: Date.now() - startTime,
+      previousStatus,
+      newStatus: decision.status,
+    });
+
+    console.log(`🎯 [Tầng 3 Decision Engine] Post ${freshPost._id} -> Status: ${decision.status.toUpperCase()} (Risk: ${Math.round(decision.overallRisk * 100)}%)`);
+
+    // 6. Phát sự kiện Realtime qua Socket.io (nếu có kết nối)
+    if (global._io) {
+      // Thông báo riêng cho tác giả bài viết
+      global._io.to(freshPost.author.toString()).emit("SERVER_POST_MODERATION_RESULT", {
+        postId: freshPost._id,
+        status: decision.status,
+        moderationStatus: decision.moderationStatus,
+        reason: decision.reason,
       });
 
-      const { riskScore, category, reason } = evaluation;
-      console.log(`📊 [Tầng 3 Evaluation] Post ID: ${post._id} | Risk Score: ${riskScore}% | Category: ${category}`);
+      // Nếu bài được chấp thuận -> Phát lên bảng tin chung
+      if (decision.status === "active") {
+        const fullPost = await Post.findById(freshPost._id)
+          .populate("author", "fullName username avatar isVerified")
+          .populate("mentions", "fullName username avatar isVerified")
+          .populate("allowedUsers", "fullName username avatar isVerified");
 
-      // 3. Phân luồng quyết định theo Thang điểm Rủi ro (Risk Score)
-      if (riskScore >= 80) {
-        // High Risk (>= 80%) -> Tự động Ẩn bài
-        post.status = "hidden";
-        post.isAudited = true;
-        post.violationReason = `AI Chặn tự động (${riskScore}% vi phạm): ${reason}`;
-        await post.save();
-        console.log(`❌ [Tầng 3 Worker] Đã TỰ ĐỘNG ẨN Post ID: ${post._id} (${riskScore}% Risk)`);
-      } else if (riskScore >= 40 && riskScore < 80) {
-        // Gray Zone (40% - 79%) -> Đẩy sang TẦNG 4 (Human Admin Queue)
-        post.status = "pending_admin";
-        post.isAudited = false;
-        post.violationReason = `Nghi vấn ${riskScore}% (${category}): ${reason}`;
-        await post.save();
-        console.log(`⚠️ [Tầng 3 Worker] Đã đẩy Post ID: ${post._id} sang TẦNG 4 (Admin Moderation Queue)`);
-      } else {
-        // Low Risk (< 40%) -> Tự động Thông qua
-        post.status = "active";
-        post.isAudited = true;
-        await post.save();
-        console.log(`✅ [Tầng 3 Worker] Post ID: ${post._id} AN TOÀN (${riskScore}% Risk)`);
+        global._io.emit("SERVER_FEED_NEW_POST", { post: fullPost });
       }
     }
   } catch (error) {
-    console.error("❌ [Tầng 3 Worker Error]:", error.message);
+    console.error(`❌ [Tầng 3 Moderation Error] Post ${post._id}:`, error.message);
+
+    // Xử lý Fail-Closed (Blueprint Section 1.8 & 10.9): Tuyệt đối không Active khi lỗi!
+    try {
+      const freshPost = await Post.findById(post._id);
+      if (freshPost && freshPost.status === "processing") {
+        // Đẩy vào hàng chờ admin duyệt tay
+        freshPost.status = "pending_admin";
+        freshPost.moderationStatus = "review";
+        freshPost.moderationSource = "system";
+        freshPost.violationReason = `Hệ thống gặp sự cố kiểm duyệt (${error.message}). Cần quản trị viên kiểm tra lại.`;
+        freshPost.lockedAt = null;
+        await freshPost.save();
+
+        await ModerationLog.create({
+          requestId,
+          moderationRunId,
+          contentVersion: freshPost.contentVersion || 1,
+          postId: freshPost._id,
+          userId: freshPost.author,
+          action: "hold",
+          source: "system",
+          reasonCode: "SYSTEM_FAILURE",
+          reason: `Lỗi hệ thống: ${error.message}`,
+          stage: "SYSTEM",
+          errorCode: error.code || "SYSTEM_ERROR",
+          processingTimeMs: Date.now() - startTime,
+          previousStatus,
+          newStatus: "pending_admin",
+        });
+      }
+    } catch (saveErr) {
+      console.error("[Fail-closed Save Error]:", saveErr.message);
+    }
   }
 }
 
 /**
- * Khởi chạy Worker chạy định kỳ ngầm
+ * Quét các bài viết đang ở trạng thái 'processing' với MongoDB Atomic Lock
  */
-function startStage3Worker(intervalMs = 2 * 60 * 1000) {
-  console.log("🚀 [Tầng 3 Service] Đã kích hoạt Async Queue Worker (Tầng 3 Processing).");
+async function processAsyncModerationQueue() {
+  if (isWorkerRunning) return;
+  isWorkerRunning = true;
+
+  try {
+    const lockExpiry = new Date(Date.now() - 5 * 60 * 1000); // 5 phút timeout
+
+    // Lặp bốc từng bài (tối đa 5 bài mỗi lượt để kiểm soát rate limit)
+    for (let i = 0; i < 5; i++) {
+      const post = await Post.findOneAndUpdate(
+        {
+          status: "processing",
+          $or: [{ lockedAt: null }, { lockedAt: { $lt: lockExpiry } }],
+        },
+        {
+          $set: { lockedAt: new Date() },
+        },
+        { new: true }
+      );
+
+      if (!post) break; // Không còn bài nào cần xử lý
+
+      await processSinglePost(post);
+
+      // Throttling: Nghỉ 500ms giữa các request để bảo vệ quota Gemini
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  } catch (error) {
+    console.error("❌ [Async Queue Loop Error]:", error.message);
+  } finally {
+    isWorkerRunning = false;
+  }
+}
+
+/**
+ * Kích hoạt xử lý ngay lập tức cho 1 bài viết vừa tạo (không cần chờ 2 phút)
+ */
+async function triggerImmediateModeration(postId) {
+  try {
+    const post = await Post.findOneAndUpdate(
+      {
+        _id: postId,
+        status: "processing",
+      },
+      {
+        $set: { lockedAt: new Date() },
+      },
+      { new: true }
+    );
+
+    if (post) {
+      // Chạy ngầm không block luồng API
+      setImmediate(() => {
+        processSinglePost(post).catch((err) => {
+          console.error(`[Immediate Moderation Error] Post ${postId}:`, err.message);
+        });
+      });
+    }
+  } catch (err) {
+    console.warn(`[Trigger Immediate Warning] Post ${postId}:`, err.message);
+  }
+}
+
+/**
+ * Khởi chạy Worker định kỳ ngầm
+ */
+function startStage3Worker(intervalMs = 30 * 1000) {
+  console.log("🚀 [Moderation Bot] Đã kích hoạt Worker tự động kiểm duyệt ngầm.");
   processAsyncModerationQueue();
   setInterval(processAsyncModerationQueue, intervalMs);
 }
 
 module.exports = {
   processAsyncModerationQueue,
+  processSinglePost,
+  triggerImmediateModeration,
   startStage3Worker,
 };

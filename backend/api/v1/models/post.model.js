@@ -174,8 +174,43 @@ const postSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["active", "hidden", "deleted"],
-      default: "active",
+      enum: ["processing", "active", "pending_admin", "hidden", "deleted"],
+      default: "processing",
+      index: true,
+    },
+
+    moderationStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected", "review"],
+      default: "pending",
+      index: true,
+    },
+
+    moderationSource: {
+      type: String,
+      enum: ["rule", "nsfwjs", "gemini", "human", "system"],
+      default: "system",
+    },
+
+    requestId: {
+      type: String,
+      index: true,
+    },
+
+    contentVersion: {
+      type: Number,
+      default: 1,
+    },
+
+    activeModerationRunId: {
+      type: String,
+      index: true,
+    },
+
+    lockedAt: {
+      type: Date,
+      default: null,
+      index: true,
     },
 
     isAudited: {
@@ -221,6 +256,7 @@ postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ postType: 1, createdAt: -1 });
 postSchema.index({ category: 1, createdAt: -1 });
 postSchema.index({ status: 1, visibility: 1, createdAt: -1 });
+postSchema.index({ status: 1, lockedAt: 1 });
 
 const Post = mongoose.model("post", postSchema, "posts");
 

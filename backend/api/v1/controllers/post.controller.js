@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const Post = require("../models/post.model");
 const User = require("../models/user.model");
 const Like = require("../models/postLike.model");
@@ -6,6 +7,7 @@ const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { deleteMultipleFromCloudinary } = uploadStreamToCloudinary;
 const { moderatePostContent } = require("../../../helpers/aiModerator.helper");
 const { runFastPreModeration } = require("../../../helpers/moderation");
+const { triggerImmediateModeration } = require("../../../services/moderation/stage3_asyncQueue.service");
 const mongoose = require("mongoose");
 
 let sharp;
@@ -286,6 +288,8 @@ module.exports.createPost = async (req, res) => {
 
     const typeData = getPostTypeData(postType, specialData);
 
+    const requestId = crypto.randomUUID();
+
     const newPost = new Post({
       author: user._id,
       postType,
@@ -302,7 +306,12 @@ module.exports.createPost = async (req, res) => {
       hideShare: String(hideShare) === "true",
       visibility,
       allowedUsers,
-      isAudited: moderation.isAudited ?? false,
+      status: "processing",
+      moderationStatus: "pending",
+      moderationSource: "system",
+      requestId,
+      contentVersion: 1,
+      isAudited: false,
     });
 
     await newPost.save();
@@ -311,6 +320,9 @@ module.exports.createPost = async (req, res) => {
 
     await updateLastAudienceSetting(user._id, visibility, allowedUsers);
 
+    // Kích hoạt ngay lập tức Bot AI kiểm duyệt ngầm Tầng 3 (không chặn luồng HTTP response)
+    triggerImmediateModeration(newPost._id);
+
     const postDetail = await Post.findById(newPost._id)
       .populate("author", "fullName username avatar isVerified")
       .populate("mentions", "fullName username avatar isVerified")
@@ -318,7 +330,7 @@ module.exports.createPost = async (req, res) => {
 
     return res.status(201).json({
       code: 201,
-      message: "Tạo bài viết thành công",
+      message: "Tạo bài viết thành công. Hệ thống đang kiểm duyệt nội dung...",
       data: postDetail,
     });
   } catch (error) {
