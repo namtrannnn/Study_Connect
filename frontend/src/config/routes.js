@@ -31,4 +31,5 @@ export const routes = {
     admin_hashtags: '/admin/hashtags',
     admin_analytics: '/admin/analytics',
     admin_logs: '/admin/logs',
+    admin_moderation: '/admin/moderation',
 };

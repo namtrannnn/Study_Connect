@@ -330,7 +330,7 @@ module.exports.createPost = async (req, res) => {
 
     return res.status(201).json({
       code: 201,
-      message: "Tạo bài viết thành công. Hệ thống đang kiểm duyệt nội dung...",
+      message: "Đăng bài viết thành công!",
       data: postDetail,
     });
   } catch (error) {
@@ -637,10 +637,12 @@ module.exports.getFeedPosts = async (req, res) => {
     // 2. Lấy hashtag sở thích của user
     const userInterestHashtags = await getUserInterestHashtags(user._id);
 
-    // 3. Lấy bài của mình + following
+    // 3. Lấy bài của mình (kể cả pending_admin / hidden để chính tác giả thấy trạng thái) + following (chỉ lấy active)
     const followingPostsRaw = await Post.find({
-      author: { $in: [...followingIds, user._id] },
-      status: "active",
+      $or: [
+        { author: user._id, status: { $ne: "deleted" } },
+        { author: { $in: followingIds }, status: "active" },
+      ],
     })
       .populate("author", "fullName username avatar isVerified")
       .sort({ createdAt: -1 })
@@ -970,9 +972,10 @@ module.exports.getPostsByUser = async (req, res) => {
       });
     }
 
+    const isSelf = String(viewerId) === String(userId);
     const posts = await Post.find({
       author: userId,
-      status: "active",
+      status: isSelf ? { $ne: "deleted" } : "active",
     })
       .populate("author", "fullName username avatar isVerified")
       .populate("allowedUsers", "fullName username avatar isVerified")

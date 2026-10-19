@@ -21,6 +21,8 @@ import {
     Trophy,
     CheckCircle2,
     Users,
+    Clock,
+    ShieldAlert,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -788,8 +790,46 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
         if (target) navigate(`/profile/${target}`);
     };
 
+    // Moderation status detection (owner-only)
+    const postStatus = post?.status;
+    const postModerationStatus = post?.moderationStatus;
+    const postViolationReason = post?.violationReason;
+    const isPending = isOwner && (postStatus === 'pending_admin' || postStatus === 'processing' || postModerationStatus === 'review' || postModerationStatus === 'pending');
+    const isRejected = isOwner && (postStatus === 'hidden' || postModerationStatus === 'rejected');
+
     return (
-        <article className="group relative border-b border-gray-200/80 px-4 py-3.5 sm:px-5 sm:py-4 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
+        <article className={`group relative border-b border-gray-200/80 px-4 py-3.5 sm:px-5 sm:py-4 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px] ${isRejected ? 'opacity-75' : ''}`}>
+            {/* ─── Author-only Moderation Status Banner ─── */}
+            {isPending && (
+                <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-2.5 dark:border-amber-500/30 dark:from-amber-950/40 dark:to-yellow-950/30">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">⏳ Đang chờ kiểm duyệt</span>
+                        <p className="mt-0.5 text-[11px] leading-tight text-amber-600/80 dark:text-amber-400/70">Bài viết của bạn đang được hệ thống AI kiểm tra. Chỉ bạn mới nhìn thấy bài viết này.</p>
+                    </div>
+                </div>
+            )}
+            {isRejected && (
+                <div className="mb-3 rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 px-4 py-2.5 dark:border-red-500/30 dark:from-red-950/40 dark:to-rose-950/30">
+                    <div className="flex items-center gap-2.5">
+                        <ShieldAlert className="h-4 w-4 shrink-0 text-red-500 dark:text-red-400" />
+                        <div className="min-w-0 flex-1">
+                            <span className="text-xs font-bold text-red-700 dark:text-red-300">🚫 Bài viết vi phạm tiêu chuẩn cộng đồng</span>
+                            <p className="mt-0.5 text-[11px] leading-tight text-red-600/80 dark:text-red-400/70">Bài viết này đã bị ẩn khỏi Bảng tin. Chỉ bạn mới nhìn thấy.</p>
+                        </div>
+                    </div>
+                    {postViolationReason && (
+                        <div className="mt-2 rounded-xl bg-red-100/60 px-3 py-2 dark:bg-red-900/30">
+                            <p className="text-[11px] font-medium text-red-700 dark:text-red-300">
+                                <span className="font-bold">Lý do AI:</span> {postViolationReason}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
             <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
@@ -928,6 +968,30 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
+
+                {/* Author Moderation Status Banner (Chỉ riêng tác giả nhìn thấy) */}
+                {isOwner && (post?.status === 'pending_admin' || post?.moderationStatus === 'pending' || post?.moderationStatus === 'review' || post?.status === 'processing') && (
+                    <div className="mt-2.5 mb-2 flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        <Clock className="h-4 w-4 shrink-0 text-amber-500 animate-pulse" />
+                        <span>
+                            ⏳ <strong>Đang chờ kiểm duyệt</strong> — Chỉ mình bạn nhìn thấy bài viết này trong lúc hệ thống thẩm định.
+                        </span>
+                    </div>
+                )}
+
+                {isOwner && (post?.status === 'hidden' || post?.moderationStatus === 'rejected') && (
+                    <div className="mt-2.5 mb-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300">
+                        <div className="flex items-center gap-2 font-bold mb-1">
+                            <ShieldAlert className="h-4 w-4 shrink-0 text-rose-500" />
+                            <span>🚫 Bài viết vi phạm tiêu chuẩn cộng đồng (Đã bị ẩn)</span>
+                        </div>
+                        {post?.violationReason && (
+                            <p className="text-[11px] opacity-90 pl-6 leading-relaxed">
+                                <span className="font-semibold">Lý do từ AI:</span> {post.violationReason}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {content && (
                     <p className="mt-1 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">

@@ -49,30 +49,34 @@ async function evaluateDeepContextAndRiskScore({ text = "", mediaUrls = [] } = {
   const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
   const promptText = `
-Bạn là "Nexus / StudyConnect Deep AI Moderator" - Hệ thống phân tích sâu ngữ cảnh bài viết sinh viên.
+Bạn là "AI Content Moderator" cho một Mạng Xã Hội (Social Network) tương tác đa chiều.
 Nhiệm vụ: Phân tích đồng thời VĂN BẢN (Text) và HÌNH ẢNH (Image/Keyframes) để đánh giá rủi ro vi phạm tiêu chuẩn cộng đồng.
+
+BỐI CẢNH NỀN TẢNG:
+- Đây là Mạng Xã Hội tổng hợp bình thường dành cho mọi người: Người dùng có thể chia sẻ cuộc sống đời thường, tâm sự, sở thích, âm nhạc, phim ảnh, công nghệ, học tập, giải trí, thể thao, meme hài hước, kinh doanh cá nhân lành mạnh. Mọi bài viết đời sống thông thường ĐỀU HỢP LỆ VÀ AN TOÀN (overallRisk < 0.20).
 
 Quy tắc phân tích:
 1. Xử lý MÃ QR (QR Code Inspection):
    - Đọc và phân loại nội dung bên trong mã QR (nếu ảnh có QR):
-     + Nếu mã QR là SỐ TÀI KHOẢN NGÂN HÀNG / VietQR (dùng để thanh toán, chia tiền ăn uống, quyên góp từ thiện, ủng hộ người dân, donate cho câu lạc bộ sinh viên) -> Đánh giá AN TOÀN (overallRisk < 0.20, scam: 0.0) và CHO PHÉP ĐĂNG BÌNH THƯỜNG.
+     + Nếu mã QR là SỐ TÀI KHOẢN NGÂN HÀNG / VietQR (dùng để thanh toán, chia tiền ăn uống, quyên góp từ thiện, ủng hộ, chuyển khoản cá nhân bình thường) -> Đánh giá AN TOÀN (overallRisk < 0.15, scam: 0.0) và CHO PHÉP ĐĂNG BÌNH THƯỜNG.
      + Nếu mã QR chứa đường LINK (URL):
-       * Link dẫn tới web cờ bạc (nhà cái, casino, cá độ), web lừa đảo (phishing), trang khiêu dâm -> Đánh giá VI PHẠM NGHIÊM TRỌNG (overallRisk >= 0.85, scam: 0.9).
-       * Link nhóm Zalo/Discord học tập, Google Form khảo sát, link Google Drive/Github tài liệu -> Đánh giá AN TOÀN (overallRisk < 0.20).
+       * Dẫn tới web cờ bạc (nhà cái, casino, cá độ, tài xỉu), web lừa đảo (phishing), trang khiêu dâm -> Đánh giá VI PHẠM NGHIÊM TRỌNG (overallRisk >= 0.85, scam: 0.9).
+       * Link nhóm cộng đồng (Zalo/Facebook/Discord), link Youtube, Spotify, link Google Form, Drive tài liệu -> Đánh giá AN TOÀN (overallRisk < 0.20).
 2. Xử lý LIÊN KẾT / URL TRONG VĂN BẢN (Links in text):
-   - Các link chia sẻ tài liệu học tập, nghiên cứu, giáo dục (Drive, Docs, Github, Youtube, Wikipedia, web trường .edu.vn, Notion...) -> Đánh giá AN TOÀN.
-   - Chỉ coi là vi phạm nếu liên kết dẫn tới web cờ bạc, lừa đảo tài chính, phát tán mã độc hoặc web đồi trụy.
+   - Các link mạng xã hội, tin tức báo chí, video, nhạc, tài liệu (Youtube, Facebook, Tiktok, Github, Wikipedia, Drive, Docs...) -> Đánh giá AN TOÀN.
+   - Chỉ coi là vi phạm nếu liên kết dẫn tới web cờ bạc, lừa đảo tài chính, phát tán mã độc hoặc web đồi trụy 18+.
 3. Ngữ cảnh (Context & Cross-check):
-   - Phân biệt rõ hình ảnh giải phẫu y tế/sinh học, tranh nghệ thuật kinh điển, tin tức sự kiện với hành vi khiêu dâm, đồi trụy hoặc bạo lực phản cảm.
-   - Chỉ đánh giá rủi ro lừa đảo (scam) khi có hành vi lừa đảo chiếm đoạt rõ rệt (ví dụ: dụ nạp tiền x2, bán đề thi thật, chạy điểm...).
+   - Cho phép các bài viết đời thường, cảm xúc cá nhân, ảnh du lịch, selfie, meme, giao lưu kết bạn.
+   - Phân biệt rõ hình ảnh giải phẫu y tế/sinh học, tranh nghệ thuật kinh điển, tin tức thời sự với hành vi khiêu dâm, đồi trụy hoặc bạo lực phản cảm.
+   - Chỉ đánh giá rủi ro lừa đảo (scam) khi có hành vi lừa đảo chiếm đoạt rõ rệt (ví dụ: dụ nạp tiền x2, lừa đảo việc nhẹ lương cao nạp vốn, bán giấy tờ giả, mã độc...).
 
 Các danh mục rủi ro (tính từ 0.0 đến 1.0):
-- sexual: Khiêu dâm, lộ bộ phận nhạy cảm, gợi dục thô thiển.
-- violence: Máu me, thương tích nặng, vũ khí, bạo lực, tự hại.
-- harassment: Xúc phạm cá nhân, quấy rối, bắt nạt, đe dọa.
-- hate: Kích động thù hằn tôn giáo, sắc tộc, vùng miền, giới tính.
-- scam: Lừa đảo, dụ dỗ nạp tiền, đa cấp, cá độ, bán đề thi/bằng giả.
-- spam: Quảng cáo rác không liên quan đến học tập/sinh viên.
+- sexual: Khiêu dâm, lộ bộ phận sinh dục/nhạy cảm, gạ tình gợi dục thô thiển.
+- violence: Máu me kinh dị, thương tích nặng, vũ khí nguy hiểm, kích động bạo lực, tự hại.
+- harassment: Xúc phạm nhân phẩm cá nhân, đe dọa, bôi nhọ danh dự, doxxing.
+- hate: Kích động thù hằn tôn giáo, sắc tộc, phân biệt vùng miền, giới tính.
+- scam: Lừa đảo tài chính, dụ dỗ nạp tiền, đa cấp phi pháp, cá độ cờ bạc, bán tài liệu/giấy tờ giả.
+- spam: Tin nhắn bot tự động lặp lại, phát tán link độc hại, spam quảng cáo bẩn hàng loạt.
 
 Văn bản bài viết:
 """${text.trim() || "(Không có văn bản)"}"""
