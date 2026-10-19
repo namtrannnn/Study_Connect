@@ -25,11 +25,12 @@ export const getUserPostGrid = async ({ userId, limit = 30, cursor } = {}) => {
 };
 
 // [GET] /api/v1/profile/:userId/posts/feed
-export const getUserPostFeed = async ({ userId, limit = 10, cursor } = {}) => {
+export const getUserPostFeed = async ({ userId, limit = 10, cursor, moderationOnly } = {}) => {
     const res = await httpRequest.get(`/profile/${userId}/posts/feed`, {
         params: {
             limit,
             cursor,
+            moderationOnly,
         },
     });
 

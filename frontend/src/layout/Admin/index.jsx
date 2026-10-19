@@ -14,6 +14,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Shield,
+    ShieldAlert,
     Sun,
     Moon,
 } from 'lucide-react';
@@ -77,6 +78,12 @@ function AdminLayout({ children }) {
             description: 'Kiểm duyệt AI Gemini & Report',
         },
         {
+            label: 'Kiểm duyệt 4 Tầng',
+            path: '/admin/moderation',
+            icon: ShieldAlert,
+            description: 'Hàng chờ duyệt tay Tầng 4 & AI risk',
+        },
+        {
             label: 'Quản lý Hashtag',
             path: '/admin/hashtags',
             icon: Hash,
@@ -101,10 +108,11 @@ function AdminLayout({ children }) {
         if (location.pathname.includes('/posts')) return { title: 'Quản lý Bài viết', subtitle: 'Kiểm duyệt bài đăng, xem nội dung và ẩn/xóa bài vi phạm' };
         if (location.pathname.includes('/comments')) return { title: 'Quản lý Bình luận', subtitle: 'Tìm kiếm và dọn dẹp các bình luận vi phạm tiêu chuẩn' };
         if (location.pathname.includes('/reports')) return { title: 'Báo cáo Vi phạm & Gemini AI', subtitle: 'Trí tuệ nhân tạo Gemini tự động phân tích độc hại & gợi ý xử lý' };
+        if (location.pathname.includes('/moderation')) return { title: 'Kiểm duyệt Phễu 4 Tầng (AI Pipeline)', subtitle: 'Hàng chờ kiểm duyệt Tầng 4 cho các nội dung nghi vấn theo mức rủi ro' };
         if (location.pathname.includes('/hashtags')) return { title: 'Quản lý Hashtags & Blacklist', subtitle: 'Theo dõi xu hướng hashtag và danh sách từ khóa cấm' };
         if (location.pathname.includes('/analytics')) return { title: 'Thống kê Tương tác', subtitle: 'Top bài viết viral và người dùng có lượng tương tác cao nhất' };
         if (location.pathname.includes('/logs')) return { title: 'Nhật ký Hệ thống (Audit Trail)', subtitle: 'Ghi nhận mọi thao tác xử lý của ban quản trị' };
-        return { title: 'Bảng phân tích Tổng quan', subtitle: 'Thống kê chỉ số sức khỏe & tình hình hoạt động của StudyConnect' };
+        return { title: 'Bảng phân tích Tổng quan', subtitle: 'Thống kê chỉ số sức khỏe & tình hình hoạt động của hệ thống' };
     };
 
     const { title, subtitle } = getPageTitle();

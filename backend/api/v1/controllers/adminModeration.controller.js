@@ -9,12 +9,13 @@ module.exports.getPendingPosts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const status = req.query.status || "pending";
 
-    const data = await getPendingAdminPosts({ page, limit });
+    const data = await getPendingAdminPosts({ page, limit, status });
 
     return res.status(200).json({
       code: 200,
-      message: "Lấy danh sách bài viết chờ duyệt thành công",
+      message: "Lấy danh sách bài viết kiểm duyệt thành công",
       data,
     });
   } catch (error) {

@@ -24,6 +24,8 @@ import {
     Archive,
     Plus,
     Sparkles,
+    ShieldAlert,
+    ShieldCheck,
 } from 'lucide-react';
 
 import EditProfileModal from './EditProfileModal';
@@ -69,6 +71,11 @@ export default function ProfilePage() {
     const [postLoading, setPostLoading] = useState(false);
     const [savedLoading, setSavedLoading] = useState(false);
     const [likedLoading, setLikedLoading] = useState(false);
+    const [moderationPosts, setModerationPosts] = useState([]);
+    const [moderationLoading, setModerationLoading] = useState(false);
+    const [moderationCount, setModerationCount] = useState(0);
+    const [moderationCursor, setModerationCursor] = useState(null);
+    const [hasMoreModeration, setHasMoreModeration] = useState(false);
 
     // Modals & Action States
     const [error, setError] = useState('');
@@ -127,11 +134,18 @@ export default function ProfilePage() {
                 setHasMoreLiked(false);
                 loadSavedPosts({ reset: true });
                 loadLikedPosts({ reset: true });
+                loadModerationPosts({ reset: true });
             }
             loadHighlights();
             loadActiveStories();
         }
     }, [currentProfileUserId]); // eslint-disable-line
+
+    useEffect(() => {
+        if (activeTab === 'moderation') {
+            loadModerationPosts({ reset: true });
+        }
+    }, [activeTab]); // eslint-disable-line
 
     const loadActiveStories = async () => {
         if (!currentProfileUserId) return;
@@ -213,10 +227,40 @@ export default function ProfilePage() {
             setPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]));
             setNextCursor(res?.nextCursor || null);
             setHasMorePosts(Boolean(res?.hasMore));
+            if (typeof res?.moderationCount === 'number') {
+                setModerationCount(res.moderationCount);
+            }
         } catch (err) {
             console.log('Load profile posts error:', err);
         } finally {
             setPostLoading(false);
+        }
+    };
+
+    // Load Moderation Posts for Owner
+    const loadModerationPosts = async ({ reset = false } = {}) => {
+        if (!currentProfileUserId) return;
+        try {
+            setModerationLoading(true);
+            const cursor = reset ? null : moderationCursor;
+            const res = await ProfileServices.getUserPostFeed({
+                userId: currentProfileUserId,
+                limit: 10,
+                cursor,
+                moderationOnly: true,
+            });
+
+            const newPosts = res?.data || [];
+            setModerationPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]));
+            setModerationCursor(res?.nextCursor || null);
+            setHasMoreModeration(Boolean(res?.hasMore));
+            if (typeof res?.moderationCount === 'number') {
+                setModerationCount(res.moderationCount);
+            }
+        } catch (err) {
+            console.log('Load moderation posts error:', err);
+        } finally {
+            setModerationLoading(false);
         }
     };
 
@@ -737,6 +781,25 @@ export default function ProfilePage() {
                                 Đã thích
                             </button>
                         )}
+                        {isOwnProfile && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('moderation')}
+                                className={`relative flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
+                                    activeTab === 'moderation'
+                                        ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
+                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                }`}
+                            >
+                                <ShieldAlert className="h-4 w-4" />
+                                Kiểm duyệt
+                                {moderationCount > 0 && (
+                                    <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
+                                        {moderationCount > 99 ? '99+' : moderationCount}
+                                    </span>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -847,7 +910,7 @@ export default function ProfilePage() {
                             </div>
                         </InfiniteScroll>
                     )
-                ) : (
+                ) : activeTab === 'liked' ? (
                     /* Liked Tab */
                     likedLoading && likedPosts.length === 0 ? (
                         <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center text-sm font-medium text-gray-400 dark:border-white/10 dark:bg-[#18181b]">
@@ -883,7 +946,66 @@ export default function ProfilePage() {
                             </div>
                         </InfiniteScroll>
                     )
-                )}
+                ) : activeTab === 'moderation' ? (
+                    /* Moderation Tab - Author's pending/rejected posts */
+                    <>
+                        {/* Info Banner */}
+                        <div className="rounded-[28px] border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-yellow-50 p-5 shadow-sm dark:border-amber-500/20 dark:from-amber-950/30 dark:via-[#18181b] dark:to-yellow-950/20">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+                                    <ShieldAlert className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Trạng thái kiểm duyệt bài viết</h4>
+                                    <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                        Đây là danh sách các bài viết của bạn đang chờ kiểm duyệt hoặc đã bị hệ thống AI phát hiện vi phạm.
+                                        Bài viết đánh dấu <span className="font-semibold text-amber-600 dark:text-amber-400">vàng</span> đang chờ duyệt,
+                                        bài viết đánh dấu <span className="font-semibold text-red-600 dark:text-red-400">đỏ</span> đã vi phạm và bị ẩn.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {moderationLoading && moderationPosts.length === 0 ? (
+                            <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center text-sm font-medium text-gray-400 dark:border-white/10 dark:bg-[#18181b]">
+                                Đang tải bài viết kiểm duyệt...
+                            </div>
+                        ) : moderationPosts.length === 0 ? (
+                            <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                    <ShieldCheck className="h-7 w-7" />
+                                </div>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">Tất cả bài viết đều an toàn! ✅</h3>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Không có bài viết nào đang chờ kiểm duyệt hoặc vi phạm.
+                                </p>
+                            </div>
+                        ) : (
+                            <InfiniteScroll
+                                dataLength={moderationPosts.length}
+                                next={() => loadModerationPosts({ reset: false })}
+                                hasMore={hasMoreModeration}
+                                loader={
+                                    <div className="py-4 text-center text-xs font-semibold text-gray-400">
+                                        Đang tải thêm...
+                                    </div>
+                                }
+                                scrollableTarget="profile-scroll-container"
+                            >
+                                <div className="space-y-4">
+                                    {moderationPosts.map((postItem) => (
+                                        <Post
+                                            key={postItem._id || postItem.id}
+                                            post={postItem}
+                                            currentUser={currentUser}
+                                            onDelete={handleDeletePost}
+                                        />
+                                    ))}
+                                </div>
+                            </InfiniteScroll>
+                        )}
+                    </>
+                ) : null}
             </div>
 
             {/* Edit Profile Modal */}

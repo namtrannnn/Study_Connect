@@ -35,7 +35,8 @@ const BLACKLIST_PATTERNS = [
   /nạp\s*tiền\s*x\d+/i,
   /nap\s*tien\s*x\d+/i,
   /n4p\s*t13n/i,
-  /(chuyển\s*khoản|chuyen\s*khoan)\s*(stk|sô\s*tai\s*khoan)\s*\d+/i,
+  /(chuyển\s*khoản|chuyen\s*khoan)\s*(để\s*nhận|gấp\s*để|hoa\s*hồng|nhân\s*đôi|x\d+)/i,
+  /(việc\s*nhẹ\s*lương\s*cao|kiem\s*tien\s*online\s*tai\s*nha)/i,
   /(vay\s*nóng|vay\s*nong|vay\s*tín\s*dụng)/i,
 
   // 4. Từ chửi thề / Công kích nặng (Acronyms & Teencode)

@@ -36,6 +36,7 @@ import AdminReports from '../pages/Admin/Reports/reports.admin';
 import AdminHashtags from '../pages/Admin/Hashtags/hashtags.admin';
 import AdminAnalytics from '../pages/Admin/Analytics/analytics.admin';
 import AdminLogs from '../pages/Admin/Logs/logs.admin';
+import AdminModeration from '../pages/Admin/Moderation/moderation.admin';
 
 const publicRoute = [
     { path: config.routes.home, component: Home, layout: null },
@@ -98,6 +99,7 @@ const privateRoute = [
     { path: config.routes.admin_hashtags, component: AdminHashtags },
     { path: config.routes.admin_analytics, component: AdminAnalytics },
     { path: config.routes.admin_logs, component: AdminLogs },
+    { path: config.routes.admin_moderation, component: AdminModeration },
 ];
 
 export { publicRoute, privateRoute };
