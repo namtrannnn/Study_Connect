@@ -12,7 +12,8 @@ const notificationSchema = new mongoose.Schema(
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true,
+      required: false,
+      default: null,
     },
 
     type: {
@@ -30,6 +31,10 @@ const notificationSchema = new mongoose.Schema(
         "study_room_invite",
         "story_reply",
         "STORY_REPLY",
+        "moderation_approved",
+        "moderation_rejected",
+        "appeal_approved",
+        "appeal_rejected",
       ],
       required: true,
     },

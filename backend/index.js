@@ -69,6 +69,20 @@ const port = process.env.PORT || 5000;
 
 routerApiVer1(app);
 
+// Phục vụ frontend tĩnh khi chạy production build
+const path = require("path");
+const fs = require("fs");
+const frontendBuildPath = path.join(__dirname, "../frontend/build");
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/") || req.path.startsWith("/socket.io")) {
+      return next();
+    }
+    res.sendFile(path.join(frontendBuildPath, "index.html"));
+  });
+}
+
 // SOCKET [IO]
 const server = http.createServer(app);
 const io = new Server(server, {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, Trash2, Loader2, X } from 'lucide-react';
+import { Bell, Check, Trash2, Loader2, X, Shield } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getSocket } from '../../../../config/socket';
 import * as NotificationServices from '../../../../services/notification.services';
@@ -20,6 +20,10 @@ const TYPE_ICONS = {
     study_room_invite: '📚',
     story_reply: '🎬',
     STORY_REPLY: '🎬',
+    moderation_approved: '🛡️',
+    moderation_rejected: '🚫',
+    appeal_approved: '🎉',
+    appeal_rejected: '⚖️',
 };
 
 function formatTime(dateStr) {
@@ -165,6 +169,10 @@ export default function NotificationsPanel({ onClose }) {
             case 'post_comment':
             case 'comment_reply':
             case 'mention':
+            case 'moderation_approved':
+            case 'moderation_rejected':
+            case 'appeal_approved':
+            case 'appeal_rejected':
                 if (refId) navigate(`/post/${refId}`);
                 break;
             case 'study_room_invite':
@@ -254,6 +262,7 @@ export default function NotificationsPanel({ onClose }) {
                     <div className="space-y-1">
                         {notifications.map((notif) => {
                             const isNew = newlyUnreadIds.has(String(notif._id)) || !notif.isRead;
+                            const isModeration = notif.type?.startsWith('moderation_') || notif.type?.startsWith('appeal_');
 
                             return (
                                 <div
@@ -267,11 +276,17 @@ export default function NotificationsPanel({ onClose }) {
                                 >
                                     {/* Avatar + icon */}
                                     <div className="relative shrink-0">
-                                        <img
-                                            src={notif.sender?.avatar || 'https://i.pravatar.cc/150?img=3'}
-                                            alt={notif.sender?.fullName}
-                                            className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-white/10"
-                                        />
+                                        {isModeration && !notif.sender?.avatar ? (
+                                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
+                                                <Shield size={20} />
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={notif.sender?.avatar || 'https://i.pravatar.cc/150?img=3'}
+                                                alt={notif.sender?.fullName || 'Hệ thống'}
+                                                className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-white/10"
+                                            />
+                                        )}
                                         <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs shadow dark:bg-[#181b22]">
                                             {TYPE_ICONS[notif.type] || '🔔'}
                                         </span>
@@ -281,8 +296,21 @@ export default function NotificationsPanel({ onClose }) {
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-2">
                                             <p className="text-sm leading-5 text-slate-800 dark:text-slate-100">
-                                                <span className="font-black">{notif.sender?.fullName || 'Ai đó'}</span>{' '}
-                                                <span className="font-medium">{notif.message}</span>
+                                                {isModeration ? (
+                                                    notif.sender?.fullName ? (
+                                                        <>
+                                                            <span className="font-black">{notif.sender.fullName}</span>{' '}
+                                                            <span className="font-medium">{notif.message}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="font-medium">{notif.message}</span>
+                                                    )
+                                                ) : (
+                                                    <>
+                                                        <span className="font-black">{notif.sender?.fullName || 'Ai đó'}</span>{' '}
+                                                        <span className="font-medium">{notif.message}</span>
+                                                    </>
+                                                )}
                                             </p>
                                             {isNew && (
                                                 <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600 ring-4 ring-blue-100 dark:ring-blue-500/20" title="Thông báo mới" />

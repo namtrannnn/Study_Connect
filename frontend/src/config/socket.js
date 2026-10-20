@@ -15,8 +15,10 @@ export const connectSocket = () => {
         return socket;
     }
 
-    socket = io('http://localhost:5000', {
-        transports: ['websocket'],
+    const socketUrl = process.env.REACT_APP_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
+
+    socket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
         auth: {
             token,
         },

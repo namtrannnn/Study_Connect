@@ -21,9 +21,10 @@ import {
     ChevronLeft,
     ChevronRight,
     Info,
+    Scale,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { getAdminModerationPending, approveModerationPost, rejectModerationPost } from '../../../services/adminServices';
+import { getAdminModerationPending, approveModerationPost, rejectModerationPost, resolveAppeal } from '../../../services/adminServices';
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
 import ConfirmModal from '../../../components/ConfirmModal';
 import AdminPagination from '../../../components/AdminPagination';
@@ -73,7 +74,7 @@ function RiskBar({ value = 0, label = '', colorClass = 'bg-indigo-500', isDark }
 }
 
 // ─── Detail Modal ─────────────────────────────────────────
-function ModerationDetailModal({ post, onClose, onApprove, onReject, isDark, actionLoading }) {
+function ModerationDetailModal({ post, onClose, onApprove, onReject, onResolveAppeal, isDark, actionLoading }) {
     const [rejectReason, setRejectReason] = useState('');
     const [showRejectInput, setShowRejectInput] = useState(false);
     const [modalImageIdx, setModalImageIdx] = useState(0);
@@ -86,9 +87,14 @@ function ModerationDetailModal({ post, onClose, onApprove, onReject, isDark, act
     const categories = aiLog?.categories || {};
     const riskLevel = getRiskLevel(overallRisk);
     const media = post.media || [];
+    const isPendingAppeal = post.isAppealed && post.appealStatus === 'pending';
 
     const handleRejectSubmit = () => {
-        onReject(post._id, rejectReason || 'Bị từ chối bởi Quản trị viên');
+        if (isPendingAppeal && onResolveAppeal) {
+            onResolveAppeal(post._id, { action: 'reject', note: rejectReason || 'Không chấp thuận khiếu nại' });
+        } else {
+            onReject(post._id, rejectReason || 'Bị từ chối bởi Quản trị viên');
+        }
         setShowRejectInput(false);
         setRejectReason('');
     };
@@ -255,8 +261,93 @@ function ModerationDetailModal({ post, onClose, onApprove, onReject, isDark, act
                         </div>
                     )}
 
+                    {/* Appeal Info (Kháng cáo từ tác giả) */}
+                    {post.isAppealed && (
+                        <div className={`p-4 rounded-2xl border ${isDark ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-200 bg-amber-50'}`}>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Scale className="h-4 w-4 text-amber-500" />
+                                    <span className={`text-xs font-bold ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>
+                                        Đơn khiếu nại của tác giả
+                                    </span>
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    post.appealStatus === 'pending'
+                                        ? 'bg-amber-500/20 text-amber-500'
+                                        : post.appealStatus === 'approved'
+                                        ? 'bg-emerald-500/20 text-emerald-500'
+                                        : 'bg-red-500/20 text-red-500'
+                                }`}>
+                                    {post.appealStatus === 'pending'
+                                        ? '⏳ Chờ xem xét'
+                                        : post.appealStatus === 'approved'
+                                        ? '✅ Đã chấp thuận'
+                                        : '❌ Đã bác bỏ'}
+                                </span>
+                            </div>
+                            <p className={`text-xs leading-relaxed italic ${isDark ? 'text-amber-200/90' : 'text-amber-900'}`}>
+                                "{post.appealReason || 'Tác giả yêu cầu xem xét lại quyết định.'}"
+                            </p>
+                        </div>
+                    )}
+
                     {/* Action Buttons */}
-                    {!showRejectInput ? (
+                    {isPendingAppeal ? (
+                        !showRejectInput ? (
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={() => onResolveAppeal(post._id, { action: 'approve', note: 'Chấp thuận khiếu nại của tác giả' })}
+                                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl bg-emerald-600 text-white text-sm font-bold transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+                                >
+                                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                    Chấp thuận khiếu nại
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={() => setShowRejectInput(true)}
+                                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl bg-red-600 text-white text-sm font-bold transition hover:bg-red-700 active:scale-[0.98] disabled:opacity-50"
+                                >
+                                    <XCircle className="h-4 w-4" />
+                                    Bác bỏ khiếu nại
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-3 pt-2">
+                                <textarea
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    placeholder="Nhập lý do bác bỏ khiếu nại (sẽ gửi thông báo cho tác giả)..."
+                                    rows={3}
+                                    className={`w-full rounded-2xl border p-3 text-xs outline-none resize-none transition ${
+                                        isDark
+                                            ? 'border-white/10 bg-white/5 text-white placeholder:text-gray-500 focus:border-red-500'
+                                            : 'border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:border-red-500'
+                                    }`}
+                                />
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        disabled={actionLoading}
+                                        onClick={handleRejectSubmit}
+                                        className="flex-1 flex items-center justify-center gap-2 h-10 rounded-2xl bg-red-600 text-white text-xs font-bold transition hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                                        Xác nhận bác bỏ
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowRejectInput(false); setRejectReason(''); }}
+                                        className={`h-10 px-5 rounded-2xl text-xs font-bold transition ${isDark ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                                    >
+                                        Hủy
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    ) : !showRejectInput ? (
                         <div className="flex items-center gap-3 pt-2">
                             <button
                                 type="button"
@@ -327,7 +418,7 @@ function ModerationAdmin() {
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false });
     const [statusTab, setStatusTab] = useState('pending');
-    const [counts, setCounts] = useState({ pending: 0, rejected: 0, approved: 0, all: 0 });
+    const [counts, setCounts] = useState({ pending: 0, appeals: 0, rejected: 0, approved: 0, all: 0 });
 
     const fetchPosts = useCallback(async (page = 1, currentStatus = statusTab) => {
         try {
@@ -391,6 +482,27 @@ function ModerationAdmin() {
         }
     };
 
+    const handleResolveAppeal = async (postId, { action, note }) => {
+        try {
+            setActionLoading(true);
+            const res = await resolveAppeal(postId, { action, note });
+            if (res?.code === 200) {
+                toast.success(res.message || 'Đã xử lý đơn khiếu nại thành công!');
+                setPosts((prev) => prev.filter((p) => p._id !== postId));
+                setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+                setCounts((prev) => ({
+                    ...prev,
+                    appeals: Math.max(0, (prev.appeals || 1) - 1),
+                }));
+                setSelectedPost(null);
+            }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message || 'Không thể xử lý khiếu nại');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -433,6 +545,7 @@ function ModerationAdmin() {
             <div className={`flex flex-wrap items-center gap-2 p-1.5 rounded-2xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-100'}`}>
                 {[
                     { id: 'pending', label: 'Chờ duyệt tay', count: counts.pending, color: 'text-amber-500' },
+                    { id: 'appeals', label: 'Khiếu nại', count: counts.appeals, color: 'text-blue-500' },
                     { id: 'rejected', label: 'AI từ chối / Đã ẩn', count: counts.rejected, color: 'text-rose-500' },
                     { id: 'approved', label: 'AI tự động duyệt', count: counts.approved, color: 'text-emerald-500' },
                     { id: 'all', label: 'Tất cả bài viết', count: counts.all, color: 'text-indigo-500' },
@@ -475,6 +588,9 @@ function ModerationAdmin() {
                 <p className={`text-xs leading-relaxed ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>
                     {statusTab === 'pending' && (
                         <span>Đây là các bài viết <strong>vùng xám (Rủi ro 30% - 70%)</strong> do Bot AI Tầng 3 gắn cờ nghi vấn, cần Quản trị viên duyệt hoặc từ chối trước khi hiển thị.</span>
+                    )}
+                    {statusTab === 'appeals' && (
+                        <span>Danh sách các bài viết bị ẩn hoặc vi phạm mà <strong>tác giả đã gửi đơn khiếu nại</strong>, chờ Quản trị viên xem xét lại để khôi phục hoặc bác bỏ.</span>
                     )}
                     {statusTab === 'rejected' && (
                         <span>Đây là danh sách bài viết bị <strong>Bot AI tự động từ chối / Ẩn (Rủi ro trên 70%)</strong> hoặc do Admin ẩn. Bạn có thể bấm xem chi tiết lý do AI phân tích hoặc Khôi phục duyệt lại.</span>
@@ -545,6 +661,16 @@ function ModerationAdmin() {
                                                 {Math.round(overallRisk * 100)}% {riskLevel.text}
                                             </span>
                                         </div>
+
+                                        {/* Appeal badge if pending appeal */}
+                                        {post.isAppealed && post.appealStatus === 'pending' && (
+                                            <div className={`flex items-center gap-2 mb-2.5 p-2 rounded-xl text-[11px] font-semibold border ${
+                                                isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-800'
+                                            }`}>
+                                                <Scale className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                                <span className="truncate">Khiếu nại: "{post.appealReason}"</span>
+                                            </div>
+                                        )}
 
                                         {/* Caption */}
                                         <p className={`text-xs leading-relaxed line-clamp-3 mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
@@ -655,6 +781,7 @@ function ModerationAdmin() {
                 onClose={() => setSelectedPost(null)}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                onResolveAppeal={handleResolveAppeal}
                 isDark={isDark}
                 actionLoading={actionLoading}
             />

@@ -586,6 +586,38 @@ module.exports.editPost = async (req, res) => {
       });
     }
 
+    // Kiểm tra xem nội dung hoặc media có thay đổi không
+    const captionChanged = updateData.caption !== undefined && updateData.caption !== post.caption;
+    const mediaChanged = updateData.media !== undefined;
+    const contentChanged = captionChanged || mediaChanged;
+
+    if (contentChanged) {
+      // 1. Chạy Tầng 1 (Fast Pre-Moderation) trên nội dung mới
+      const preMod = await runFastPreModeration({
+        text: finalCaption,
+        files: files,
+      });
+
+      if (!preMod.allowed) {
+        return res.status(400).json({
+          code: 400,
+          message: preMod.message || "Nội dung bài viết vi phạm tiêu chuẩn cộng đồng.",
+          flaggedReason: preMod.flaggedReason,
+          matchedKeywords: preMod.matchedKeywords,
+        });
+      }
+
+      // Đưa bài viết về trạng thái chờ duyệt lại
+      updateData.status = "processing";
+      updateData.moderationStatus = "pending";
+      updateData.contentVersion = (post.contentVersion || 1) + 1;
+      updateData.isAppealed = false;
+      updateData.appealStatus = "none";
+      updateData.violationCategories = [];
+      updateData.violationDetails = "";
+      updateData.moderationReason = "Đang kiểm duyệt lại sau khi chỉnh sửa nội dung";
+    }
+
     updateData.isEdited = true;
     updateData.editedAt = new Date();
 
@@ -597,6 +629,11 @@ module.exports.editPost = async (req, res) => {
       .populate("mentions", "fullName username avatar isVerified")
       .populate("allowedUsers", "fullName username avatar isVerified");
 
+    if (contentChanged) {
+      // Đẩy vào hàng đợi kiểm duyệt (Tầng 3 / Redis Queue)
+      triggerImmediateModeration(postId);
+    }
+
     await updateLastAudienceSetting(
       user._id,
       updatedPost.visibility,
@@ -605,7 +642,9 @@ module.exports.editPost = async (req, res) => {
 
     return res.status(200).json({
       code: 200,
-      message: "Cập nhật bài viết thành công",
+      message: contentChanged
+        ? "Đã lưu thay đổi. Bài viết đang được kiểm duyệt lại trước khi hiển thị công khai."
+        : "Cập nhật bài viết thành công",
       data: updatedPost,
     });
   } catch (error) {
@@ -1583,3 +1622,20 @@ Trả về ĐÚNG 1 MẢNG JSON duy nhất (không bọc markdown, không chứa
   }
 };
 
+// [POST] /api/v1/post/:id/appeal
+module.exports.submitAppeal = async (req, res) => {
+  try {
+    const { submitPostAppeal } = require("../../../services/moderation/stage4_adminQueue.service");
+    const post = await submitPostAppeal(req.params.id, req.user._id, req.body.reason);
+    return res.status(200).json({
+      code: 200,
+      message: "Gửi đơn khiếu nại thành công! Ban quản trị sẽ sớm xem xét bài viết của bạn.",
+      data: post,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      code: 400,
+      message: error.message || "Gửi khiếu nại thất bại",
+    });
+  }
+};

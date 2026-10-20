@@ -26,16 +26,22 @@ const createNotification = async ({
     deleted: false,
   });
 
-  await redisClient.set(`notification:${receiver}:unread_count`, unreadCount);
+  try {
+    if (redisClient && redisClient.isOpen) {
+      await redisClient.set(`notification:${receiver}:unread_count`, unreadCount);
+    }
+  } catch (_) {}
 
   const populatedNotification = await Notification.findById(notification._id)
     .populate("sender", "_id fullName username avatar isVerified")
     .lean();
 
-  global._io.to(receiver.toString()).emit("SERVER_NOTIFICATION_NEW", {
-    notification: populatedNotification,
-    unreadCount,
-  });
+  if (global._io) {
+    global._io.to(receiver.toString()).emit("SERVER_NOTIFICATION_NEW", {
+      notification: populatedNotification,
+      unreadCount,
+    });
+  }
 
   return populatedNotification;
 };

@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.git
+.github
+.vscode
+.env
+backend/.env
+backend/.env.local
+frontend/.env.development
+frontend/.env.local
+docs
+*.log
