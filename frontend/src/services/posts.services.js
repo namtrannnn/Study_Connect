@@ -123,3 +123,10 @@ export const generateAiCaption = async (formData, options = {}) => {
 
     return res.data;
 };
+
+// [POST] /api/v1/post/:id/appeal
+export const submitAppeal = async (postId, reason) => {
+    const res = await httpRequest.post(`/post/${postId}/appeal`, { reason });
+    return res.data;
+};
+

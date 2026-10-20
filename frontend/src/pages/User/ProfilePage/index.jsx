@@ -141,12 +141,6 @@ export default function ProfilePage() {
         }
     }, [currentProfileUserId]); // eslint-disable-line
 
-    useEffect(() => {
-        if (activeTab === 'moderation') {
-            loadModerationPosts({ reset: true });
-        }
-    }, [activeTab]); // eslint-disable-line
-
     const loadActiveStories = async () => {
         if (!currentProfileUserId) return;
         try {
@@ -470,9 +464,9 @@ export default function ProfilePage() {
 
     const joinedDate = user.createdAt
         ? new Date(user.createdAt).toLocaleDateString('vi-VN', {
-              month: 'long',
-              year: 'numeric',
-          })
+            month: 'long',
+            year: 'numeric',
+        })
         : null;
 
     /* ────────────────────────────── JSX ────────────────────────────── */
@@ -507,11 +501,10 @@ export default function ProfilePage() {
                                     setShowActiveStoriesModal(true);
                                 }
                             }}
-                            className={`relative shrink-0 transition-all duration-300 ${
-                                activeStories.length > 0
-                                    ? 'p-[3px] rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 cursor-pointer hover:scale-105 shadow-md shadow-pink-500/20'
-                                    : ''
-                            }`}
+                            className={`relative shrink-0 transition-all duration-300 ${activeStories.length > 0
+                                ? 'p-[3px] rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 cursor-pointer hover:scale-105 shadow-md shadow-pink-500/20'
+                                : ''
+                                }`}
                             title={activeStories.length > 0 ? `Xem tin mới 24h của ${user.fullName}` : ''}
                         >
                             <img
@@ -641,8 +634,8 @@ export default function ProfilePage() {
                                         Đã gửi yêu cầu
                                     </button>
                                 ) : relationStatus === 'following' ||
-                                  relationStatus === 'mutual' ||
-                                  relationStatus === 'friend' ? (
+                                    relationStatus === 'mutual' ||
+                                    relationStatus === 'friend' ? (
                                     <button
                                         type="button"
                                         disabled={friendLoading}
@@ -678,8 +671,8 @@ export default function ProfilePage() {
 
                     {/* ─── Story Highlights Horizontal Bar ─── */}
                     {(highlights.length > 0 || isOwnProfile) && (
-                        <div className="mt-5 border-t border-gray-100 pt-4 dark:border-white/10">
-                            <div className="flex items-center gap-4 overflow-x-auto pb-3 pt-2.5 px-2 scrollbar-none">
+                        <div className="mt-3 border-t border-gray-100  dark:border-white/10">
+                            <div className="flex items-center gap-4 overflow-x-auto pb-2 pt-2.5 px-2 scrollbar-none">
                                 {/* Create New Highlight button (for own profile) */}
                                 {isOwnProfile && (
                                     <button
@@ -725,16 +718,17 @@ export default function ProfilePage() {
                         </div>
                     )}
 
+
+
                     {/* Navigation Tabs Bar */}
-                    <div className="-mb-5 mt-5 flex border-t border-gray-200/80 dark:border-white/10 sm:-mb-6">
+                    <div className="flex border-t border-gray-200/80 dark:border-white/10 sm:-mb-6">
                         <button
                             type="button"
                             onClick={() => setActiveTab('posts')}
-                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                activeTab === 'posts'
-                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                            }`}
+                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'posts'
+                                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                }`}
                         >
                             <FileText className="h-4 w-4" />
                             Bài viết
@@ -743,11 +737,10 @@ export default function ProfilePage() {
                         <button
                             type="button"
                             onClick={() => setActiveTab('videos')}
-                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                activeTab === 'videos'
-                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                            }`}
+                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'videos'
+                                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                }`}
                         >
                             <Video className="h-4 w-4" />
                             Video
@@ -757,11 +750,10 @@ export default function ProfilePage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('saved')}
-                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                    activeTab === 'saved'
-                                        ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                }`}
+                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'saved'
+                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                    }`}
                             >
                                 <Bookmark className="h-4 w-4" />
                                 Đã lưu
@@ -771,33 +763,34 @@ export default function ProfilePage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('liked')}
-                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                    activeTab === 'liked'
-                                        ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                }`}
+                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'liked'
+                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                    }`}
                             >
                                 <Heart className="h-4 w-4" />
                                 Đã thích
                             </button>
                         )}
-                        {isOwnProfile && (
+
+                        {isOwnProfile && moderationCount > 0 && (
                             <button
                                 type="button"
-                                onClick={() => setActiveTab('moderation')}
-                                className={`relative flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                    activeTab === 'moderation'
-                                        ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                }`}
+                                onClick={() => {
+                                    setActiveTab('moderation');
+                                    loadModerationPosts({ reset: true });
+                                }}
+                                className={`relative flex items-center justify-center gap-1.5 px-3.5 sm:px-4 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'moderation'
+                                    ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
+                                    : 'border-transparent text-amber-600/80 hover:text-amber-600 dark:text-amber-400/80 dark:hover:text-amber-400'
+                                    }`}
+                                title="Bài viết vi phạm & chờ kiểm duyệt"
                             >
-                                <ShieldAlert className="h-4 w-4" />
-                                Kiểm duyệt
-                                {moderationCount > 0 && (
-                                    <span className="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
-                                        {moderationCount > 99 ? '99+' : moderationCount}
-                                    </span>
-                                )}
+                                <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
+                                <span className="hidden sm:inline text-xs font-bold">Vi phạm</span>
+                                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">
+                                    {moderationCount > 99 ? '99+' : moderationCount}
+                                </span>
                             </button>
                         )}
                     </div>
@@ -932,7 +925,7 @@ export default function ProfilePage() {
                                     Đang tải thêm...
                                 </div>
                             }
-                            scrollableTarget="social-scroll-container"
+                            scrollableTarget="profile-scroll-container"
                         >
                             <div className="space-y-4">
                                 {likedPosts.map((postItem) => (
@@ -947,20 +940,19 @@ export default function ProfilePage() {
                         </InfiniteScroll>
                     )
                 ) : activeTab === 'moderation' ? (
-                    /* Moderation Tab - Author's pending/rejected posts */
                     <>
-                        {/* Info Banner */}
+                        {/* Status Guide / Notice Card */}
                         <div className="rounded-[28px] border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-yellow-50 p-5 shadow-sm dark:border-amber-500/20 dark:from-amber-950/30 dark:via-[#18181b] dark:to-yellow-950/20">
                             <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
                                     <ShieldAlert className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Trạng thái kiểm duyệt bài viết</h4>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                                        Bài viết chờ kiểm duyệt & vi phạm
+                                    </h4>
                                     <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                                        Đây là danh sách các bài viết của bạn đang chờ kiểm duyệt hoặc đã bị hệ thống AI phát hiện vi phạm.
-                                        Bài viết đánh dấu <span className="font-semibold text-amber-600 dark:text-amber-400">vàng</span> đang chờ duyệt,
-                                        bài viết đánh dấu <span className="font-semibold text-red-600 dark:text-red-400">đỏ</span> đã vi phạm và bị ẩn.
+                                        Bài viết đánh dấu <span className="font-semibold text-amber-600 dark:text-amber-400">vàng</span> đang được hệ thống kiểm tra, bài viết đánh dấu <span className="font-semibold text-red-600 dark:text-red-400">đỏ</span> đã bị ẩn do vi phạm tiêu chuẩn cộng đồng.
                                     </p>
                                 </div>
                             </div>
@@ -975,7 +967,9 @@ export default function ProfilePage() {
                                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
                                     <ShieldCheck className="h-7 w-7" />
                                 </div>
-                                <h3 className="text-base font-bold text-gray-900 dark:text-white">Tất cả bài viết đều an toàn! ✅</h3>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                    Tất cả bài viết đều an toàn!
+                                </h3>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                     Không có bài viết nào đang chờ kiểm duyệt hoặc vi phạm.
                                 </p>
@@ -998,7 +992,11 @@ export default function ProfilePage() {
                                             key={postItem._id || postItem.id}
                                             post={postItem}
                                             currentUser={currentUser}
-                                            onDelete={handleDeletePost}
+                                            onDelete={(deletedId) => {
+                                                handleDeletePost(deletedId);
+                                                setModerationPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedId));
+                                                setModerationCount((prev) => Math.max(0, prev - 1));
+                                            }}
                                         />
                                     ))}
                                 </div>

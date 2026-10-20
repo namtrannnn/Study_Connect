@@ -68,6 +68,9 @@ router.post(
   controller.answerQuiz,
 );
 
+// POST /api/v1/post/:id/appeal
+router.post("/:id/appeal", userMiddleware.requireUser, controller.submitAppeal);
+
 // GET /api/v1/post/:id
 // Route động /:id nên để gần cuối
 router.get("/:id", userMiddleware.requireUser, controller.detailPost);

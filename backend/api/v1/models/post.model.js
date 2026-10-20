@@ -234,6 +234,42 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Appeal / Khiếu nại bài viết (Blueprint Section 14)
+    isAppealed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    appealReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    appealStatus: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+      index: true,
+    },
+    appealedAt: {
+      type: Date,
+      default: null,
+    },
+    appealResolvedAt: {
+      type: Date,
+      default: null,
+    },
+    appealResolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      default: null,
+    },
+    appealResolutionNote: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     visibility: {
       type: String,
       enum: ["public", "followers", "friends", "private", "custom"],

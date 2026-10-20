@@ -137,3 +137,9 @@ export const rejectModerationPost = async (postId, reason = '') => {
     return res.data;
 };
 
+export const resolveAppeal = async (postId, { action, note = '' }) => {
+    const res = await httpRequest.patch(`/admin/moderation/resolve-appeal/${postId}`, { action, note });
+    return res.data;
+};
+
+

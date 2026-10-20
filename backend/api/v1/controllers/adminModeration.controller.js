@@ -2,6 +2,7 @@ const {
   getPendingAdminPosts,
   approvePostByAdmin,
   rejectPostByAdmin,
+  resolvePostAppeal,
 } = require("../../../services/moderation/stage4_adminQueue.service");
 
 // [GET] /api/v1/admin/moderation/pending
@@ -64,3 +65,28 @@ module.exports.rejectPost = async (req, res) => {
     });
   }
 };
+
+// [PATCH] /api/v1/admin/moderation/resolve-appeal/:id
+module.exports.resolveAppeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, note } = req.body;
+    const adminId = req.user ? req.user._id : null;
+    const post = await resolvePostAppeal(id, action, note, adminId);
+
+    return res.status(200).json({
+      code: 200,
+      message:
+        action === "approve"
+          ? "Đã chấp thuận khiếu nại và khôi phục bài viết"
+          : "Đã bác bỏ khiếu nại của bài viết",
+      data: post,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      code: 400,
+      message: error.message,
+    });
+  }
+};
+
