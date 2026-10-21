@@ -2,6 +2,11 @@ const User = require("../models/user.model");
 const ForgetPassword = require("../models/forgetPassword.model");
 const sendMail = require("../../../helpers/sendMail");
 const md5 = require("md5");
+const axios = require("axios");
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID
+);
 
 const { generateAccessToken } = require("../../../helpers/jwt.helper");
 const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
@@ -155,6 +160,111 @@ module.exports.login = async (req, res) => {
     return res.json({
       code: 400,
       message: error.message,
+    });
+  }
+};
+
+// [POST] api/v1/user/google-login
+module.exports.googleLogin = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.json({
+        code: 400,
+        message: "Google token không hợp lệ!",
+      });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience:
+          process.env.GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      // Thử xác thực theo access_token qua Google userinfo API
+      try {
+        const userInfoRes = await axios.get(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        payload = userInfoRes.data;
+      } catch (err2) {
+        // Fallback kiểm tra tokeninfo
+        const response = await axios.get(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
+        );
+        payload = response.data;
+      }
+    }
+
+    if (!payload || !payload.email) {
+      return res.json({
+        code: 400,
+        message: "Không thể xác thực thông tin tài khoản Google!",
+      });
+    }
+
+    const email = payload.email.trim().toLowerCase();
+    const fullName = payload.name || payload.given_name || "Nexus User";
+    const avatar = payload.picture || undefined;
+
+    let user = await User.findOne({
+      email,
+      deleted: false,
+    });
+
+    if (user) {
+      if (user.status !== "active") {
+        return res.json({
+          code: 403,
+          message: "Tài khoản của bạn đang bị khóa!",
+        });
+      }
+      // Cập nhật avatar nếu tài khoản đang dùng avatar mặc định
+      if (avatar && (!user.avatar || user.avatar.includes("user_somhbs.png"))) {
+        user.avatar = avatar;
+        await user.save();
+      }
+    } else {
+      // Tạo tài khoản mới tự động
+      const username = await generateUniqueUsername(fullName, email);
+      const randomPassword = md5(Math.random().toString(36) + Date.now());
+
+      user = new User({
+        fullName,
+        email,
+        username,
+        password: randomPassword,
+        avatar:
+          avatar ||
+          "https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png",
+        isVerified: true,
+        status: "active",
+      });
+
+      await user.save();
+    }
+
+    const accessToken = generateAccessToken(user);
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    return res.json({
+      code: 200,
+      message: "Đăng nhập Google thành công!",
+      token: accessToken,
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error("Google Login Error:", error);
+    return res.json({
+      code: 500,
+      message: error.message || "Đăng nhập Google thất bại!",
     });
   }
 };

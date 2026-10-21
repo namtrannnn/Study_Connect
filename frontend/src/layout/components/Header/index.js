@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, User, Sun, Moon, LogIn, Search, MessageCircle, ShieldCheck, Users } from 'lucide-react';
+import { Home, Sun, Moon, Search, MessageCircle, ShieldCheck, Users } from 'lucide-react';
 import ReactLoading from 'react-loading';
 
-import logo from '../../../assets/logo-slime.png';
+import logo from '../../../assets/nexus-logo.png';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -231,48 +231,10 @@ function Header({ user }) {
             </div>
 
             <ul
-                className="hidden md:flex  items-center justify-between text-white dark:text-[#B8BBBF] text-[25px] min-w-[33%] "
+                className="hidden md:flex items-center justify-between text-white dark:text-[#B8BBBF] text-[25px] min-w-[33%] "
                 style={{ flex: '1 1 auto' }}
             >
-                {user ? (
-                    navMenuLogged()
-                ) : (
-                    <>
-                        <NavLink
-                            to={config.routes.home}
-                            className={({ isActive }) =>
-                                `relative bg-inherit text-[#65686c] py-2 md:py-2.5 my-1 mx-1 shrink-1 w-full flex justify-center hover:text-blue-600 hover:bg-[#EBEDF0] rounded-[10px] text-[23px] transition-20 after:content-[''] after:absolute after:h-[3px] after:w-[70%] after:left-[15%] after:bg-blue-600 after:text-blue-500 after:opacity-0 after:bottom-0 -['Home']  before:rounded-lg dark:bg-inherit before:opacity-0 dark:text-[#B8BBBF] dark:hover:bg-[#3A3B3C] dark:hover:text-blue-500 ${
-                                    isActive ? 'text-blue-600 after:opacity-100 dark:text-blue-500' : 'text-[#65686c]'
-                                }`
-                            }
-                            role="button"
-                        >
-                            <Home size={23} />
-                        </NavLink>
-                        <NavLink
-                            to={config.routes.login}
-                            className={({ isActive }) =>
-                                `relative bg-inherit text-[#65686c] py-2 md:py-2.5 my-1 mx-1 shrink-1 w-full flex justify-center hover:text-blue-600 hover:bg-[#EBEDF0] rounded-[10px] text-[23px] transition-20 after:content-[''] after:absolute after:h-[3px] after:w-[70%] after:left-[15%] after:bg-blue-600 after:text-blue-500 after:opacity-0 after:bottom-0 -['Home']  before:rounded-lg dark:bg-inherit before:opacity-0 dark:text-[#B8BBBF] dark:hover:bg-[#3A3B3C] dark:hover:text-blue-500 ${
-                                    isActive ? 'text-blue-600 after:opacity-100 dark:text-blue-500' : 'text-[#65686c]'
-                                }`
-                            }
-                            role="button"
-                        >
-                            <LogIn size={23} />
-                        </NavLink>
-                        <NavLink
-                            to={config.routes.register}
-                            className={({ isActive }) =>
-                                `relative bg-inherit text-[#65686c] py-2 md:py-2.5 my-1 mx-1 shrink-1 w-full flex justify-center hover:text-blue-600 hover:bg-[#EBEDF0] rounded-[10px] text-[23px] transition-20 after:content-[''] after:absolute after:h-[3px] after:w-[70%] after:left-[15%] after:bg-blue-600 after:text-blue-500 after:opacity-0 after:bottom-0 -['Home']  before:rounded-lg dark:bg-inherit before:opacity-0 dark:text-[#B8BBBF] dark:hover:bg-[#3A3B3C] dark:hover:text-blue-500 ${
-                                    isActive ? 'text-blue-600 after:opacity-100 dark:text-blue-500' : 'text-[#65686c]'
-                                }`
-                            }
-                            role="button"
-                        >
-                            <User size={23} />
-                        </NavLink>
-                    </>
-                )}
+                {user ? navMenuLogged() : null}
             </ul>
 
             <div

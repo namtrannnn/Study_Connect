@@ -4,14 +4,21 @@ import './index.css';
 import App from './App';
 
 import { Provider } from 'react-redux';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import store from './redux/index';
+
+const GOOGLE_CLIENT_ID =
+    process.env.REACT_APP_GOOGLE_CLIENT_ID ||
+    '72707007917-t313ijih2m66h8d8oqa0l4clgb72qavf.apps.googleusercontent.com';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
     // <React.StrictMode>
     <Provider store={store}>
-        <App />
+        <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+            <App />
+        </GoogleOAuthProvider>
     </Provider>,
     // </React.StrictMode>
 );
