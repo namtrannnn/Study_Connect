@@ -6,6 +6,7 @@ const userMiddleware = require("../middlewares/user.middleware.js");
 
 router.post("/register", controller.register);
 router.post("/login", controller.login);
+router.post("/google-login", controller.googleLogin);
 router.get("/detail", controller.detail);
 
 // [FORGET_PASSWORD]

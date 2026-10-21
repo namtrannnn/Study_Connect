@@ -12,6 +12,11 @@ export const login = async (data) => {
     return res.data;
 };
 
+export const googleLogin = async (token) => {
+    const res = await httpRequest.post('/user/google-login', { token });
+    return res.data;
+};
+
 export const register = async (data) => {
     const res = await httpRequest.post('/user/register', data);
     return res.data;
