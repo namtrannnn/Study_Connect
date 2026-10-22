@@ -13,7 +13,7 @@ module.exports = {
 
         orange: "#f89b28",
 
-        // Primary mới: xanh chủ đạo StudyConnect
+        // Primary mới: xanh chủ đạo
         primary: "#2563eb",
 
         brand: {

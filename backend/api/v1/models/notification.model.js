@@ -12,7 +12,8 @@ const notificationSchema = new mongoose.Schema(
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true,
+      required: false,
+      default: null,
     },
 
     type: {
@@ -28,6 +29,12 @@ const notificationSchema = new mongoose.Schema(
         "comment_reply",
         "mention",
         "study_room_invite",
+        "story_reply",
+        "STORY_REPLY",
+        "moderation_approved",
+        "moderation_rejected",
+        "appeal_approved",
+        "appeal_rejected",
       ],
       required: true,
     },
@@ -49,7 +56,7 @@ const notificationSchema = new mongoose.Schema(
 
     refType: {
       type: String,
-      enum: ["user", "post", "comment", "roomChat", "studyRoom", null],
+      enum: ["user", "post", "comment", "roomChat", "studyRoom", "story", "Story", null],
       default: null,
     },
 

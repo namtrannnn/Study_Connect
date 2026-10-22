@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import {
@@ -21,15 +21,30 @@ import {
     Grid3x3,
     Film,
     ArrowLeft,
+    Archive,
+    Plus,
+    Sparkles,
+    ShieldAlert,
+    ShieldCheck,
+    Settings,
+    LogOut,
+    Sun,
+    Moon,
 } from 'lucide-react';
+import { LOGOUT } from '../../../redux/userSlice';
+import { TOGGLE_THEME } from '../../../redux/themeSlice';
 
 import EditProfileModal from './EditProfileModal';
+import StoryArchiveModal from './StoryArchiveModal';
+import CreateHighlightModal from './CreateHighlightModal';
+import StoryViewerModal from '../../../components/StoryViewerModal';
 import Post from '../../Dashboard/Post';
 import UnfollowConfirmModal from '../../../components/UnfollowConfirmModal';
 import { LoadingProfile } from '../../../components/Loading';
 import * as ProfileServices from '../../../services/ProfileServices';
 import * as FriendServices from '../../../services/friend.services';
 import * as PostServices from '../../../services/posts.services';
+import { getUserHighlights, getUserActiveStories } from '../../../services/story.services';
 import httpRequest from '../../../config/axios';
 
 /* ────────────────────────── Main Component ────────────────────────── */
@@ -37,7 +52,11 @@ export default function ProfilePage() {
     const { userId, username } = useParams();
     const profileIdentifier = username || userId;
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const currentUser = useSelector((state) => state.user?.infoUser);
+    const theme = useSelector((state) => state.theme?.theme);
+    const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+    const settingsRef = useRef(null);
 
     const [profileData, setProfileData] = useState(null);
 
@@ -62,6 +81,11 @@ export default function ProfilePage() {
     const [postLoading, setPostLoading] = useState(false);
     const [savedLoading, setSavedLoading] = useState(false);
     const [likedLoading, setLikedLoading] = useState(false);
+    const [moderationPosts, setModerationPosts] = useState([]);
+    const [moderationLoading, setModerationLoading] = useState(false);
+    const [moderationCount, setModerationCount] = useState(0);
+    const [moderationCursor, setModerationCursor] = useState(null);
+    const [hasMoreModeration, setHasMoreModeration] = useState(false);
 
     // Modals & Action States
     const [error, setError] = useState('');
@@ -70,6 +94,18 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [showUnfollowModal, setShowUnfollowModal] = useState(false);
     const [relationStatus, setRelationStatus] = useState('none');
+
+    // Story Highlights & Archive States
+    const [highlights, setHighlights] = useState([]);
+    const [loadingHighlights, setLoadingHighlights] = useState(false);
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [showCreateHighlightModal, setShowCreateHighlightModal] = useState(false);
+    const [selectedArchiveStories, setSelectedArchiveStories] = useState([]);
+    const [activeHighlight, setActiveHighlight] = useState(null);
+
+    // Active 24h Stories State
+    const [activeStories, setActiveStories] = useState([]);
+    const [showActiveStoriesModal, setShowActiveStoriesModal] = useState(false);
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -108,9 +144,55 @@ export default function ProfilePage() {
                 setHasMoreLiked(false);
                 loadSavedPosts({ reset: true });
                 loadLikedPosts({ reset: true });
+                loadModerationPosts({ reset: true });
             }
+            loadHighlights();
+            loadActiveStories();
         }
     }, [currentProfileUserId]); // eslint-disable-line
+
+    const loadActiveStories = async () => {
+        if (!currentProfileUserId) return;
+        try {
+            const res = await getUserActiveStories(isOwnProfile ? null : currentProfileUserId);
+            if (res?.code === 200) {
+                setActiveStories(res.data || []);
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải active stories:', err);
+        }
+    };
+
+    const loadHighlights = async () => {
+        if (!currentProfileUserId) return;
+        try {
+            setLoadingHighlights(true);
+            const res = await getUserHighlights(currentProfileUserId);
+            if (res?.code === 200) {
+                setHighlights(res.data || []);
+            }
+        } catch (err) {
+            console.error('Lỗi khi tải tin nổi bật:', err);
+        } finally {
+            setLoadingHighlights(false);
+        }
+    };
+
+    const handleCreateHighlightFromArchive = (selectedStories) => {
+        setSelectedArchiveStories(selectedStories);
+        setShowArchiveModal(false);
+        setShowCreateHighlightModal(true);
+    };
+
+    const handleHighlightCreated = (newHighlight) => {
+        setHighlights((prev) => [newHighlight, ...prev]);
+        setShowCreateHighlightModal(false);
+    };
+
+    const handleHighlightDeleted = (deletedId) => {
+        setHighlights((prev) => prev.filter((h) => h._id !== deletedId));
+        setActiveHighlight(null);
+    };
 
     useEffect(() => {
         if (relation?.relationStatus) {
@@ -149,10 +231,40 @@ export default function ProfilePage() {
             setPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]));
             setNextCursor(res?.nextCursor || null);
             setHasMorePosts(Boolean(res?.hasMore));
+            if (typeof res?.moderationCount === 'number') {
+                setModerationCount(res.moderationCount);
+            }
         } catch (err) {
             console.log('Load profile posts error:', err);
         } finally {
             setPostLoading(false);
+        }
+    };
+
+    // Load Moderation Posts for Owner
+    const loadModerationPosts = async ({ reset = false } = {}) => {
+        if (!currentProfileUserId) return;
+        try {
+            setModerationLoading(true);
+            const cursor = reset ? null : moderationCursor;
+            const res = await ProfileServices.getUserPostFeed({
+                userId: currentProfileUserId,
+                limit: 10,
+                cursor,
+                moderationOnly: true,
+            });
+
+            const newPosts = res?.data || [];
+            setModerationPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]));
+            setModerationCursor(res?.nextCursor || null);
+            setHasMoreModeration(Boolean(res?.hasMore));
+            if (typeof res?.moderationCount === 'number') {
+                setModerationCount(res.moderationCount);
+            }
+        } catch (err) {
+            console.log('Load moderation posts error:', err);
+        } finally {
+            setModerationLoading(false);
         }
     };
 
@@ -362,14 +474,14 @@ export default function ProfilePage() {
 
     const joinedDate = user.createdAt
         ? new Date(user.createdAt).toLocaleDateString('vi-VN', {
-              month: 'long',
-              year: 'numeric',
-          })
+            month: 'long',
+            year: 'numeric',
+        })
         : null;
 
     /* ────────────────────────────── JSX ────────────────────────────── */
     return (
-        <div className="py-6">
+        <div className="py-2 sm:py-6">
             <div className="mx-auto w-full max-w-[680px] space-y-4">
                 {/* Back Button Header (Threads style for other profiles) */}
                 {!isOwnProfile && (
@@ -389,18 +501,104 @@ export default function ProfilePage() {
                 )}
 
                 {/* ─── Profile Header Card (Threads style: Avatar LEFT, Info RIGHT) ─── */}
-                <div className="rounded-[28px] border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#18181b] sm:p-6">
+                <div className="relative rounded-2xl sm:rounded-[28px] border border-gray-200/80 bg-white p-4 sm:p-6 shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                    {/* Settings Button - own profile only */}
+                    {isOwnProfile && (
+                        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10" ref={settingsRef}>
+                            <button
+                                type="button"
+                                onClick={() => setShowSettingsMenu((v) => !v)}
+                                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-90 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                                aria-label="Cài đặt"
+                                title="Cài đặt"
+                            >
+                                <Settings className="h-5 w-5" />
+                            </button>
+
+                            {showSettingsMenu && (
+                                <>
+                                    {/* Overlay to close */}
+                                    <div
+                                        className="fixed inset-0 z-20"
+                                        onClick={() => setShowSettingsMenu(false)}
+                                    />
+                                    {/* Dropdown */}
+                                    <div className="absolute right-0 top-11 z-30 w-52 origin-top-right animate-in fade-in slide-in-from-top-1 rounded-xl border border-gray-200/80 bg-white p-1.5 shadow-xl dark:border-white/10 dark:bg-[#232326]">
+                                        {/* Theme Toggle Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newTheme = theme === 'dark' ? null : 'dark';
+                                                dispatch(TOGGLE_THEME(newTheme));
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                {theme === 'dark' ? (
+                                                    <Sun className="h-4.5 w-4.5 text-amber-500" />
+                                                ) : (
+                                                    <Moon className="h-4.5 w-4.5 text-indigo-500" />
+                                                )}
+                                                <span>{theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'}</span>
+                                            </div>
+                                            <div
+                                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                                                    theme === 'dark' ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                        theme === 'dark' ? 'translate-x-4' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </div>
+                                        </button>
+
+                                        <div className="my-1 border-t border-gray-100 dark:border-white/10" />
+
+                                        {/* Logout Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
+                                                    dispatch(LOGOUT());
+                                                    navigate('/dang-nhap');
+                                                }
+                                                setShowSettingsMenu(false);
+                                            }}
+                                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                                        >
+                                            <LogOut className="h-4.5 w-4.5" />
+                                            Đăng xuất
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     {/* Header Row: Avatar on LEFT, Name/Username on RIGHT */}
                     <div className="flex items-start gap-4 sm:gap-5">
-                        {/* Avatar on LEFT */}
-                        <div className="relative shrink-0">
+                        {/* Avatar on LEFT with Active 24h Story Ring */}
+                        <div
+                            onClick={() => {
+                                if (activeStories.length > 0) {
+                                    setShowActiveStoriesModal(true);
+                                }
+                            }}
+                            className={`relative shrink-0 transition-all duration-300 ${activeStories.length > 0
+                                ? 'p-[3px] rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-amber-400 cursor-pointer hover:scale-105 shadow-md shadow-pink-500/20'
+                                : ''
+                                }`}
+                            title={activeStories.length > 0 ? `Xem tin mới 24h của ${user.fullName}` : ''}
+                        >
                             <img
                                 src={
                                     user.avatar ||
                                     'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
                                 }
                                 alt={user.fullName}
-                                className="h-24 w-24 rounded-full border-2 border-gray-100 object-cover shadow-sm dark:border-white/10 sm:h-28 sm:w-28"
+                                className="h-20 w-20 rounded-full border-2 border-white object-cover shadow-sm dark:border-[#18181b] sm:h-28 sm:w-28"
                             />
                             {user.isVerified && (
                                 <CheckCircle2 className="absolute bottom-1 right-1 h-6 w-6 text-blue-500 fill-white dark:fill-[#18181b]" />
@@ -468,14 +666,25 @@ export default function ProfilePage() {
                     {/* Action Buttons Row */}
                     <div className="mt-4 flex gap-2">
                         {isOwnProfile ? (
-                            <button
-                                type="button"
-                                onClick={handleOpenEdit}
-                                className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                            >
-                                <Edit3 className="h-4 w-4" />
-                                Chỉnh sửa hồ sơ
-                            </button>
+                            <div className="flex w-full gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleOpenEdit}
+                                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                >
+                                    <Edit3 className="h-4 w-4" />
+                                    Chỉnh sửa hồ sơ
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowArchiveModal(true)}
+                                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 px-4 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                    title="Kho lưu trữ Story"
+                                >
+                                    <Archive className="h-4 w-4 text-indigo-500" />
+                                    <span className="hidden sm:inline">Kho lưu trữ</span>
+                                </button>
+                            </div>
                         ) : (
                             <>
                                 {relationStatus === 'pending_received' ? (
@@ -510,8 +719,8 @@ export default function ProfilePage() {
                                         Đã gửi yêu cầu
                                     </button>
                                 ) : relationStatus === 'following' ||
-                                  relationStatus === 'mutual' ||
-                                  relationStatus === 'friend' ? (
+                                    relationStatus === 'mutual' ||
+                                    relationStatus === 'friend' ? (
                                     <button
                                         type="button"
                                         disabled={friendLoading}
@@ -545,16 +754,66 @@ export default function ProfilePage() {
                         )}
                     </div>
 
+                    {/* ─── Story Highlights Horizontal Bar ─── */}
+                    {(highlights.length > 0 || isOwnProfile) && (
+                        <div className="mt-3 border-t border-gray-100  dark:border-white/10">
+                            <div className="flex items-center gap-4 overflow-x-auto pb-2 pt-2.5 px-2 scrollbar-none">
+                                {/* Create New Highlight button (for own profile) */}
+                                {isOwnProfile && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowArchiveModal(true)}
+                                        className="group flex flex-col items-center gap-1.5 shrink-0 py-0.5"
+                                    >
+                                        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-gray-300 bg-gray-50 transition group-hover:border-indigo-500 group-hover:bg-indigo-50/50 dark:border-white/20 dark:bg-white/5 dark:group-hover:border-indigo-400">
+                                            <Plus className="h-6 w-6 text-gray-500 group-hover:text-indigo-600 dark:text-gray-400 dark:group-hover:text-indigo-400" />
+                                        </div>
+                                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">
+                                            Mới
+                                        </span>
+                                    </button>
+                                )}
+
+                                {/* List of Highlights */}
+                                {highlights.map((item) => (
+                                    <button
+                                        key={item._id}
+                                        type="button"
+                                        onClick={() => setActiveHighlight(item)}
+                                        className="group flex flex-col items-center gap-1.5 shrink-0 py-0.5 overflow-visible"
+                                    >
+                                        <div className="relative p-[3px] rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 transition-transform duration-200 group-hover:scale-105 shrink-0">
+                                            <img
+                                                src={
+                                                    item.coverImage ||
+                                                    item.stories?.[0]?.mediaUrl ||
+                                                    item.stories?.[0]?.media?.url ||
+                                                    'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
+                                                }
+                                                alt={item.title}
+                                                className="h-16 w-16 rounded-full border-2 border-white object-cover dark:border-[#18181b] shrink-0"
+                                            />
+                                        </div>
+                                        <span className="max-w-[70px] truncate text-[11px] font-semibold text-gray-800 dark:text-gray-200">
+                                            {item.title}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+
+
                     {/* Navigation Tabs Bar */}
-                    <div className="-mb-5 mt-5 flex border-t border-gray-200/80 dark:border-white/10 sm:-mb-6">
+                    <div className="flex items-center overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-t border-gray-200/80 dark:border-white/10">
                         <button
                             type="button"
                             onClick={() => setActiveTab('posts')}
-                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                activeTab === 'posts'
-                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                            }`}
+                            className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'posts'
+                                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                }`}
                         >
                             <FileText className="h-4 w-4" />
                             Bài viết
@@ -563,11 +822,10 @@ export default function ProfilePage() {
                         <button
                             type="button"
                             onClick={() => setActiveTab('videos')}
-                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                activeTab === 'videos'
-                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                            }`}
+                            className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'videos'
+                                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                }`}
                         >
                             <Video className="h-4 w-4" />
                             Video
@@ -577,11 +835,10 @@ export default function ProfilePage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('saved')}
-                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                    activeTab === 'saved'
-                                        ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                }`}
+                                className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'saved'
+                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                    }`}
                             >
                                 <Bookmark className="h-4 w-4" />
                                 Đã lưu
@@ -591,14 +848,34 @@ export default function ProfilePage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('liked')}
-                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${
-                                    activeTab === 'liked'
-                                        ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                }`}
+                                className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'liked'
+                                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                    }`}
                             >
                                 <Heart className="h-4 w-4" />
                                 Đã thích
+                            </button>
+                        )}
+
+                        {isOwnProfile && moderationCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveTab('moderation');
+                                    loadModerationPosts({ reset: true });
+                                }}
+                                className={`relative flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 px-3 sm:px-4 border-b-2 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'moderation'
+                                    ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
+                                    : 'border-transparent text-amber-600/80 hover:text-amber-600 dark:text-amber-400/80 dark:hover:text-amber-400'
+                                    }`}
+                                title="Bài viết vi phạm & chờ kiểm duyệt"
+                            >
+                                <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
+                                <span className="text-xs font-bold">Vi phạm</span>
+                                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">
+                                    {moderationCount > 99 ? '99+' : moderationCount}
+                                </span>
                             </button>
                         )}
                     </div>
@@ -711,7 +988,7 @@ export default function ProfilePage() {
                             </div>
                         </InfiniteScroll>
                     )
-                ) : (
+                ) : activeTab === 'liked' ? (
                     /* Liked Tab */
                     likedLoading && likedPosts.length === 0 ? (
                         <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center text-sm font-medium text-gray-400 dark:border-white/10 dark:bg-[#18181b]">
@@ -733,7 +1010,7 @@ export default function ProfilePage() {
                                     Đang tải thêm...
                                 </div>
                             }
-                            scrollableTarget="social-scroll-container"
+                            scrollableTarget="profile-scroll-container"
                         >
                             <div className="space-y-4">
                                 {likedPosts.map((postItem) => (
@@ -747,7 +1024,71 @@ export default function ProfilePage() {
                             </div>
                         </InfiniteScroll>
                     )
-                )}
+                ) : activeTab === 'moderation' ? (
+                    <>
+                        {/* Status Guide / Notice Card */}
+                        <div className="rounded-[28px] border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-yellow-50 p-5 shadow-sm dark:border-amber-500/20 dark:from-amber-950/30 dark:via-[#18181b] dark:to-yellow-950/20">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+                                    <ShieldAlert className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                                        Bài viết chờ kiểm duyệt & vi phạm
+                                    </h4>
+                                    <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                        Bài viết đánh dấu <span className="font-semibold text-amber-600 dark:text-amber-400">vàng</span> đang được hệ thống kiểm tra, bài viết đánh dấu <span className="font-semibold text-red-600 dark:text-red-400">đỏ</span> đã bị ẩn do vi phạm tiêu chuẩn cộng đồng.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {moderationLoading && moderationPosts.length === 0 ? (
+                            <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center text-sm font-medium text-gray-400 dark:border-white/10 dark:bg-[#18181b]">
+                                Đang tải bài viết kiểm duyệt...
+                            </div>
+                        ) : moderationPosts.length === 0 ? (
+                            <div className="rounded-[28px] border border-gray-200/80 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                    <ShieldCheck className="h-7 w-7" />
+                                </div>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                    Tất cả bài viết đều an toàn!
+                                </h3>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Không có bài viết nào đang chờ kiểm duyệt hoặc vi phạm.
+                                </p>
+                            </div>
+                        ) : (
+                            <InfiniteScroll
+                                dataLength={moderationPosts.length}
+                                next={() => loadModerationPosts({ reset: false })}
+                                hasMore={hasMoreModeration}
+                                loader={
+                                    <div className="py-4 text-center text-xs font-semibold text-gray-400">
+                                        Đang tải thêm...
+                                    </div>
+                                }
+                                scrollableTarget="profile-scroll-container"
+                            >
+                                <div className="space-y-4">
+                                    {moderationPosts.map((postItem) => (
+                                        <Post
+                                            key={postItem._id || postItem.id}
+                                            post={postItem}
+                                            currentUser={currentUser}
+                                            onDelete={(deletedId) => {
+                                                handleDeletePost(deletedId);
+                                                setModerationPosts((prev) => prev.filter((p) => (p._id || p.id) !== deletedId));
+                                                setModerationCount((prev) => Math.max(0, prev - 1));
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </InfiniteScroll>
+                        )}
+                    </>
+                ) : null}
             </div>
 
             {/* Edit Profile Modal */}
@@ -767,6 +1108,45 @@ export default function ProfilePage() {
                 onClose={() => setShowUnfollowModal(false)}
                 onConfirm={executeFollowAction}
                 loading={friendLoading}
+            />
+
+            {/* Story Archive Modal */}
+            <StoryArchiveModal
+                isOpen={showArchiveModal}
+                onClose={() => setShowArchiveModal(false)}
+                onCreateHighlight={handleCreateHighlightFromArchive}
+                currentUser={currentUser}
+            />
+
+            {/* Create Highlight Modal */}
+            <CreateHighlightModal
+                isOpen={showCreateHighlightModal}
+                onClose={() => setShowCreateHighlightModal(false)}
+                selectedStoryIds={selectedArchiveStories}
+                onCreated={handleHighlightCreated}
+            />
+
+            {/* Story Highlight Viewer Modal */}
+            <StoryViewerModal
+                isOpen={!!activeHighlight}
+                onClose={() => setActiveHighlight(null)}
+                mode="highlight"
+                highlight={activeHighlight}
+                currentUser={currentUser}
+                onHighlightDeleted={handleHighlightDeleted}
+            />
+
+            {/* Active 24h Story Viewer Modal */}
+            <StoryViewerModal
+                isOpen={showActiveStoriesModal}
+                onClose={() => setShowActiveStoriesModal(false)}
+                mode="active"
+                stories={activeStories}
+                currentUser={currentUser}
+                onDeleteSuccess={(deletedId) => {
+                    setActiveStories((prev) => prev.filter((s) => s._id !== deletedId));
+                    if (typeof loadActiveStories === 'function') loadActiveStories();
+                }}
             />
         </div>
     );

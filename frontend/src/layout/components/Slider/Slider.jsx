@@ -23,6 +23,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LOGOUT } from '../../../redux/userSlice';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
+import { setUnreadCount } from '../../../redux/slices/notificationSlice';
 import config from '../../../config';
 import { resetTotalUnread } from '../../../redux/slices/chatSlice';
 import { getSocket } from '../../../config/socket';
@@ -88,6 +89,7 @@ export default function Slider({
         if (panelName === 'notifications') {
             setMoreOpen(false);
             setPanel(null);
+            dispatch(setUnreadCount(0));
             onOpenNotifications?.();
             return;
         }
@@ -376,39 +378,6 @@ export default function Slider({
                     </div>
                 </div>
             </aside>
-
-            {/* Mobile bottom nav */}
-            {!isMd && (
-                <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-background md:hidden">
-                    {navItems.slice(0, 5).map((item) => {
-                        const Icon = item.icon;
-                        const active = panel === item.id;
-
-                        if (item.action) {
-                            return (
-                                <button
-                                    type="button"
-                                    key={item.id}
-                                    onClick={item.action}
-                                    className="flex flex-col items-center justify-center gap-1"
-                                >
-                                    <Icon className={`h-6 w-6 ${active ? 'scale-110' : ''}`} />
-                                </button>
-                            );
-                        }
-
-                        return (
-                            <a
-                                key={item.id}
-                                href={item.path}
-                                className="flex flex-col items-center justify-center gap-1"
-                            >
-                                <Icon className="h-6 w-6" />
-                            </a>
-                        );
-                    })}
-                </nav>
-            )}
         </div>
     );
 }

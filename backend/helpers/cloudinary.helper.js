@@ -9,14 +9,18 @@ cloudinary.config({
 
 const folder = "social-fb";
 
-const uploadStreamToCloudinary = (buffer, path) => {
+const uploadStreamToCloudinary = (buffer, path, options = {}) => {
   return new Promise((resolve, reject) => {
+    const defaultTransform = options.resource_type === "video" || options.resource_type === "auto" 
+      ? [] 
+      : [{ width: 1600, crop: "limit", quality: "auto:best" }];
+
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: folder + path,
-        transformation: [
-          { width: 1600, crop: "limit", quality: "auto:best" },
-        ],
+        transformation: options.transformation || defaultTransform,
+        resource_type: options.resource_type || "auto",
+        ...options,
       },
       (error, result) => {
         if (result)

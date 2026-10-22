@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
-import { RefreshCcw, Clock } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { RefreshCcw, Clock, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
-// import StoriesBar from './StoriesBar';
+import StoriesBar from './StoriesBar';
+import StoryEditorModal from './StoryEditorModal';
+import StoryViewerModal from '../../components/StoryViewerModal';
 import Modal from './Modal';
 import Post from './Post';
 import { useSelector } from 'react-redux';
 import * as PostServices from '../../services/posts.services';
+import * as StoryServices from '../../services/story.services';
 import { LoadingDashboard } from '../../components/Loading';
 
 function Dashboard({ user: propUser, theme }) {
@@ -15,17 +18,34 @@ function Dashboard({ user: propUser, theme }) {
     const user = propUser || reduxUser;
 
     const [text, setText] = useState('');
-
     const [attachment, setAttachment] = useState('');
     const [openModal, setOpenModal] = useState(false);
 
+    // Posts state
     const [posts, setPosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [nextCursor, setNextCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
 
+    // Stories state
+    const [feedGroups, setFeedGroups] = useState([]);
+    const [openStoryEditor, setOpenStoryEditor] = useState(false);
+    const [openStoryViewer, setOpenStoryViewer] = useState(false);
+    const [selectedStoryAuthorId, setSelectedStoryAuthorId] = useState(null);
+
     const firstLoadRef = useRef(false);
+
+    const loadStoryFeed = useCallback(async () => {
+        try {
+            const res = await StoryServices.getStoryFeed();
+            if (res.code === 200) {
+                setFeedGroups(res.data || []);
+            }
+        } catch (error) {
+            console.log('Load story feed error:', error);
+        }
+    }, []);
 
     const loadFeedPosts = async ({ cursor = null, mode = 'init' } = {}) => {
         try {
@@ -70,7 +90,6 @@ function Dashboard({ user: propUser, theme }) {
             toast.error(error?.response?.data?.message || 'Không thể tải danh sách bài viết');
         } finally {
             if (mode === 'init') {
-                // Short timeout to guarantee the transition doesn't look raw on high-speed local APIs
                 setTimeout(() => {
                     setLoadingPosts(false);
                 }, 500);
@@ -86,12 +105,14 @@ function Dashboard({ user: propUser, theme }) {
 
         firstLoadRef.current = true;
         loadFeedPosts();
-    }, []);
+        loadStoryFeed();
+    }, [loadStoryFeed]);
 
     const handleRefreshFeed = () => {
         setNextCursor(null);
         setHasMore(false);
         loadFeedPosts({ mode: 'refresh' });
+        loadStoryFeed();
     };
 
     const handleLoadMore = () => {
@@ -175,7 +196,10 @@ function Dashboard({ user: propUser, theme }) {
         }
     };
 
-
+    const handleOpenStoryGroup = (authorId) => {
+        setSelectedStoryAuthorId(authorId);
+        setOpenStoryViewer(true);
+    };
 
     return (
         <>
@@ -193,16 +217,56 @@ function Dashboard({ user: propUser, theme }) {
                 />
             )}
 
+            {openStoryEditor && (
+                <StoryEditorModal
+                    isOpen={openStoryEditor}
+                    onClose={() => setOpenStoryEditor(false)}
+                    currentUser={user}
+                    onSuccess={() => {
+                        loadStoryFeed();
+                    }}
+                />
+            )}
+
+            {openStoryViewer && (
+                <StoryViewerModal
+                    isOpen={openStoryViewer}
+                    onClose={() => {
+                        setOpenStoryViewer(false);
+                        loadStoryFeed();
+                    }}
+                    feedGroups={feedGroups}
+                    initialAuthorId={selectedStoryAuthorId}
+                    currentUser={user}
+                    onDeleteSuccess={() => {
+                        loadStoryFeed();
+                    }}
+                />
+            )}
+
+
+            {/* Stories Bar - above the main container */}
+            <div className="mb-2">
+                <StoriesBar
+                    user={user}
+                    feedGroups={feedGroups}
+                    onOpenStoryGroup={handleOpenStoryGroup}
+                    onCreateStory={() => setOpenStoryEditor(true)}
+                />
+            </div>
+
             {/* Threads Unified Container - flex column fills entire height */}
-            <div className="flex h-full flex-col rounded-2xl border border-gray-200/80 bg-white shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+            <div className="flex h-full flex-col rounded-2xl bg-white shadow-sm dark:bg-[#18181b]">
                 {/* Fixed Header - never scrolls */}
-                <div className="shrink-0 border-b border-gray-200/80 p-4 dark:border-white/10 sm:p-5">
-                    <div className="flex items-center gap-3">
-                        <img
-                            src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
-                            alt="avatar"
-                            className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
-                        />
+                <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-3.5 border-b border-gray-100 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                        <div className="w-[52px] flex shrink-0 items-center justify-center">
+                            <img
+                                src={user?.avatar || 'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'}
+                                alt="avatar"
+                                className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
+                            />
+                        </div>
 
                         <button
                             type="button"
@@ -212,10 +276,11 @@ function Dashboard({ user: propUser, theme }) {
                             {user?.fullName ? `${user.fullName} ơi, có gì mới?` : 'Có gì mới?'}
                         </button>
 
+                        {/* Desktop buttons */}
                         <button
                             type="button"
                             onClick={() => setOpenModal(true)}
-                            className="rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white transition hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 active:scale-95"
+                            className="hidden sm:inline-flex rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white transition hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 active:scale-95"
                         >
                             Đăng
                         </button>
@@ -224,16 +289,27 @@ function Dashboard({ user: propUser, theme }) {
                             type="button"
                             onClick={handleRefreshFeed}
                             disabled={refreshing}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-gray-200"
                             title="Làm mới feed"
                         >
                             <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
+
+                        {/* Mobile Search button */}
+                        <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-search-panel'))}
+                            className="flex sm:hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-primary transition hover:bg-blue-100 active:scale-90 dark:bg-white/10 dark:text-blue-300 dark:hover:bg-white/20"
+                            title="Tìm kiếm"
+                        >
+                            <Search size={17} />
                         </button>
                     </div>
                 </div>
 
                 {/* Feed Content */}
-                <div className="min-h-0 flex-1">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+
                     {loadingPosts && <LoadingDashboard />}
 
                     {!loadingPosts && posts.length === 0 && (

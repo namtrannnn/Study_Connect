@@ -21,6 +21,9 @@ import {
     Trophy,
     CheckCircle2,
     Users,
+    Clock,
+    ShieldAlert,
+    Scale,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -574,7 +577,38 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const [isPinned, setIsPinned] = useState(!!post?.isPinned);
     const [privacy, setPrivacy] = useState(post?.visibility || post?.privacy || 'public');
     const [commentsEnabled, setCommentsEnabled] = useState(post?.allowComments ?? post?.commentsEnabled ?? true);
+    const [appealStatus, setAppealStatus] = useState(post?.appealStatus || (post?.isAppealed ? 'pending' : 'none'));
+    const [showAppealModal, setShowAppealModal] = useState(false);
+    const [appealReason, setAppealReason] = useState('');
+    const [appealLoading, setAppealLoading] = useState(false);
     const postId = post?._id || post?.id;
+
+    const handleSubmitAppeal = async (e) => {
+        e?.preventDefault();
+        if (!appealReason.trim()) {
+            toast.warning('Vui lòng nhập lý do khiếu nại');
+            return;
+        }
+        const currentPostId = post?._id || post?.id;
+        if (!currentPostId) return;
+
+        setAppealLoading(true);
+        try {
+            const res = await PostServices.submitAppeal(currentPostId, appealReason.trim());
+            if (res.code === 200) {
+                toast.success(res.message || 'Đã gửi đơn khiếu nại thành công! Ban quản trị sẽ sớm xem xét.');
+                setAppealStatus('pending');
+                setShowAppealModal(false);
+                setAppealReason('');
+            } else {
+                toast.error(res.message || 'Gửi khiếu nại thất bại');
+            }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message || 'Gửi khiếu nại thất bại');
+        } finally {
+            setAppealLoading(false);
+        }
+    };
 
     const authorName = post?.author?.fullName || post?.author?.name || 'Người dùng';
     const authorAvatar = post?.author?.avatar;
@@ -788,18 +822,99 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
         if (target) navigate(`/profile/${target}`);
     };
 
+    // Moderation status detection (owner-only)
+    // Active posts are approved & public - NEVER show pending or violation banner on active posts!
+    const postStatus = post?.status;
+    const postModerationStatus = post?.moderationStatus;
+    const postViolationReason = post?.violationReason;
+    const isPending =
+        isOwner &&
+        postStatus !== 'active' &&
+        (postStatus === 'pending_admin' ||
+            postStatus === 'processing' ||
+            postModerationStatus === 'review' ||
+            postModerationStatus === 'pending');
+    const isRejected =
+        isOwner &&
+        postStatus !== 'active' &&
+        (postStatus === 'hidden' || postModerationStatus === 'rejected');
+
     return (
-        <article className="group relative border-b border-gray-200/80 px-4 py-3 sm:px-5 sm:py-3 transition last:border-b-0 dark:border-white/10 [content-visibility:auto] [contain-intrinsic-size:350px]">
+        <article className={`group relative border-b border-gray-200/80 px-4 py-3.5 sm:px-5 sm:py-4 transition-opacity last:border-b-0 dark:border-white/10 ${isRejected ? 'opacity-75' : ''}`}>
+            {/* ─── Author-only Moderation Status Banner ─── */}
+            {isPending && (
+                <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-2.5 dark:border-amber-500/30 dark:from-amber-950/40 dark:to-yellow-950/30">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">⏳ Đang chờ kiểm duyệt</span>
+                        <p className="mt-0.5 text-[11px] leading-tight text-amber-600/80 dark:text-amber-400/70">Bài viết của bạn đang được hệ thống kiểm tra. Chỉ bạn mới nhìn thấy bài viết này.</p>
+                    </div>
+                </div>
+            )}
+            {isRejected && (
+                <div className="mb-3 rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 px-4 py-3 dark:border-red-500/30 dark:from-red-950/40 dark:to-rose-950/30">
+                    <div className="flex items-center gap-2.5">
+                        <ShieldAlert className="h-4 w-4 shrink-0 text-red-500 dark:text-red-400" />
+                        <div className="min-w-0 flex-1">
+                            <span className="text-xs font-bold text-red-700 dark:text-red-300">🚫 Bài viết vi phạm tiêu chuẩn cộng đồng</span>
+                            <p className="mt-0.5 text-[11px] leading-tight text-red-600/80 dark:text-red-400/70">Bài viết này đã bị ẩn khỏi Bảng tin. Chỉ bạn mới nhìn thấy.</p>
+                        </div>
+                    </div>
+                    {postViolationReason && (
+                        <div className="mt-2 rounded-xl bg-red-100/60 px-3 py-2 dark:bg-red-900/30">
+                            <p className="text-[11px] font-medium text-red-700 dark:text-red-300">
+                                <span className="font-bold">Lý do:</span> {postViolationReason}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Kháng cáo / Khiếu nại status */}
+                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-red-200/60 pt-2.5 dark:border-red-500/20">
+                        {appealStatus === 'pending' ? (
+                            <div className="inline-flex items-center gap-1.5 rounded-xl bg-amber-100/90 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
+                                </span>
+                                <span>Đang chờ Quản trị viên xét duyệt khiếu nại</span>
+                            </div>
+                        ) : appealStatus === 'rejected' ? (
+                            <div className="text-xs font-semibold text-red-600 dark:text-red-400">
+                                ❌ Khiếu nại bị từ chối {post?.appealResolutionNote ? `: ${post.appealResolutionNote}` : ''}
+                            </div>
+                        ) : (
+                            <>
+                                <span className="text-[11px] text-red-600/80 dark:text-red-400/70">
+                                    Bạn cho rằng quyết định này chưa chính xác?
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAppealModal(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm ring-1 ring-red-200 transition hover:bg-red-50 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-500/30 dark:hover:bg-red-900/40"
+                                >
+                                    <Scale className="h-3.5 w-3.5" />
+                                    Khiếu nại bài viết
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
             <div>
                 <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <Avatar
-                            onClick={handleGoAuthorProfile}
-                            className="h-12 w-12 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10 transition hover:opacity-85"
-                        >
-                            <AvatarImage src={authorAvatar} />
-                            <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <div className="w-[52px] flex shrink-0 items-center justify-center">
+                            <Avatar
+                                onClick={handleGoAuthorProfile}
+                                className="h-10 w-10 cursor-pointer ring-2 ring-white shadow-md dark:ring-white/10 transition hover:opacity-85"
+                            >
+                                <AvatarImage src={authorAvatar} />
+                                <AvatarFallback>{authorName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </div>
 
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
@@ -926,6 +1041,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
+
 
                 {content && (
                     <p className="mt-1 whitespace-pre-wrap break-words text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-gray-100">
@@ -1088,6 +1204,66 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                     )}
                                     {deletingPost ? 'Đang xóa...' : 'Xóa'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body,
+                )}
+
+            {/* Appeal Modal Dialog */}
+            {showAppealModal &&
+                createPortal(
+                    <div
+                        className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget && !appealLoading) setShowAppealModal(false);
+                        }}
+                    >
+                        <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-2xl dark:border-white/10 dark:bg-[#17191f]">
+                            <div className="p-6">
+                                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
+                                    <Scale size={24} />
+                                </div>
+                                <h3 className="text-center text-lg font-bold text-gray-900 dark:text-white">
+                                    Khiếu nại bài viết
+                                </h3>
+                                <p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-400">
+                                    Giải thích lý do bạn cho rằng bài viết này không vi phạm tiêu chuẩn cộng đồng để Quản trị viên xem xét lại.
+                                </p>
+
+                                <div className="mt-4">
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                        Lý do khiếu nại <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        rows={4}
+                                        value={appealReason}
+                                        onChange={(e) => setAppealReason(e.target.value)}
+                                        placeholder="Ví dụ: Bài viết của tôi chỉ chia sẻ kinh nghiệm học tập, từ ngữ sử dụng là thuật ngữ chuyên ngành chứ không mang tính tiêu cực..."
+                                        className="w-full rounded-2xl border border-gray-200 bg-gray-50/50 p-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAppealModal(false)}
+                                    disabled={appealLoading}
+                                    className="flex-1 rounded-2xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-gray-200"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmitAppeal}
+                                    disabled={appealLoading || !appealReason.trim()}
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                    {appealLoading && (
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    )}
+                                    {appealLoading ? 'Đang gửi...' : 'Gửi khiếu nại'}
                                 </button>
                             </div>
                         </div>

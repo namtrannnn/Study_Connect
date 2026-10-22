@@ -789,9 +789,12 @@ module.exports.archiveRoom = async (req, res) => {
         message: "KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y phÃƒÂ²ng chat",
       });
     }
-    global._io?.to(meId.toString()).emit("SERVER_ROOM_DELETED_FOR_ME", {
+    global._io?.to(meId.toString()).emit("SERVER_ROOM_STATE_UPDATED", {
       roomId: room._id,
-      deletedAt: new Date(),
+      currentUserRoomState: {
+        archived,
+        pinned: archived ? false : undefined,
+      },
     });
     return res.status(200).json({
       code: 200,
