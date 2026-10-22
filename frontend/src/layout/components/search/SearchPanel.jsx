@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, X, Clock, FileText, FolderKanban, CircleHelp, GraduationCap, Users, Trash2 } from 'lucide-react';
+import { Search, X, Clock, FileText, FolderKanban, CircleHelp, GraduationCap, Users, Trash2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
@@ -255,15 +255,25 @@ export default function SearchPanel({ onClose }) {
             {/* Header */}
             <div className="border-b border-blue-100 px-5 py-4 dark:border-white/10">
                 <div className="mb-4 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-black text-slate-900 dark:text-white">Tìm kiếm</h2>
-                        <p className="text-xs font-medium text-slate-400">Tìm kiếm bạn học, bài viết nhanh chóng</p>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex h-10 w-10 md:hidden items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 active:scale-90 dark:bg-white/10 dark:text-slate-300"
+                            title="Quay lại"
+                        >
+                            <ArrowLeft className="h-5 w-5" />
+                        </button>
+                        <div>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white">Tìm kiếm</h2>
+                            <p className="text-xs font-medium text-slate-400">Tìm kiếm bạn học, bài viết nhanh chóng</p>
+                        </div>
                     </div>
 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300"
+                        className="hidden md:flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300"
                     >
                         <X className="h-5 w-5" />
                     </button>

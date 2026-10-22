@@ -173,7 +173,7 @@ function MessageBubble({
                     <div className={`max-w-full rounded-2xl border-l-4 px-3 py-2 text-xs ${isMe ? 'border-white/60 bg-primary/20 text-white/80' : 'border-primary/40 bg-blue-50/80 text-gray-600 dark:bg-white/5 dark:text-gray-300'}`}>
                         <div className="mb-0.5 font-semibold">{message.reply_to.user_id?.fullName || 'Tin nhắn'}</div>
                         <div className="line-clamp-1 opacity-80">
-                            {message.reply_to.revoked ? 'Tin nhắn đã được thu hồi' : message.reply_to.content || '📷 Hình ảnh'}
+                            {message.reply_to.revoked ? 'Tin nhắn đã được thu hồi' : message.reply_to.content || 'Hình ảnh'}
                         </div>
                     </div>
                 )}
@@ -255,8 +255,6 @@ function MessageBubble({
 
             {/* Menu bên phải bubble (tin của người khác) */}
             {!isMe && <MenuButton />}
-
-            {isMe && <div className="w-8 shrink-0" />}
         </div>
     );
 }

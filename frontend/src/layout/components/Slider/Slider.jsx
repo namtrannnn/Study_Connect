@@ -378,39 +378,6 @@ export default function Slider({
                     </div>
                 </div>
             </aside>
-
-            {/* Mobile bottom nav */}
-            {!isMd && (
-                <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-background md:hidden">
-                    {navItems.slice(0, 5).map((item) => {
-                        const Icon = item.icon;
-                        const active = panel === item.id;
-
-                        if (item.action) {
-                            return (
-                                <button
-                                    type="button"
-                                    key={item.id}
-                                    onClick={item.action}
-                                    className="flex flex-col items-center justify-center gap-1"
-                                >
-                                    <Icon className={`h-6 w-6 ${active ? 'scale-110' : ''}`} />
-                                </button>
-                            );
-                        }
-
-                        return (
-                            <a
-                                key={item.id}
-                                href={item.path}
-                                className="flex flex-col items-center justify-center gap-1"
-                            >
-                                <Icon className="h-6 w-6" />
-                            </a>
-                        );
-                    })}
-                </nav>
-            )}
         </div>
     );
 }

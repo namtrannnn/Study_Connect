@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import Slider from '../components/Slider';
 import Suggest from '../components/Suggest/Suggest';
 import SearchPanel from '../components/search/SearchPanel';
+import MobileBottomNav from '../components/MobileBottomNav';
 import NotificationsPanel from '../components/Slider/panels/NotificationsPanel';
 import Modal from '../../pages/Dashboard/Modal';
 import { getSocket } from '../../config/socket';
@@ -23,9 +25,14 @@ function StudyConnectLayout({
     mainId = 'social-scroll-container',
 }) {
     const dispatch = useDispatch();
+    const location = useLocation();
     const user = useSelector((state) => state.user?.infoUser || {});
 
     const [openPanel, setOpenPanel] = useState(null);
+
+    useEffect(() => {
+        setOpenPanel(null);
+    }, [location.pathname]);
     const [openCreatePost, setOpenCreatePost] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
         try {
@@ -96,6 +103,12 @@ function StudyConnectLayout({
     const handleOpenSearch = () => {
         setOpenPanel((prev) => (prev === 'search' ? null : 'search'));
     };
+
+    useEffect(() => {
+        const handleOpen = () => setOpenPanel('search');
+        window.addEventListener('open-search-panel', handleOpen);
+        return () => window.removeEventListener('open-search-panel', handleOpen);
+    }, []);
 
     const handleOpenNotifications = () => {
         if (openPanel !== 'notifications') {
@@ -202,9 +215,9 @@ function StudyConnectLayout({
                 <SearchPanel onClose={handleClosePanel} />
             </div>
 
-            {/* Notification panel mobile */}
+            {/* Notification panel mobile — giữ thanh navbar dưới hiển thị */}
             <div
-                className={`fixed inset-0 z-50 bg-white transition-all duration-300 ease-out dark:bg-[#181b22] md:hidden ${
+                className={`fixed inset-x-0 top-0 bottom-16 z-30 bg-white transition-all duration-300 ease-out dark:bg-[#181b22] md:hidden ${
                     isNotifOpen
                         ? 'translate-y-0 scale-100 opacity-100'
                         : 'pointer-events-none translate-y-6 scale-[0.98] opacity-0'
@@ -212,6 +225,13 @@ function StudyConnectLayout({
             >
                 <NotificationsPanel onClose={handleClosePanel} />
             </div>
+
+            {/* Mobile Bottom Nav */}
+            <MobileBottomNav
+                onOpenSearch={handleOpenSearch}
+                onOpenNotifications={handleOpenNotifications}
+                activePanel={openPanel}
+            />
 
             {/* Create Post Modal */}
             {openCreatePost && <Modal setOpenModal={setOpenCreatePost} user={user} />}

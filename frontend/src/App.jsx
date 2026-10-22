@@ -28,6 +28,14 @@ function App() {
     const activeRoomId = useSelector((state) => state.chat?.activeRoomId);
     const dispatch = useDispatch();
 
+    useEffect(() => {
+        if (dark === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [dark]);
+
     // Dùng ref để luôn có giá trị mới nhất trong closure socket listener
     const activeRoomIdRef = React.useRef(activeRoomId);
     React.useEffect(() => {
