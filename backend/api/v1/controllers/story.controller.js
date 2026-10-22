@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 const Story = require("../models/story.model");
 const Post = require("../models/post.model");
 const User = require("../models/user.model");
+const RoomChat = require("../models/roomChat.model");
+const Chat = require("../models/chat.model");
+const Notification = require("../models/notification.model");
+const StoryHighlight = require("../models/storyHighlight.model");
+const { createNotification } = require("../services/notification.service");
 
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 
@@ -34,6 +39,19 @@ function parseJsonArray(value) {
   return [];
 }
 
+function parseJsonObject(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 // [POST] /api/v1/story/create
 exports.createStory = async (req, res) => {
   try {
@@ -46,19 +64,27 @@ exports.createStory = async (req, res) => {
       allowedUsers = [],
       allowReply = true,
       allowShare = true,
+      bgType = "media",
+      bgColor = "#1877F2",
+      textOverlays = [],
+      music = null,
     } = req.body;
 
-    const file = req.file;
+    // Support req.file or req.files fields
+    const mediaFile = req.files?.media?.[0] || req.file;
+    const audioFile = req.files?.audio?.[0];
 
-    if (!file) {
+    if (bgType === "media" && !mediaFile) {
       return res.status(400).json({
         code: 400,
-        message: "Story phải có ảnh hoặc video",
+        message: "Vui lòng chọn ảnh/video hoặc chuyển sang nền màu",
       });
     }
 
     caption = typeof caption === "string" ? caption.trim() : "";
     mentions = parseJsonArray(mentions);
+    textOverlays = parseJsonArray(textOverlays);
+    music = parseJsonObject(music) || {};
 
     visibility = normalizeVisibility(visibility);
     allowedUsers = parseAllowedUsers(allowedUsers);
@@ -67,21 +93,68 @@ exports.createStory = async (req, res) => {
       allowedUsers = [];
     }
 
-    const result = await uploadStreamToCloudinary(file.buffer, "/stories");
+    let mediaData = {
+      url: "",
+      public_id: "",
+      type: bgType === "color" ? "" : "image",
+      thumbnail: "",
+      width: 0,
+      height: 0,
+    };
 
-    const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+    let storyType = bgType === "color" ? "image" : "image";
 
-    const story = await Story.create({
-      author: userId,
-      type: mediaType,
-      media: {
+    if (mediaFile) {
+      const isVideo = mediaFile.mimetype.startsWith("video/");
+      const result = await uploadStreamToCloudinary(
+        mediaFile.buffer,
+        "/stories",
+        { resource_type: isVideo ? "video" : "image" }
+      );
+
+      mediaType = isVideo ? "video" : "image";
+      storyType = mediaType;
+      mediaData = {
         url: result.url,
         public_id: result.public_id,
         type: mediaType,
         thumbnail: "",
         width: result.width || 0,
         height: result.height || 0,
+      };
+    }
+
+    // Nếu có file audio tải lên thủ công
+    let musicData = {
+      url: music.url || "",
+      title: music.title || "",
+      artist: music.artist || "",
+      source: music.source || "none",
+      startTime: Number(music.startTime) || 0,
+      duration: Number(music.duration) || 15,
+    };
+
+    if (audioFile) {
+      const audioResult = await uploadStreamToCloudinary(
+        audioFile.buffer,
+        "/stories/audio",
+        { resource_type: "video" }
+      );
+      musicData.url = audioResult.url;
+      musicData.source = "upload";
+      if (!musicData.title) musicData.title = audioFile.originalname || "Bài hát đã tải lên";
+    }
+
+    const story = await Story.create({
+      author: userId,
+      type: storyType,
+      media: mediaData,
+      background: {
+        type: bgType === "color" ? "color" : "media",
+        color: bgColor || "#1877F2",
       },
+      textOverlays,
+      music: musicData,
       caption,
       mentions,
       visibility,
@@ -215,6 +288,7 @@ exports.getStoryFeed = async (req, res) => {
         "author",
         "fullName username avatar isVerified followers following",
       )
+      .populate("mentions", "fullName username avatar isVerified")
       .populate({
         path: "post",
         populate: {
@@ -282,6 +356,7 @@ exports.getMyStories = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("author", "fullName username avatar isVerified")
+      .populate("mentions", "fullName username avatar isVerified")
       .populate({
         path: "post",
         populate: {
@@ -336,6 +411,7 @@ exports.getStoriesByUser = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("author", "fullName username avatar isVerified")
+      .populate("mentions", "fullName username avatar isVerified")
       .populate({
         path: "post",
         populate: {
@@ -399,19 +475,21 @@ exports.viewStory = async (req, res) => {
       });
     }
 
-    const alreadyViewed = story.viewers.some(
-      (item) => item.user.toString() === viewerId.toString(),
+    const alreadyViewed = (story.viewers || []).some(
+      (item) => item.user && item.user.toString() === viewerId.toString(),
     );
 
+    let finalViewersCount = story.viewersCount || 0;
+
     if (!alreadyViewed) {
-      story.viewers.push({
-        user: viewerId,
-        viewedAt: new Date(),
-      });
-
-      story.viewersCount += 1;
-
-      await story.save();
+      await Story.updateOne(
+        { _id: storyId, "viewers.user": { $ne: viewerId } },
+        {
+          $push: { viewers: { user: viewerId, viewedAt: new Date(), reactions: [] } },
+          $inc: { viewersCount: 1 },
+        }
+      );
+      finalViewersCount += 1;
     }
 
     return res.status(200).json({
@@ -419,7 +497,7 @@ exports.viewStory = async (req, res) => {
       message: "Đã xem story",
       data: {
         storyId: story._id,
-        viewersCount: story.viewersCount,
+        viewersCount: finalViewersCount,
       },
     });
   } catch (error) {
@@ -464,12 +542,22 @@ exports.getStoryViewers = async (req, res) => {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const allViewers = story.viewers || [];
+    const startIndex = (page - 1) * limit;
+    const paginatedViewers = allViewers.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < allViewers.length;
+
     return res.status(200).json({
       code: 200,
       message: "Lấy danh sách người xem thành công",
       data: {
-        viewersCount: story.viewersCount,
-        viewers: story.viewers,
+        viewersCount: story.viewersCount || allViewers.length,
+        viewers: paginatedViewers,
+        hasMore,
+        page,
+        totalPages: Math.ceil(allViewers.length / limit),
       },
     });
   } catch (error) {
@@ -517,6 +605,475 @@ exports.deleteStory = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteStory error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [POST] /api/v1/story/reply/:storyId
+exports.replyStory = async (req, res) => {
+  try {
+    const senderId = req.user._id;
+    const { storyId } = req.params;
+    const { content = "" } = req.body;
+
+    if (!content.trim()) {
+      return res.status(400).json({
+        code: 400,
+        message: "Nội dung phản hồi không được để trống",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID story không hợp lệ",
+      });
+    }
+
+    const story = await Story.findOne({
+      _id: storyId,
+      status: { $ne: "deleted" },
+    }).populate("author", "fullName username avatar");
+
+    if (!story) {
+      return res.status(404).json({
+        code: 404,
+        message: "Story không tồn tại hoặc đã bị xóa",
+      });
+    }
+
+    const receiverId = story.author._id;
+    const isSelf = senderId.toString() === receiverId.toString();
+    const isEmoji = ["❤️", "🔥", "😮", "😂", "👏", "💯"].includes(content.trim());
+
+    // 1. Save reaction to viewer's reactions array using atomic MongoDB update (prevents VersionError OCC concurrency issues)
+    const existingViewer = (story.viewers || []).find(
+      (v) => v.user && v.user.toString() === senderId.toString(),
+    );
+
+    if (!existingViewer) {
+      await Story.updateOne(
+        { _id: storyId },
+        {
+          $push: {
+            viewers: {
+              user: senderId,
+              viewedAt: new Date(),
+              reactions: [content.trim()],
+            },
+          },
+          $inc: { viewersCount: 1 },
+        }
+      );
+    } else {
+      await Story.updateOne(
+        { _id: storyId, "viewers.user": senderId },
+        {
+          $push: {
+            "viewers.$.reactions": {
+              $each: [content.trim()],
+              $slice: -5,
+            },
+          },
+        }
+      );
+    }
+
+    if (isSelf) {
+      return res.status(200).json({
+        code: 200,
+        message: "Phản hồi story thành công",
+      });
+    }
+
+    // 2. Chỉ tạo tin nhắn Chat trong Inbox nếu KHÔNG phải là emoji thả nhanh
+    let replyMsg = null;
+    if (!isEmoji) {
+      // Tìm hoặc tạo phòng chat 1-1
+      const friendKey = [senderId.toString(), receiverId.toString()].sort().join("_");
+      let room = await RoomChat.findOne({ friendKey, typeRoom: "friend" });
+
+      if (!room) {
+        room = await RoomChat.create({
+          typeRoom: "friend",
+          createdBy: senderId,
+          friendKey,
+          users: [
+            { user_id: senderId },
+            { user_id: receiverId },
+          ],
+        });
+      }
+
+      const messageContent = `Đã phản hồi story: "${content.trim()}"`;
+
+      replyMsg = await Chat.create({
+        user_id: senderId,
+        room_chat_id: room._id,
+        type: "text",
+        content: messageContent,
+        metadata: {
+          storyId: story._id,
+          storyMedia: story.media?.url || "",
+          storyType: story.type,
+        },
+      });
+
+      // Tăng unreadCount cho receiver trong room.users
+      let receiverUnread = 1;
+      for (const u of room.users) {
+        if (u.user_id.toString() === receiverId.toString()) {
+          u.unreadCount = (u.unreadCount || 0) + 1;
+          receiverUnread = u.unreadCount;
+        } else if (u.user_id.toString() === senderId.toString()) {
+          u.unreadCount = 0;
+        }
+      }
+
+      room.lastMessage = {
+        message_id: replyMsg._id,
+        sender: senderId,
+        type: "text",
+        content: messageContent,
+        createdAt: replyMsg.createdAt,
+      };
+      await room.save();
+
+      const { syncUserChatBadge } = require("../../../helpers/chatBadge.helper");
+      const receiverChatBadge = await syncUserChatBadge(receiverId.toString());
+
+      if (global._io) {
+        global._io.to(room._id.toString()).emit("SERVER_RETURN_MESSAGE", replyMsg);
+        global._io.to(receiverId.toString()).emit("SERVER_CHAT_LIST_UPDATED", {
+          roomId: room._id,
+          lastMessage: room.lastMessage,
+          roomUnreadCount: receiverUnread,
+          chatBadgeCount: receiverChatBadge,
+        });
+      }
+    }
+
+    // 3. Gửi thông báo (Notification) cho tác giả story (chỉ gửi 1 lần duy nhất cho mỗi story)
+    try {
+      const existingNotif = await Notification.findOne({
+        receiver: receiverId,
+        sender: senderId,
+        refId: story._id,
+        refType: "story",
+        deleted: false,
+      });
+
+      if (!existingNotif) {
+        const notifMessage = isEmoji
+          ? `${req.user.fullName || "Ai đó"} đã thả ${content.trim()} vào tin của bạn`
+          : `${req.user.fullName || "Ai đó"} đã phản hồi story của bạn: "${content.trim()}"`;
+
+        await createNotification({
+          receiver: receiverId,
+          sender: senderId,
+          type: "story_reply",
+          title: isEmoji ? "Tương tác story" : "Phản hồi story",
+          message: notifMessage,
+          refId: story._id,
+          refType: "story",
+        });
+      }
+    } catch (notifErr) {
+      console.error("Error creating notification for story reply:", notifErr);
+    }
+
+    return res.status(200).json({
+      code: 200,
+      message: isEmoji ? "Đã thả cảm xúc" : "Đã gửi phản hồi thành công",
+      data: replyMsg,
+    });
+  } catch (error) {
+    console.error("replyStory error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// STORY ARCHIVE & HIGHLIGHTS
+// ══════════════════════════════════════════════════════════════
+
+// [GET] /api/v1/story/archive
+exports.getStoryArchive = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      author: userId,
+      status: { $ne: "deleted" },
+    };
+
+    const [stories, total] = await Promise.all([
+      Story.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("author", "fullName username avatar isVerified")
+        .populate("mentions", "fullName username avatar isVerified")
+        .lean(),
+      Story.countDocuments(filter),
+    ]);
+
+    // Mark which stories are still active (within 24h)
+    const now = new Date();
+    const enriched = stories.map((s) => ({
+      ...s,
+      isExpired: s.expiresAt < now,
+    }));
+
+    return res.status(200).json({
+      code: 200,
+      message: "Lấy kho lưu trữ story thành công",
+      data: {
+        stories: enriched,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + stories.length < total,
+      },
+    });
+  } catch (error) {
+    console.error("getStoryArchive error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [POST] /api/v1/story/highlights
+exports.createHighlight = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { title, storyIds = [], coverImage = "" } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        code: 400,
+        message: "Vui lòng nhập tên cho tin nổi bật",
+      });
+    }
+
+    if (!Array.isArray(storyIds) || storyIds.length === 0) {
+      return res.status(400).json({
+        code: 400,
+        message: "Vui lòng chọn ít nhất 1 story",
+      });
+    }
+
+    // Verify all stories belong to this user
+    const validStories = await Story.find({
+      _id: { $in: storyIds },
+      author: userId,
+      status: { $ne: "deleted" },
+    }).select("_id");
+
+    if (validStories.length === 0) {
+      return res.status(400).json({
+        code: 400,
+        message: "Không tìm thấy story hợp lệ",
+      });
+    }
+
+    const validIds = validStories.map((s) => s._id);
+
+    // Auto cover: use first story's media thumbnail or bg color
+    let finalCover = coverImage;
+    if (!finalCover) {
+      const firstStory = await Story.findById(validIds[0]).lean();
+      if (firstStory?.media?.url) {
+        finalCover = firstStory.media.url;
+      }
+    }
+
+    const highlight = await StoryHighlight.create({
+      author: userId,
+      title: title.trim(),
+      coverImage: finalCover,
+      stories: validIds,
+    });
+
+    const populated = await StoryHighlight.findById(highlight._id)
+      .populate("author", "fullName username avatar isVerified")
+      .populate({
+        path: "stories",
+        populate: { path: "author", select: "fullName username avatar isVerified" },
+      });
+
+    return res.status(201).json({
+      code: 201,
+      message: "Tạo tin nổi bật thành công",
+      data: populated,
+    });
+  } catch (error) {
+    console.error("createHighlight error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [GET] /api/v1/story/highlights/user/:userId
+exports.getUserHighlights = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID người dùng không hợp lệ",
+      });
+    }
+
+    const highlights = await StoryHighlight.find({ author: userId })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "stories",
+        populate: [
+          { path: "author", select: "fullName username avatar isVerified" },
+          { path: "mentions", select: "fullName username avatar isVerified" },
+        ],
+      })
+      .lean();
+
+    // Filter out deleted stories within each highlight
+    const cleaned = highlights.map((h) => ({
+      ...h,
+      stories: (h.stories || []).filter((s) => s && s.status !== "deleted"),
+    }));
+
+    return res.status(200).json({
+      code: 200,
+      message: "Lấy danh sách tin nổi bật thành công",
+      data: cleaned,
+    });
+  } catch (error) {
+    console.error("getUserHighlights error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [PUT] /api/v1/story/highlights/:highlightId
+exports.updateHighlight = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { highlightId } = req.params;
+    const { title, storyIds, coverImage } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID tin nổi bật không hợp lệ",
+      });
+    }
+
+    const highlight = await StoryHighlight.findOne({
+      _id: highlightId,
+      author: userId,
+    });
+
+    if (!highlight) {
+      return res.status(404).json({
+        code: 404,
+        message: "Không tìm thấy tin nổi bật",
+      });
+    }
+
+    if (title !== undefined) {
+      highlight.title = title.trim();
+    }
+
+    if (coverImage !== undefined) {
+      highlight.coverImage = coverImage;
+    }
+
+    if (Array.isArray(storyIds)) {
+      const validStories = await Story.find({
+        _id: { $in: storyIds },
+        author: userId,
+        status: { $ne: "deleted" },
+      }).select("_id");
+
+      highlight.stories = validStories.map((s) => s._id);
+    }
+
+    await highlight.save();
+
+    const populated = await StoryHighlight.findById(highlight._id)
+      .populate("author", "fullName username avatar isVerified")
+      .populate({
+        path: "stories",
+        populate: { path: "author", select: "fullName username avatar isVerified" },
+      });
+
+    return res.status(200).json({
+      code: 200,
+      message: "Cập nhật tin nổi bật thành công",
+      data: populated,
+    });
+  } catch (error) {
+    console.error("updateHighlight error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server",
+      error: error.message,
+    });
+  }
+};
+
+// [DELETE] /api/v1/story/highlights/:highlightId
+exports.deleteHighlight = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { highlightId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID tin nổi bật không hợp lệ",
+      });
+    }
+
+    const highlight = await StoryHighlight.findOneAndDelete({
+      _id: highlightId,
+      author: userId,
+    });
+
+    if (!highlight) {
+      return res.status(404).json({
+        code: 404,
+        message: "Không tìm thấy tin nổi bật hoặc bạn không có quyền xóa",
+      });
+    }
+
+    return res.status(200).json({
+      code: 200,
+      message: "Xóa tin nổi bật thành công",
+    });
+  } catch (error) {
+    console.error("deleteHighlight error:", error);
     return res.status(500).json({
       code: 500,
       message: "Lỗi server",

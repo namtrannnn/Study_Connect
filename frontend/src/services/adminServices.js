@@ -120,3 +120,26 @@ export const getAdminActivityLogs = async (params = {}) => {
     const res = await httpRequest.get('/admin/activity-logs', { params });
     return res.data;
 };
+
+// 11. AI Content Moderation Queue (Tầng 4 Human Moderation)
+export const getAdminModerationPending = async (params = {}) => {
+    const res = await httpRequest.get('/admin/moderation/pending', { params });
+    return res.data;
+};
+
+export const approveModerationPost = async (postId) => {
+    const res = await httpRequest.patch(`/admin/moderation/approve/${postId}`);
+    return res.data;
+};
+
+export const rejectModerationPost = async (postId, reason = '') => {
+    const res = await httpRequest.patch(`/admin/moderation/reject/${postId}`, { reason });
+    return res.data;
+};
+
+export const resolveAppeal = async (postId, { action, note = '' }) => {
+    const res = await httpRequest.patch(`/admin/moderation/resolve-appeal/${postId}`, { action, note });
+    return res.data;
+};
+
+

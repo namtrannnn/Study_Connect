@@ -14,9 +14,12 @@ import AdminProtectedRoute from './components/AdminProtectedRoute';
 import { publicRoute, privateRoute } from './Routes';
 
 import Cookies from 'js-cookie';
+import { toast } from 'react-toastify';
 import { connectSocket, disconnectSocket, getSocket } from './config/socket';
 import { registerFriendSocketEvents, unregisterFriendSocketEvents } from './sockets/friend.socket';
 import { setTotalUnread } from './redux/slices/chatSlice';
+import { setUnreadCount, incrementUnread } from './redux/slices/notificationSlice';
+import * as NotificationServices from './services/notification.services';
 import { playMessageSound } from './helper/sound';
 
 function App() {
@@ -24,6 +27,14 @@ function App() {
     const user = useSelector((state) => state.user?.infoUser);
     const activeRoomId = useSelector((state) => state.chat?.activeRoomId);
     const dispatch = useDispatch();
+
+    useEffect(() => {
+        if (dark === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [dark]);
 
     // Dùng ref để luôn có giá trị mới nhất trong closure socket listener
     const activeRoomIdRef = React.useRef(activeRoomId);
@@ -35,6 +46,15 @@ function App() {
         const token = Cookies.get('accessToken');
 
         if (token && user?._id) {
+            // Initial fetch unread notifications count
+            NotificationServices.getNotifications()
+                .then((res) => {
+                    if (res?.code === 200) {
+                        dispatch(setUnreadCount(res.unreadCount || 0));
+                    }
+                })
+                .catch(() => {});
+
             connectSocket();
             registerFriendSocketEvents();
             registerPresenceSocketEvents(dispatch);
@@ -74,15 +94,35 @@ function App() {
                 }
             };
 
+            const handleNotificationNew = ({ notification, unreadCount: serverCount }) => {
+                console.log('[NOTIF NEW RECEIVED]', notification, serverCount);
+                if (notification?.message) {
+                    toast.info(notification.message);
+                }
+                if (typeof serverCount === 'number') {
+                    dispatch(setUnreadCount(serverCount));
+                } else {
+                    dispatch(incrementUnread());
+                }
+            };
+
+            const handleNotificationReadAll = ({ unreadCount: count }) => {
+                dispatch(setUnreadCount(count ?? 0));
+            };
+
             socket.on('SERVER_ONLINE_READY', handleOnlineReady);
             socket.on('SERVER_CHAT_LIST_UPDATED', handleChatListUpdated);
             socket.on('SERVER_UNREAD_CHAT_COUNT_UPDATED', handleUnreadCountUpdated);
+            socket.on('SERVER_NOTIFICATION_NEW', handleNotificationNew);
+            socket.on('SERVER_NOTIFICATION_READ_ALL', handleNotificationReadAll);
 
             // Cleanup socket listeners
             return () => {
                 socket.off('SERVER_ONLINE_READY', handleOnlineReady);
                 socket.off('SERVER_CHAT_LIST_UPDATED', handleChatListUpdated);
                 socket.off('SERVER_UNREAD_CHAT_COUNT_UPDATED', handleUnreadCountUpdated);
+                socket.off('SERVER_NOTIFICATION_NEW', handleNotificationNew);
+                socket.off('SERVER_NOTIFICATION_READ_ALL', handleNotificationReadAll);
                 unregisterFriendSocketEvents();
                 unregisterPresenceSocketEvents();
             };
@@ -115,6 +155,7 @@ function App() {
                 draggable
                 pauseOnHover
                 theme={dark ? 'dark' : 'light'}
+                style={{ zIndex: 999999 }}
             />
 
             <div className="app">

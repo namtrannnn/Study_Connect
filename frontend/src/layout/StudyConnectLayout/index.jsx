@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 import Slider from '../components/Slider';
 import Suggest from '../components/Suggest/Suggest';
 import SearchPanel from '../components/search/SearchPanel';
+import MobileBottomNav from '../components/MobileBottomNav';
 import NotificationsPanel from '../components/Slider/panels/NotificationsPanel';
 import Modal from '../../pages/Dashboard/Modal';
 import { getSocket } from '../../config/socket';
@@ -22,9 +25,14 @@ function StudyConnectLayout({
     mainId = 'social-scroll-container',
 }) {
     const dispatch = useDispatch();
+    const location = useLocation();
     const user = useSelector((state) => state.user?.infoUser || {});
 
     const [openPanel, setOpenPanel] = useState(null);
+
+    useEffect(() => {
+        setOpenPanel(null);
+    }, [location.pathname]);
     const [openCreatePost, setOpenCreatePost] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
         try {
@@ -53,7 +61,10 @@ function StudyConnectLayout({
         const socket = getSocket();
         if (!socket) return;
 
-        const handleNew = ({ unreadCount: serverCount }) => {
+        const handleNew = ({ notification, unreadCount: serverCount }) => {
+            if (notification?.message) {
+                toast.info(notification.message);
+            }
             if (typeof serverCount === 'number') {
                 dispatch(setUnreadCount(serverCount));
             } else {
@@ -93,7 +104,16 @@ function StudyConnectLayout({
         setOpenPanel((prev) => (prev === 'search' ? null : 'search'));
     };
 
+    useEffect(() => {
+        const handleOpen = () => setOpenPanel('search');
+        window.addEventListener('open-search-panel', handleOpen);
+        return () => window.removeEventListener('open-search-panel', handleOpen);
+    }, []);
+
     const handleOpenNotifications = () => {
+        if (openPanel !== 'notifications') {
+            dispatch(setUnreadCount(0));
+        }
         setOpenPanel((prev) => (prev === 'notifications' ? null : 'notifications'));
     };
 
@@ -106,7 +126,7 @@ function StudyConnectLayout({
             <div className="flex h-full w-full">
                 {/* Sidebar */}
                 <aside
-                    className="relative hidden h-full shrink-0 flex-col border-r border-blue-100 bg-white/80 shadow-sm backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-[#181b22]/80 md:flex"
+                    className="relative hidden h-full shrink-0 flex-col border-r border-blue-100 bg-white/80 shadow-sm backdrop-blur-xl transition-[width] duration-300 dark:border-white/10 dark:bg-[#181b22]/80 md:flex"
                     style={{ width: sidebarWidth }}
                 >
                     <Slider
@@ -137,7 +157,7 @@ function StudyConnectLayout({
                 <div className="flex min-w-0 flex-1 overflow-hidden">
                     <main
                         id={mainId}
-                        className="min-w-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth pb-24 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
+                        className="min-w-0 flex-1 overflow-y-auto overscroll-contain pb-24 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
                     >
                         <div className={`mx-auto w-full px-4 py-4 ${contentClassName}`}>{children}</div>
                     </main>
@@ -195,9 +215,9 @@ function StudyConnectLayout({
                 <SearchPanel onClose={handleClosePanel} />
             </div>
 
-            {/* Notification panel mobile */}
+            {/* Notification panel mobile — giữ thanh navbar dưới hiển thị */}
             <div
-                className={`fixed inset-0 z-50 bg-white transition-all duration-300 ease-out dark:bg-[#181b22] md:hidden ${
+                className={`fixed inset-x-0 top-0 bottom-16 z-30 bg-white transition-all duration-300 ease-out dark:bg-[#181b22] md:hidden ${
                     isNotifOpen
                         ? 'translate-y-0 scale-100 opacity-100'
                         : 'pointer-events-none translate-y-6 scale-[0.98] opacity-0'
@@ -205,6 +225,13 @@ function StudyConnectLayout({
             >
                 <NotificationsPanel onClose={handleClosePanel} />
             </div>
+
+            {/* Mobile Bottom Nav */}
+            <MobileBottomNav
+                onOpenSearch={handleOpenSearch}
+                onOpenNotifications={handleOpenNotifications}
+                activePanel={openPanel}
+            />
 
             {/* Create Post Modal */}
             {openCreatePost && <Modal setOpenModal={setOpenCreatePost} user={user} />}

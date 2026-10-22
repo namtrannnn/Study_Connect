@@ -293,24 +293,40 @@ module.exports.getUserPostFeed = async (req, res) => {
       });
     }
 
+    const isOwner = String(viewerId) === String(author._id);
+    const moderationOnly = req.query.moderationOnly === "true";
+
+    let statusCondition = "active";
+    if (isOwner && moderationOnly) {
+      statusCondition = { $in: ["pending_admin", "hidden", "processing"] };
+    }
+
     const filter = {
       author: author._id,
-      status: "active",
+      status: statusCondition,
     };
 
     if (cursor) {
       filter.createdAt = { $lt: new Date(cursor) };
     }
 
-    const posts = await Post.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit * 3)
-      .populate("author", "_id fullName username avatar isVerified")
-      .populate("mentions", "_id fullName username avatar")
-      .populate("allowedUsers", "_id fullName username avatar")
-      .select(
-        "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare visibility allowedUsers isEdited editedAt createdAt updatedAt",
-      );
+    const [posts, moderationCount] = await Promise.all([
+      Post.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(limit * 3)
+        .populate("author", "_id fullName username avatar isVerified")
+        .populate("mentions", "_id fullName username avatar")
+        .populate("allowedUsers", "_id fullName username avatar")
+        .select(
+          "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare visibility allowedUsers isEdited editedAt createdAt updatedAt status moderationStatus violationReason",
+        ),
+      isOwner
+        ? Post.countDocuments({
+            author: author._id,
+            status: { $in: ["pending_admin", "hidden", "processing"] },
+          })
+        : 0,
+    ]);
 
     const visiblePosts = posts
       .filter((post) => canViewPost(post, viewerId, author))
@@ -339,6 +355,7 @@ module.exports.getUserPostFeed = async (req, res) => {
       code: 200,
       message: "Lấy feed bài viết profile thành công",
       data,
+      moderationCount,
       nextCursor:
         visiblePosts.length > 0
           ? visiblePosts[visiblePosts.length - 1].createdAt

@@ -6,11 +6,14 @@ const upload = require("../middlewares/upload.middleware");
 
 const controller = require("../controllers/story.controller.js");
 
-// Tạo story ảnh/video
+// Tạo story ảnh/video/text
 router.post(
   "/create",
   userMiddleware.requireUser,
-  upload.single("media"),
+  upload.fields([
+    { name: "media", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+  ]),
   controller.createStory,
 );
 
@@ -44,11 +47,53 @@ router.get(
   controller.getStoryViewers,
 );
 
+// Phản hồi (reply) story
+router.post(
+  "/reply/:storyId",
+  userMiddleware.requireUser,
+  controller.replyStory,
+);
+
 // Xóa story
 router.patch(
   "/delete/:storyId",
   userMiddleware.requireUser,
   controller.deleteStory,
+);
+
+// ══════════════════════════════════════
+// STORY ARCHIVE & HIGHLIGHTS
+// ══════════════════════════════════════
+
+// Kho lưu trữ story (chỉ bản thân xem)
+router.get("/archive", userMiddleware.requireUser, controller.getStoryArchive);
+
+// Tạo tin nổi bật mới
+router.post(
+  "/highlights",
+  userMiddleware.requireUser,
+  controller.createHighlight,
+);
+
+// Lấy danh sách tin nổi bật của user
+router.get(
+  "/highlights/user/:userId",
+  userMiddleware.requireUser,
+  controller.getUserHighlights,
+);
+
+// Cập nhật tin nổi bật
+router.put(
+  "/highlights/:highlightId",
+  userMiddleware.requireUser,
+  controller.updateHighlight,
+);
+
+// Xóa tin nổi bật
+router.delete(
+  "/highlights/:highlightId",
+  userMiddleware.requireUser,
+  controller.deleteHighlight,
 );
 
 module.exports = router;

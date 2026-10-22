@@ -13,6 +13,14 @@ router.post(
   controller.createPost,
 );
 
+// POST /api/v1/post/ai-caption
+router.post(
+  "/ai-caption",
+  userMiddleware.requireUser,
+  upload.array("images", 5),
+  controller.generateAiCaption,
+);
+
 // PATCH /api/v1/post/edit/:id
 router.patch(
   "/edit/:id",
@@ -59,6 +67,9 @@ router.post(
   userMiddleware.requireUser,
   controller.answerQuiz,
 );
+
+// POST /api/v1/post/:id/appeal
+router.post("/:id/appeal", userMiddleware.requireUser, controller.submitAppeal);
 
 // GET /api/v1/post/:id
 // Route động /:id nên để gần cuối

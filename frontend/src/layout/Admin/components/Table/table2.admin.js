@@ -10,7 +10,7 @@ import {
   tableCellClasses,
   styled,
 } from "@mui/material";
-import { MdOutlineFilterList } from "react-icons/md";
+import { Filter } from "lucide-react";
 import { useMemo } from "react";
 
 export default function CustomTables({
@@ -117,7 +117,7 @@ export default function CustomTables({
             className="md:w-[360px] w-[200px] px-4 py-3 rounded-md border border-gray-300 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all duration-200"
           />
           <div className="text-[18px] md:text-[24px] text-gray-500">
-            <MdOutlineFilterList />
+            <Filter className="w-5 h-5" />
           </div>
         </div>
 

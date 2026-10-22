@@ -2,11 +2,9 @@ import { Menu, Transition, MenuButton, MenuItem, MenuItems } from '@headlessui/r
 import { Fragment } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 //icon
-import { AiOutlineUser, AiOutlineSetting, AiOutlineMenu } from 'react-icons/ai';
-import { IoIosLogOut } from 'react-icons/io';
+import { User, Settings, Menu as MenuIcon, LogOut, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import { MdAdminPanelSettings } from 'react-icons/md';
 // import { LogoutIcon } from "@heroicons/react/outline";
 // components
 import { useDispatch } from 'react-redux';
@@ -25,7 +23,7 @@ export default function Dropdown({ user, theme }) {
             dropForMdScreen.push({
                 text: 'Admin-page',
                 bgColor: '#607D8B',
-                icon: <MdAdminPanelSettings className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <ShieldCheck className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/admin',
             });
         }
@@ -33,13 +31,13 @@ export default function Dropdown({ user, theme }) {
             {
                 text: 'Chỉnh sửa hồ sơ',
                 bgColor: '#795548',
-                icon: <AiOutlineSetting className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <Settings className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/update-profile',
             },
             {
                 text: 'Đăng xuất',
                 bgColor: '#546E7A',
-                icon: <IoIosLogOut className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <LogOut className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/login',
             },
         ];
@@ -48,19 +46,19 @@ export default function Dropdown({ user, theme }) {
             {
                 text: 'Trang chủ',
                 bgColor: '#FF5722',
-                icon: <AiOutlineUser className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <User className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/home',
             },
             {
                 text: 'Đăng Nhập',
                 bgColor: '#795548',
-                icon: <AiOutlineSetting className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <Settings className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/login',
             },
             {
                 text: 'Đăng kí',
                 bgColor: '#546E7A',
-                icon: <IoIosLogOut className="w-5 h-5 mr-2" aria-hidden="true" />,
+                icon: <LogOut className="w-5 h-5 mr-2" aria-hidden="true" />,
                 href: '/register',
             },
         ];
@@ -81,7 +79,7 @@ export default function Dropdown({ user, theme }) {
                         className="rounded-full border-black/40 border w-full h-full object-cover pl-[3px] pt- p-[2px] shrink-0 "
                     />
                 ) : (
-                    <AiOutlineMenu className="text-20px " />
+                    <MenuIcon size={20} />
                 )}
             </MenuButton>
             <Transition

@@ -13,6 +13,7 @@ import {
     Pin,
     BellOff,
     Archive,
+    ArrowLeft,
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -50,6 +51,7 @@ import TypingIndicator from './components/TypingIndicator';
 import RoomInfoPanel from './components/RoomInfoPanel';
 import CreateGroupModal from './components/CreateGroupModal';
 import NewChatModal from './components/NewChatModal';
+import EmojiPicker from './components/EmojiPicker';
 
 function Messenger() {
     const currentUser = useSelector((state) => state.user?.infoUser);
@@ -78,6 +80,7 @@ function Messenger() {
     const [collapsedSystemGroups, setCollapsedSystemGroups] = useState(new Set());
     const [pendingImages, setPendingImages] = useState([]); // files chờ gửi
     const [uploadingImages, setUploadingImages] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const imageInputRef = useRef(null);
     const bottomRef = useRef(null);
     const typingTimerRef = useRef(null);
@@ -441,8 +444,8 @@ function Messenger() {
                                 try {
                                     const audio = new Audio('/sounds/message_sound.mp3');
                                     audio.volume = 0.5;
-                                    audio.play().catch(() => {});
-                                } catch {}
+                                    audio.play().catch(() => { });
+                                } catch { }
                             }
                             return prev;
                         });
@@ -553,12 +556,12 @@ function Messenger() {
                             getRoomId(room) !== roomId
                                 ? room
                                 : {
-                                      ...room,
-                                      currentUserRoomState: {
-                                          ...(room.currentUserRoomState || {}),
-                                          ...currentUserRoomState,
-                                      },
-                                  },
+                                    ...room,
+                                    currentUserRoomState: {
+                                        ...(room.currentUserRoomState || {}),
+                                        ...currentUserRoomState,
+                                    },
+                                },
                         ),
                     );
 
@@ -609,6 +612,12 @@ function Messenger() {
                         );
                     }
                 },
+
+                onMessageReacted: ({ messageId, reactions }) => {
+                    setMessages((prev) =>
+                        prev.map((m) => m._id === messageId ? { ...m, reactions } : m),
+                    );
+                },
             });
         }, 300);
         return () => {
@@ -617,6 +626,13 @@ function Messenger() {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRoomId, currentUser?._id]);
+
+    useEffect(() => {
+        dispatch(setActiveRoomId(selectedRoomId || null));
+        return () => {
+            dispatch(setActiveRoomId(null));
+        };
+    }, [selectedRoomId, dispatch]);
 
     useEffect(() => {
         if (!selectedRoomId) return;
@@ -651,12 +667,12 @@ function Messenger() {
                     getRoomId(r) !== roomId
                         ? r
                         : {
-                              ...r,
-                              currentUserRoomState: {
-                                  ...(r.currentUserRoomState || {}),
-                                  unreadCount: 0,
-                              },
-                          },
+                            ...r,
+                            currentUserRoomState: {
+                                ...(r.currentUserRoomState || {}),
+                                unreadCount: 0,
+                            },
+                        },
                 ),
         );
 
@@ -724,7 +740,20 @@ function Messenger() {
         setRooms((prev) => prev.filter((r) => getRoomId(r) !== roomId));
         if (getRoomId(selectedRoom) === roomId) {
             setSelectedRoom(null);
+            dispatch(setActiveRoomId(null));
             setShowInfo(false);
+            if (roomIdFromUrl) {
+                navigate('/messenger', { replace: true });
+            }
+        }
+    };
+
+    const handleBackToRoomList = () => {
+        setSelectedRoom(null);
+        dispatch(setActiveRoomId(null));
+        setShowInfo(false);
+        if (roomIdFromUrl) {
+            navigate('/messenger', { replace: true });
         }
     };
     const updateRoomStateForMe = ({ roomId, currentUserRoomState }) => {
@@ -735,12 +764,12 @@ function Messenger() {
                 getRoomId(room) !== roomId
                     ? room
                     : {
-                          ...room,
-                          currentUserRoomState: {
-                              ...(room.currentUserRoomState || {}),
-                              ...currentUserRoomState,
-                          },
-                      },
+                        ...room,
+                        currentUserRoomState: {
+                            ...(room.currentUserRoomState || {}),
+                            ...currentUserRoomState,
+                        },
+                    },
             );
             // Re-sort: pinned lên đầu
             return [...updated].sort((a, b) => {
@@ -890,17 +919,19 @@ function Messenger() {
         navigate(`/profile/${friend.username || friend._id}`);
     };
     return (
-        <div className="h-full overflow-hidden bg-[#f4f7fb] p-3 text-gray-900 dark:bg-[#0f1117] dark:text-white">
+        <div className="h-full overflow-hidden bg-[#f4f7fb] p-0 sm:p-3 text-gray-900 dark:bg-[#0f1117] dark:text-white">
             <div
-                className="grid h-full min-h-0 overflow-hidden rounded-[28px] border shadow-sm"
+                className="relative flex h-full min-h-0 w-full overflow-hidden rounded-none border-0 shadow-none sm:rounded-[28px] sm:border sm:shadow-sm"
                 style={{
-                    gridTemplateColumns: showInfo ? '320px minmax(0, 1fr) 360px' : '320px minmax(0, 1fr)',
                     background: themeStyles.shell?.background || '#ffffff',
                     borderColor: themeStyles.header?.borderColor || 'rgb(219 234 254)',
                 }}
             >
                 {/* Sidebar */}
-                <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-blue-100 bg-white dark:border-white/10 dark:bg-[#181b22]">
+                <aside
+                    className={`no-scrollbar h-full min-h-0 flex-col overflow-y-auto border-r border-blue-100 bg-white dark:border-white/10 dark:bg-[#181b22] ${selectedRoom ? 'hidden md:flex' : 'flex'
+                        } w-full md:w-[320px] shrink-0 pb-16 md:pb-0`}
+                >
                     <div className="border-b border-blue-100 p-4 dark:border-white/10">
                         <div className="flex items-center justify-between gap-2">
                             <div>
@@ -1008,13 +1039,12 @@ function Messenger() {
                                                 </div>
                                                 <div className="mt-0.5 flex items-center justify-between gap-2">
                                                     <p
-                                                        className={`min-w-0 flex-1 truncate text-xs ${
-                                                            typingText
-                                                                ? 'font-medium text-primary'
-                                                                : unread > 0 && !active
-                                                                  ? 'font-semibold text-gray-700 dark:text-gray-200'
-                                                                  : 'text-gray-400'
-                                                        }`}
+                                                        className={`min-w-0 flex-1 truncate text-xs ${typingText
+                                                            ? 'font-medium text-primary'
+                                                            : unread > 0 && !active
+                                                                ? 'font-semibold text-gray-700 dark:text-gray-200'
+                                                                : 'text-gray-400'
+                                                            }`}
                                                     >
                                                         {typingText || getLastMessageText(room, display)}
                                                     </p>
@@ -1038,11 +1068,10 @@ function Messenger() {
                                                     setOpenRoomMenuId((prev) => (prev === roomId ? null : roomId));
                                                 }}
                                                 title="Tùy chọn"
-                                                className={`flex h-8 w-8 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm transition hover:bg-blue-50 hover:text-primary dark:bg-[#181b22] dark:hover:bg-white/10 ${
-                                                    openRoomMenuId === roomId
-                                                        ? 'opacity-100'
-                                                        : 'opacity-0 group-hover:opacity-100'
-                                                }`}
+                                                className={`flex h-8 w-8 items-center justify-center rounded-xl bg-white text-gray-400 shadow-sm transition hover:bg-blue-50 hover:text-primary dark:bg-[#181b22] dark:hover:bg-white/10 ${openRoomMenuId === roomId
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0 group-hover:opacity-100'
+                                                    }`}
                                             >
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </button>
@@ -1086,7 +1115,8 @@ function Messenger() {
 
                 {/* Chat area */}
                 <main
-                    className="flex h-full min-h-0 flex-col overflow-hidden bg-blue-50/40 dark:bg-[#0f1117]"
+                    className={`h-full min-h-0 flex-1 flex-col overflow-hidden bg-blue-50/40 dark:bg-[#0f1117] ${selectedRoom ? 'flex' : 'hidden md:flex'
+                        } w-full min-w-0`}
                     style={themeStyles.shell}
                 >
                     {!selectedRoom ? (
@@ -1103,10 +1133,19 @@ function Messenger() {
                         <>
                             {/* Header */}
                             <div
-                                className="flex h-[68px] shrink-0 items-center justify-between gap-3 border-b border-blue-100 bg-white px-5 dark:border-white/10 dark:bg-[#181b22]"
+                                className="flex h-[68px] shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-blue-100 bg-white px-3 sm:px-3 dark:border-white/10 dark:bg-[#181b22]"
                                 style={themeStyles.header}
                             >
-                                <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                    {/* Back button on mobile */}
+                                    <button
+                                        type="button"
+                                        onClick={handleBackToRoomList}
+                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-600 transition hover:bg-gray-100 active:scale-90 dark:text-gray-300 dark:hover:bg-white/10 md:hidden"
+                                        title="Quay lại danh sách"
+                                    >
+                                        <ArrowLeft className="h-5 w-5" />
+                                    </button>
                                     <div className="relative h-10 w-10 shrink-0">
                                         <Avatar
                                             src={selectedRoomDisplay?.avatar}
@@ -1149,7 +1188,7 @@ function Messenger() {
 
                             {/* Messages */}
                             <div
-                                className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4"
+                                className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2.5 sm:px-4 py-3 sm:py-4"
                                 style={themeStyles.body}
                             >
                                 {loadingMessages ? (
@@ -1248,21 +1287,24 @@ function Messenger() {
                                                             </div>
                                                         )}
 
-                                                    <MessageBubble
-                                                        message={message}
-                                                        isMe={isMe}
-                                                        sender={sender}
-                                                        isGroup={selectedRoom.typeRoom === 'group'}
-                                                        myStyle={themeStyles.bubbleMe}
-                                                        otherStyle={themeStyles.bubbleOther}
-                                                        alwaysShowTime={isLastMessage}
-                                                        onRevoked={(msgId) => setMessages((prev) =>
-                                                            prev.map((m) => m._id === msgId ? { ...m, revoked: true, content: '', images: [] } : m)
-                                                        )}
-                                                        onDeletedForMe={(msgId) => setMessages((prev) => prev.filter((m) => m._id !== msgId))}
-                                                    />
-                                                </div>
-                                            );
+                                                        <MessageBubble
+                                                            message={message}
+                                                            isMe={isMe}
+                                                            sender={sender}
+                                                            isGroup={selectedRoom.typeRoom === 'group'}
+                                                            myStyle={themeStyles.bubbleMe}
+                                                            otherStyle={themeStyles.bubbleOther}
+                                                            alwaysShowTime={isLastMessage}
+                                                            onRevoked={(msgId) => setMessages((prev) =>
+                                                                prev.map((m) => m._id === msgId ? { ...m, revoked: true, content: '', images: [] } : m)
+                                                            )}
+                                                            onDeletedForMe={(msgId) => setMessages((prev) => prev.filter((m) => m._id !== msgId))}
+                                                            onReacted={(msgId, reactions) => setMessages((prev) =>
+                                                                prev.map((m) => m._id === msgId ? { ...m, reactions } : m)
+                                                            )}
+                                                        />
+                                                    </div>
+                                                );
                                             }); // end groups.map
                                         })()} {/* end IIFE */}
                                         {Object.values(typingUsers).map((t) => {
@@ -1284,7 +1326,7 @@ function Messenger() {
 
                             {/* Input */}
                             <div
-                                className="shrink-0 border-t border-blue-100 bg-white p-3 dark:border-white/10 dark:bg-[#181b22]"
+                                className="shrink-0 border-t border-blue-100 bg-white px-2 py-2 sm:p-3 dark:border-white/10 dark:bg-[#181b22]"
                                 style={themeStyles.footer}
                             >
                                 {/* Preview ảnh chờ gửi */}
@@ -1309,7 +1351,7 @@ function Messenger() {
                                     </div>
                                 )}
                                 <div
-                                    className="flex items-end gap-2 rounded-3xl border border-blue-100 bg-blue-50/70 p-2 dark:border-white/10 dark:bg-white/5"
+                                    className="flex items-end gap-1.5 sm:gap-2 rounded-2xl sm:rounded-3xl border border-blue-100 bg-blue-50/70 p-1.5 sm:p-2 dark:border-white/10 dark:bg-white/5"
                                     style={themeStyles.input}
                                 >
                                     <input
@@ -1339,9 +1381,16 @@ function Messenger() {
                                     />
                                     <button
                                         type="button"
-                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary dark:hover:bg-white/10"
+                                        onClick={() => setShowEmojiPicker((p) => !p)}
+                                        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-gray-400 transition hover:bg-white hover:text-primary dark:hover:bg-white/10"
                                     >
                                         <Smile className="h-5 w-5" />
+                                        {showEmojiPicker && (
+                                            <EmojiPicker
+                                                onSelect={(emoji) => setMessageText((prev) => prev + emoji)}
+                                                onClose={() => setShowEmojiPicker(false)}
+                                            />
+                                        )}
                                     </button>
                                     <button
                                         type="button"
@@ -1359,14 +1408,24 @@ function Messenger() {
 
                 {/* Info panel */}
                 {showInfo && selectedRoom && (
-                    <RoomInfoPanel
-                        room={selectedRoom}
-                        currentUser={currentUser}
-                        onClose={() => setShowInfo(false)}
-                        onRoomUpdated={handleRoomUpdated}
-                        onLeaveOrDelete={handleLeaveOrDelete}
-                        themeStyles={themeStyles}
-                    />
+                    <>
+                        {/* Backdrop on mobile & tablet */}
+                        <div
+                            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity lg:hidden"
+                            onClick={() => setShowInfo(false)}
+                        />
+                        {/* Panel wrapper: slide-over on mobile/tablet, side column on lg+ */}
+                        <div className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[380px] shadow-2xl transition-all duration-300 lg:static lg:z-auto lg:h-full lg:w-[360px] lg:shrink-0 lg:shadow-none">
+                            <RoomInfoPanel
+                                room={selectedRoom}
+                                currentUser={currentUser}
+                                onClose={() => setShowInfo(false)}
+                                onRoomUpdated={handleRoomUpdated}
+                                onLeaveOrDelete={handleLeaveOrDelete}
+                                themeStyles={themeStyles}
+                            />
+                        </div>
+                    </>
                 )}
             </div>
 

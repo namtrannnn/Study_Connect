@@ -220,3 +220,54 @@ module.exports.deleteMessageForMe = async (req, res) => {
     return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };
+
+// [PATCH] /api/v1/chat/message/:messageId/react
+// Toggle reaction emoji cho tin nhắn
+module.exports.reactToMessage = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ code: 400, message: "messageId không hợp lệ" });
+    }
+    if (!emoji) {
+      return res.status(400).json({ code: 400, message: "emoji không được để trống" });
+    }
+
+    const message = await Chat.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ code: 404, message: "Không tìm thấy tin nhắn" });
+    }
+
+    const existingIdx = message.reactions.findIndex(
+      (r) => r.user_id.toString() === userId.toString() && r.emoji === emoji,
+    );
+
+    if (existingIdx >= 0) {
+      // Đã react rồi → bỏ reaction
+      message.reactions.splice(existingIdx, 1);
+    } else {
+      // Xóa reaction cũ của user (nếu có emoji khác) rồi thêm mới
+      message.reactions = message.reactions.filter(
+        (r) => r.user_id.toString() !== userId.toString(),
+      );
+      message.reactions.push({ user_id: userId, emoji, createdAt: new Date() });
+    }
+
+    await message.save();
+
+    // Emit realtime cho tất cả trong room
+    global._io?.to(message.room_chat_id.toString()).emit("SERVER_MESSAGE_REACTED", {
+      messageId: message._id,
+      roomId: message.room_chat_id,
+      reactions: message.reactions,
+    });
+
+    return res.status(200).json({ code: 200, data: { reactions: message.reactions } });
+  } catch (error) {
+    console.error("reactToMessage error:", error);
+    return res.status(500).json({ code: 500, message: "FAILED!" });
+  }
+};

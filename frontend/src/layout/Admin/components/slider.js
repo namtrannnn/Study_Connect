@@ -3,6 +3,7 @@ import { Drawer, List, IconButton, ListItem, Box } from "@mui/material";
 import { NavLink } from "react-router-dom";
 
 import { icAnalytics, icUser, icArticle } from "../../../utils/icons";
+import { ShieldAlert } from "lucide-react";
 
 import logo from "../../../assets/logo-slime.png";
 import config from "../../../config";
@@ -14,6 +15,11 @@ const menuItems = [
     text: "Bài viết",
     icon: icArticle,
     path: config.routes.admin_posts,
+  },
+  {
+    text: "Kiểm duyệt AI",
+    icon: ShieldAlert,
+    path: config.routes.admin_moderation,
   },
 ];
 
@@ -77,22 +83,26 @@ const Sidebar = ({ user, open, toggleDrawer, drawerWidth }) => {
                 className={({ isActive }) =>
                   `w-full block rounded-md px-4 py-[10px] my-[2px] transition-20 ${
                     isActive
-                      ? "bg-[#1877f229] hover:bg-[#1877f229] text-[#1877f2]"
+                      ? "bg-[#2189f829] hover:bg-[#2189f829] text-[#2189f8]"
                       : "text-[#637381] hover:bg-[#919eab14]"
                   }`
                 }
               >
                 <div className="flex items-center gap-x-4">
-                  <div
-                    className="w-[24px] h-[24px]"
-                    style={{
-                      WebkitMaskImage: `url(${item.icon})`,
-                      WebkitMaskRepeat: "no-repeat",
-                      WebkitMaskPosition: "center",
-                      WebkitMaskSize: "contain",
-                      backgroundColor: "currentColor",
-                    }}
-                  />
+                  {typeof item.icon === "string" ? (
+                    <div
+                      className="w-[24px] h-[24px]"
+                      style={{
+                        WebkitMaskImage: `url(${item.icon})`,
+                        WebkitMaskRepeat: "no-repeat",
+                        WebkitMaskPosition: "center",
+                        WebkitMaskSize: "contain",
+                        backgroundColor: "currentColor",
+                      }}
+                    />
+                  ) : (
+                    <item.icon className="w-[24px] h-[24px]" />
+                  )}
 
                   <div className="font-medium text-sm md:text-base">
                     {item.text}

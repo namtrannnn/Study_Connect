@@ -1,20 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import { TiHomeOutline } from 'react-icons/ti';
-import { FaRegUser } from 'react-icons/fa6';
-// icon
-import { AiFillHome } from 'react-icons/ai';
-import { BsSun } from 'react-icons/bs';
+import { Home, Sun, Moon, Search, MessageCircle, ShieldCheck, Users } from 'lucide-react';
 import ReactLoading from 'react-loading';
-import { IoMoonOutline } from 'react-icons/io5';
-import { AiOutlineLogin } from 'react-icons/ai';
 
-import logo from '../../../assets/logo-slime.png';
-
-import { IoSearchSharp } from 'react-icons/io5';
-import { SiMessenger } from 'react-icons/si';
-import { MdAdminPanelSettings } from 'react-icons/md';
-import { FaUserFriends } from 'react-icons/fa';
+import logo from '../../../assets/nexus-logo.png';
 
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -146,7 +135,7 @@ function Header({ user }) {
                 hover: '#c24269',
                 bgAfter: '#c24269',
                 link: config.routes.dashboard,
-                icon: <AiFillHome />,
+                icon: <Home size={25} />,
                 className: 'dashboard',
             },
             {
@@ -154,7 +143,7 @@ function Header({ user }) {
                 hover: '#c24269',
                 bgAfter: '#c24269',
                 link: config.routes.friends,
-                icon: <FaUserFriends />,
+                icon: <Users size={25} />,
                 className: 'dashboard',
             },
             {
@@ -162,7 +151,7 @@ function Header({ user }) {
                 hover: '#00897B',
                 bgAfter: '#26A69A',
                 link: config.routes.messenger,
-                icon: <SiMessenger className="text-[22px] " />,
+                icon: <MessageCircle size={22} />,
                 className: 'messenger',
             },
         ];
@@ -173,7 +162,7 @@ function Header({ user }) {
                 hover: '#455A64',
                 bgAfter: '#607D8B',
                 link: '/admin',
-                icon: <MdAdminPanelSettings className="text-[28px] " />,
+                icon: <ShieldCheck size={28} />,
                 className: 'admin',
             });
         }
@@ -198,7 +187,7 @@ function Header({ user }) {
         ));
     };
     return (
-        <header className="flex fixed top-0 w-screen bg-white px-1 sm:px-2 md:px-4 z-[100] items-center dark:bg-bg-header-d transition-50 dark:text-[#DDDFE3] border-b-[#8a8a8a] py-1 ">
+        <header className="flex fixed top-0 w-screen bg-white px-1 sm:px-2 md:px-4 z-[100] items-center dark:bg-bg-header-d transition-colors duration-300 dark:text-[#DDDFE3] border-b-[#8a8a8a] py-1 ">
             <div className="flex items-center min-w-[33%] " style={{ flex: '1 1 auto' }}>
                 <NavLink to={config.routes.home} role="button">
                     <img src={logo} alt="logo" className="w-[30px] md:w-[48px] h-auto " />
@@ -206,7 +195,7 @@ function Header({ user }) {
                 {/* search */}
                 {user && (
                     <div className="flex items-center border overflow-hidden border-black/40 dark:bg-[#4E4F50] dark:text-[#b9bbbe] w-[190px] md:w-[240px] h-auto md:h-[40px] rounded-full px-1 ml-2 ">
-                        <IoSearchSharp className="text-16px md:text-[20px] mx-1" />
+                        <Search size={20} className="mx-1" />
                         <div ref={searchRef} className="h-full flex items-center flex-1 pr-2">
                             <input
                                 type="text"
@@ -242,48 +231,10 @@ function Header({ user }) {
             </div>
 
             <ul
-                className="hidden md:flex  items-center justify-between text-white dark:text-[#B8BBBF] text-[25px] min-w-[33%] "
+                className="hidden md:flex items-center justify-between text-white dark:text-[#B8BBBF] text-[25px] min-w-[33%] "
                 style={{ flex: '1 1 auto' }}
             >
-                {user ? (
-                    navMenuLogged()
-                ) : (
-                    <>
-                        <NavLink
-                            to={config.routes.home}
-                            className={({ isActive }) =>
-                                `relative bg-inherit text-[#65686c] py-2 md:py-2.5 my-1 mx-1 shrink-1 w-full flex justify-center hover:text-blue-600 hover:bg-[#EBEDF0] rounded-[10px] text-[23px] transition-20 after:content-[''] after:absolute after:h-[3px] after:w-[70%] after:left-[15%] after:bg-blue-600 after:text-blue-500 after:opacity-0 after:bottom-0 -['Home']  before:rounded-lg dark:bg-inherit before:opacity-0 dark:text-[#B8BBBF] dark:hover:bg-[#3A3B3C] dark:hover:text-blue-500 ${
-                                    isActive ? 'text-blue-600 after:opacity-100 dark:text-blue-500' : 'text-[#65686c]'
-                                }`
-                            }
-                            role="button"
-                        >
-                            <TiHomeOutline />
-                        </NavLink>
-                        <NavLink
-                            to={config.routes.login}
-                            className={({ isActive }) =>
-                                `relative bg-inherit text-[#65686c] py-2 md:py-2.5 my-1 mx-1 shrink-1 w-full flex justify-center hover:text-blue-600 hover:bg-[#EBEDF0] rounded-[10px] text-[23px] transition-20 after:content-[''] after:absolute after:h-[3px] after:w-[70%] after:left-[15%] after:bg-blue-600 after:text-blue-500 after:opacity-0 after:bottom-0 -['Home']  before:rounded-lg dark:bg-inherit before:opacity-0 dark:text-[#B8BBBF] dark:hover:bg-[#3A3B3C] dark:hover:text-blue-500 ${
-                                    isActive ? 'text-blue-600 after:opacity-100 dark:text-blue-500' : 'text-[#65686c]'
-                                }`
-                            }
-                            role="button"
-                        >
-                            <AiOutlineLogin />
-                        </NavLink>
-                        <NavLink
-                            to={config.routes.register}
-                            className={({ isActive }) =>
-                                `relative bg-inherit text-[#65686c] py-2 md:py-2.5 my-1 mx-1 shrink-1 w-full flex justify-center hover:text-blue-600 hover:bg-[#EBEDF0] rounded-[10px] text-[23px] transition-20 after:content-[''] after:absolute after:h-[3px] after:w-[70%] after:left-[15%] after:bg-blue-600 after:text-blue-500 after:opacity-0 after:bottom-0 -['Home']  before:rounded-lg dark:bg-inherit before:opacity-0 dark:text-[#B8BBBF] dark:hover:bg-[#3A3B3C] dark:hover:text-blue-500 ${
-                                    isActive ? 'text-blue-600 after:opacity-100 dark:text-blue-500' : 'text-[#65686c]'
-                                }`
-                            }
-                            role="button"
-                        >
-                            <FaRegUser />
-                        </NavLink>
-                    </>
-                )}
+                {user ? navMenuLogged() : null}
             </ul>
 
             <div
@@ -302,8 +253,8 @@ function Header({ user }) {
                     className="flex items-center p-1 w-[55px] h-[30px] rounded-full border-2 cursor-pointer border-black/70 dark:bg-[#3A3B3C] bg-[#333]/10 dark:border-[#929292] relative "
                     onClick={handleToggleTheme}
                 >
-                    <BsSun className="absolute left-1.5 text-[20px] text-black/80 font-extrabold transition-50 dark:translate-x-[15px] dark:opacity-0" />
-                    <IoMoonOutline className="absolute text-[20px] right-1 font-extrabold text-white transition-50 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
+                    <Sun size={20} className="absolute left-1.5 text-black/80 font-extrabold transition-all duration-300 dark:translate-x-[15px] dark:opacity-0" />
+                    <Moon size={20} className="absolute right-1 font-extrabold text-white transition-all duration-300 dark:translate-x-0 translate-x-[-15px] opacity-0 dark:opacity-[1]" />
                 </div>
             </div>
         </header>

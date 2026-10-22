@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon --inspect index.js",
+    "start:prod": "node index.js",
     "test": "jest --coverage"
   },
   "author": "",
@@ -19,12 +20,14 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "google-auth-library": "^11.3.1",
     "jsonwebtoken": "^9.0.3",
     "md5": "^2.3.0",
     "mongoose": "^8.9.2",
     "multer": "^2.0.1",
     "nodemailer": "^7.0.3",
     "redis": "^5.12.1",
+    "sharp": "^0.35.4",
     "socket.io": "^4.8.1",
     "streamifier": "^0.1.1"
   },

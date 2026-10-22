@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { MoreHorizontal, Trash2, RotateCcw, UserRound } from 'lucide-react';
 import { formatTime } from '../helpers';
-import { revokeMessage, deleteMessageForMe } from '../../../services/chatServices';
+import { revokeMessage, deleteMessageForMe, reactToMessage } from '../../../services/chatServices';
 import { toast } from 'react-toastify';
+
+const QUICK_REACTIONS = ['❤️', '😆', '😮', '😢', '😡', '👍'];
 
 function renderSystemContent(content) {
     const daIdx = content.indexOf(' đã ');
@@ -39,6 +41,7 @@ function MessageBubble({
     alwaysShowTime = false,
     onRevoked,
     onDeletedForMe,
+    onReacted,
 }) {
     const [showMenu, setShowMenu] = useState(false);
     const [loading, setLoading] = useState('');
@@ -70,6 +73,15 @@ function MessageBubble({
             toast.error('Xóa thất bại');
         } finally {
             setLoading('');
+        }
+    };
+
+    const handleReact = async (emoji) => {
+        try {
+            const res = await reactToMessage(message._id, emoji);
+            onReacted?.(message._id, res?.data?.reactions);
+        } catch {
+            toast.error('Không thể thả cảm xúc');
         }
     };
 
@@ -161,7 +173,31 @@ function MessageBubble({
                     <div className={`max-w-full rounded-2xl border-l-4 px-3 py-2 text-xs ${isMe ? 'border-white/60 bg-primary/20 text-white/80' : 'border-primary/40 bg-blue-50/80 text-gray-600 dark:bg-white/5 dark:text-gray-300'}`}>
                         <div className="mb-0.5 font-semibold">{message.reply_to.user_id?.fullName || 'Tin nhắn'}</div>
                         <div className="line-clamp-1 opacity-80">
-                            {message.reply_to.revoked ? 'Tin nhắn đã được thu hồi' : message.reply_to.content || '📷 Hình ảnh'}
+                            {message.reply_to.revoked ? 'Tin nhắn đã được thu hồi' : message.reply_to.content || 'Hình ảnh'}
+                        </div>
+                    </div>
+                )}
+
+                {message.metadata?.storyMedia && (
+                    <div className={`mb-1.5 overflow-hidden rounded-2xl border p-1 border-white/20 shadow-md ${isMe ? 'bg-primary/20' : 'bg-blue-50/80 dark:bg-white/5'}`}>
+                        <div className="relative aspect-[9/16] w-32 overflow-hidden rounded-xl bg-black">
+                            {message.metadata.storyType === 'video' ? (
+                                <video
+                                    src={message.metadata.storyMedia}
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <img
+                                    src={message.metadata.storyMedia}
+                                    alt="Story preview"
+                                    className="h-full w-full object-cover"
+                                />
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 text-left">
+                                <span className="rounded-md bg-pink-500/80 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow">
+                                    Story
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -201,12 +237,24 @@ function MessageBubble({
                 <div className={`flex items-center px-1 transition-opacity duration-150 ${alwaysShowTime ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     <span className="text-[11px] text-gray-400">{formatTime(message.createdAt)}</span>
                 </div>
+
+                {/* Quick reaction bar — hiện khi hover */}
+                <div className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {QUICK_REACTIONS.map((emoji) => (
+                        <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleReact(emoji)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-base transition hover:scale-125 hover:bg-gray-100 dark:hover:bg-white/10"
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Menu bên phải bubble (tin của người khác) */}
             {!isMe && <MenuButton />}
-
-            {isMe && <div className="w-8 shrink-0" />}
         </div>
     );
 }

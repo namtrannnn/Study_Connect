@@ -325,14 +325,14 @@ function FriendsPage() {
     if (initialLoading) return <LoadingFriends />;
 
     return (
-        <div className="min-h-full py-6">
+        <div className="min-h-full py-3 sm:py-6">
             <div className="mx-auto w-full max-w-5xl">
                 {/* Header Card */}
-                <div className="mb-6 rounded-[28px] border border-gray-200/80 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#181b22]">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="mb-4 sm:mb-6 rounded-2xl sm:rounded-[28px] border border-gray-200/80 bg-white p-4 sm:p-6 shadow-sm dark:border-white/10 dark:bg-[#181b22]">
+                    <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Đang theo dõi</h1>
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Đang theo dõi</h1>
+                            <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                                 Quản lý những người bạn đang theo dõi, người theo dõi bạn và gợi ý kết nối mới.
                             </p>
                         </div>
@@ -344,17 +344,17 @@ function FriendsPage() {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Tìm kiếm người dùng..."
-                                className="h-11 w-full rounded-2xl border border-gray-200 bg-gray-50/80 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
+                                className="h-10 sm:h-11 w-full rounded-2xl border border-gray-200 bg-gray-50/80 pl-10 pr-4 text-xs sm:text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
                             />
                         </div>
                     </div>
 
-                    {/* Navigation Tabs */}
-                    <div className="mt-6 flex flex-wrap gap-2 rounded-2xl bg-gray-100/70 p-1.5 dark:bg-white/5">
+                    {/* Navigation Tabs - Horizontal Scroll on Mobile */}
+                    <div className="mt-4 sm:mt-6 flex gap-1.5 overflow-x-auto no-scrollbar rounded-2xl bg-gray-100/70 p-1.5 dark:bg-white/5">
                         <button
                             type="button"
                             onClick={() => setActiveTab('following')}
-                            className={`flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            className={`shrink-0 sm:flex-1 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
                                 activeTab === 'following'
                                     ? 'bg-white text-blue-600 shadow-sm dark:bg-[#0f1117] dark:text-blue-400'
                                     : 'text-gray-600 hover:text-blue-600 dark:text-gray-300'
@@ -366,7 +366,7 @@ function FriendsPage() {
                         <button
                             type="button"
                             onClick={() => setActiveTab('followers')}
-                            className={`flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            className={`shrink-0 sm:flex-1 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
                                 activeTab === 'followers'
                                     ? 'bg-white text-blue-600 shadow-sm dark:bg-[#0f1117] dark:text-blue-400'
                                     : 'text-gray-600 hover:text-blue-600 dark:text-gray-300'
@@ -378,7 +378,7 @@ function FriendsPage() {
                         <button
                             type="button"
                             onClick={() => setActiveTab('suggested')}
-                            className={`flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                            className={`shrink-0 sm:flex-1 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
                                 activeTab === 'suggested'
                                     ? 'bg-white text-blue-600 shadow-sm dark:bg-[#0f1117] dark:text-blue-400'
                                     : 'text-gray-600 hover:text-blue-600 dark:text-gray-300'
@@ -391,20 +391,20 @@ function FriendsPage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('requests')}
-                                className={`flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                                className={`shrink-0 sm:flex-1 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
                                     activeTab === 'requests'
                                         ? 'bg-white text-blue-600 shadow-sm dark:bg-[#0f1117] dark:text-blue-400'
                                         : 'text-gray-600 hover:text-blue-600 dark:text-gray-300'
                                 }`}
                             >
-                                Yêu cầu theo dõi ({requests.total})
+                                Yêu cầu ({requests.total})
                             </button>
                         )}
                     </div>
                 </div>
 
                 {/* Content Area with Infinite Scroll */}
-                <div className="rounded-[28px] border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#181b22]">
+                <div className="rounded-2xl sm:rounded-[28px] border border-gray-200/80 bg-white p-3.5 sm:p-5 shadow-sm dark:border-white/10 dark:bg-[#181b22]">
                     {initialLoading ? (
                         <div className="py-16 text-center text-sm font-medium text-gray-500">Đang tải dữ liệu...</div>
                     ) : filteredList.length === 0 ? (
@@ -445,7 +445,7 @@ function FriendsPage() {
                             }
                             scrollableTarget="friends-scroll-container"
                         >
-                            <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2">
+                            <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-1 md:grid-cols-2">
                                 {filteredList.map((userItem) => {
                                     const id = userItem._id || userItem.id;
                                     const isFollowingThisUser = followingSet.has(id?.toString());
@@ -453,11 +453,11 @@ function FriendsPage() {
                                     return (
                                         <div
                                             key={id}
-                                            className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 p-4 transition hover:bg-gray-50 dark:border-white/5 dark:hover:bg-white/5"
+                                            className="flex items-center justify-between gap-2.5 sm:gap-3 rounded-2xl border border-gray-100 p-3 sm:p-4 transition hover:bg-gray-50 dark:border-white/5 dark:hover:bg-white/5"
                                         >
                                             <div
                                                 onClick={() => handleGoProfile(id, userItem.username)}
-                                                className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+                                                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 sm:gap-3"
                                             >
                                                 <img
                                                     src={
@@ -465,7 +465,7 @@ function FriendsPage() {
                                                         'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
                                                     }
                                                     alt={userItem.fullName}
-                                                    className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
+                                                    className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
                                                 />
 
                                                 <div className="min-w-0 flex-1">
