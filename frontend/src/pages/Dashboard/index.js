@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { RefreshCcw, Clock } from 'lucide-react';
+import { RefreshCcw, Clock, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
@@ -244,8 +244,9 @@ function Dashboard({ user: propUser, theme }) {
                 />
             )}
 
+
             {/* Stories Bar - above the main container */}
-            <div className="mb-3">
+            <div className="mb-2">
                 <StoriesBar
                     user={user}
                     feedGroups={feedGroups}
@@ -275,10 +276,11 @@ function Dashboard({ user: propUser, theme }) {
                             {user?.fullName ? `${user.fullName} ơi, có gì mới?` : 'Có gì mới?'}
                         </button>
 
+                        {/* Desktop buttons */}
                         <button
                             type="button"
                             onClick={() => setOpenModal(true)}
-                            className="rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white transition hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 active:scale-95"
+                            className="hidden sm:inline-flex rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white transition hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 active:scale-95"
                         >
                             Đăng
                         </button>
@@ -287,10 +289,20 @@ function Dashboard({ user: propUser, theme }) {
                             type="button"
                             onClick={handleRefreshFeed}
                             disabled={refreshing}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-gray-200"
                             title="Làm mới feed"
                         >
                             <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
+
+                        {/* Mobile Search button */}
+                        <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-search-panel'))}
+                            className="flex sm:hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-primary transition hover:bg-blue-100 active:scale-90 dark:bg-white/10 dark:text-blue-300 dark:hover:bg-white/20"
+                            title="Tìm kiếm"
+                        >
+                            <Search size={17} />
                         </button>
                     </div>
                 </div>

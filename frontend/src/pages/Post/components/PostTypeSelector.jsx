@@ -16,12 +16,12 @@ const postTypes = [
 function PostTypeSelector({ value, onChange }) {
     return (
         <div>
-            <label className="block text-sm font-medium mb-2">Loại bài viết</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loại bài viết</label>
 
             <select
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#0a0a0a] px-3 py-2.5 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/40 transition"
             >
                 {postTypes.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -34,3 +34,4 @@ function PostTypeSelector({ value, onChange }) {
 }
 
 export default PostTypeSelector;
+

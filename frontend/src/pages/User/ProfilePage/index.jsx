@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import {
@@ -26,7 +26,13 @@ import {
     Sparkles,
     ShieldAlert,
     ShieldCheck,
+    Settings,
+    LogOut,
+    Sun,
+    Moon,
 } from 'lucide-react';
+import { LOGOUT } from '../../../redux/userSlice';
+import { TOGGLE_THEME } from '../../../redux/themeSlice';
 
 import EditProfileModal from './EditProfileModal';
 import StoryArchiveModal from './StoryArchiveModal';
@@ -46,7 +52,11 @@ export default function ProfilePage() {
     const { userId, username } = useParams();
     const profileIdentifier = username || userId;
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const currentUser = useSelector((state) => state.user?.infoUser);
+    const theme = useSelector((state) => state.theme?.theme);
+    const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+    const settingsRef = useRef(null);
 
     const [profileData, setProfileData] = useState(null);
 
@@ -471,7 +481,7 @@ export default function ProfilePage() {
 
     /* ────────────────────────────── JSX ────────────────────────────── */
     return (
-        <div className="py-6">
+        <div className="py-2 sm:py-6">
             <div className="mx-auto w-full max-w-[680px] space-y-4">
                 {/* Back Button Header (Threads style for other profiles) */}
                 {!isOwnProfile && (
@@ -491,7 +501,82 @@ export default function ProfilePage() {
                 )}
 
                 {/* ─── Profile Header Card (Threads style: Avatar LEFT, Info RIGHT) ─── */}
-                <div className="rounded-[28px] border border-gray-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#18181b] sm:p-6">
+                <div className="relative rounded-2xl sm:rounded-[28px] border border-gray-200/80 bg-white p-4 sm:p-6 shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                    {/* Settings Button - own profile only */}
+                    {isOwnProfile && (
+                        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10" ref={settingsRef}>
+                            <button
+                                type="button"
+                                onClick={() => setShowSettingsMenu((v) => !v)}
+                                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 active:scale-90 dark:hover:bg-white/10 dark:hover:text-gray-200"
+                                aria-label="Cài đặt"
+                                title="Cài đặt"
+                            >
+                                <Settings className="h-5 w-5" />
+                            </button>
+
+                            {showSettingsMenu && (
+                                <>
+                                    {/* Overlay to close */}
+                                    <div
+                                        className="fixed inset-0 z-20"
+                                        onClick={() => setShowSettingsMenu(false)}
+                                    />
+                                    {/* Dropdown */}
+                                    <div className="absolute right-0 top-11 z-30 w-52 origin-top-right animate-in fade-in slide-in-from-top-1 rounded-xl border border-gray-200/80 bg-white p-1.5 shadow-xl dark:border-white/10 dark:bg-[#232326]">
+                                        {/* Theme Toggle Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newTheme = theme === 'dark' ? null : 'dark';
+                                                dispatch(TOGGLE_THEME(newTheme));
+                                            }}
+                                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                {theme === 'dark' ? (
+                                                    <Sun className="h-4.5 w-4.5 text-amber-500" />
+                                                ) : (
+                                                    <Moon className="h-4.5 w-4.5 text-indigo-500" />
+                                                )}
+                                                <span>{theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'}</span>
+                                            </div>
+                                            <div
+                                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                                                    theme === 'dark' ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                        theme === 'dark' ? 'translate-x-4' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </div>
+                                        </button>
+
+                                        <div className="my-1 border-t border-gray-100 dark:border-white/10" />
+
+                                        {/* Logout Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
+                                                    dispatch(LOGOUT());
+                                                    navigate('/dang-nhap');
+                                                }
+                                                setShowSettingsMenu(false);
+                                            }}
+                                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                                        >
+                                            <LogOut className="h-4.5 w-4.5" />
+                                            Đăng xuất
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     {/* Header Row: Avatar on LEFT, Name/Username on RIGHT */}
                     <div className="flex items-start gap-4 sm:gap-5">
                         {/* Avatar on LEFT with Active 24h Story Ring */}
@@ -513,7 +598,7 @@ export default function ProfilePage() {
                                     'https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png'
                                 }
                                 alt={user.fullName}
-                                className="h-24 w-24 rounded-full border-2 border-white object-cover shadow-sm dark:border-[#18181b] sm:h-28 sm:w-28"
+                                className="h-20 w-20 rounded-full border-2 border-white object-cover shadow-sm dark:border-[#18181b] sm:h-28 sm:w-28"
                             />
                             {user.isVerified && (
                                 <CheckCircle2 className="absolute bottom-1 right-1 h-6 w-6 text-blue-500 fill-white dark:fill-[#18181b]" />
@@ -721,11 +806,11 @@ export default function ProfilePage() {
 
 
                     {/* Navigation Tabs Bar */}
-                    <div className="flex border-t border-gray-200/80 dark:border-white/10 sm:-mb-6">
+                    <div className="flex items-center overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-t border-gray-200/80 dark:border-white/10">
                         <button
                             type="button"
                             onClick={() => setActiveTab('posts')}
-                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'posts'
+                            className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'posts'
                                 ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
                                 : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                                 }`}
@@ -737,7 +822,7 @@ export default function ProfilePage() {
                         <button
                             type="button"
                             onClick={() => setActiveTab('videos')}
-                            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'videos'
+                            className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'videos'
                                 ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
                                 : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                                 }`}
@@ -750,7 +835,7 @@ export default function ProfilePage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('saved')}
-                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'saved'
+                                className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'saved'
                                     ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
                                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                                     }`}
@@ -763,7 +848,7 @@ export default function ProfilePage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('liked')}
-                                className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'liked'
+                                className={`flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 sm:gap-2 border-b-2 px-3 sm:px-4 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'liked'
                                     ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
                                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                                     }`}
@@ -780,14 +865,14 @@ export default function ProfilePage() {
                                     setActiveTab('moderation');
                                     loadModerationPosts({ reset: true });
                                 }}
-                                className={`relative flex items-center justify-center gap-1.5 px-3.5 sm:px-4 border-b-2 py-3.5 text-sm font-bold transition ${activeTab === 'moderation'
+                                className={`relative flex shrink-0 sm:flex-1 items-center justify-center gap-1.5 px-3 sm:px-4 border-b-2 py-3 sm:py-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition ${activeTab === 'moderation'
                                     ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
                                     : 'border-transparent text-amber-600/80 hover:text-amber-600 dark:text-amber-400/80 dark:hover:text-amber-400'
                                     }`}
                                 title="Bài viết vi phạm & chờ kiểm duyệt"
                             >
                                 <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
-                                <span className="hidden sm:inline text-xs font-bold">Vi phạm</span>
+                                <span className="text-xs font-bold">Vi phạm</span>
                                 <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">
                                     {moderationCount > 99 ? '99+' : moderationCount}
                                 </span>
