@@ -76,20 +76,6 @@ function StoriesBar({ user, feedGroups = [], onOpenStoryGroup, onCreateStory }) 
 
             {/* Stories Scroller */}
             <div ref={scrollerRef} className="flex items-center gap-4 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
-                {/* NEXUS LOGO */}
-                <div className="shrink-0 flex flex-col items-center gap-1.5 w-[52px]">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center">
-                        <img
-                            src="/nexus-logo.png"
-                            alt="Nexus"
-                            className="h-9 w-9 object-contain"
-                        />
-                    </div>
-                    <div className="text-[11px] font-bold tracking-tight text-indigo-600 dark:text-indigo-400 w-full truncate text-center">
-                        Nexus
-                    </div>
-                </div>
-
                 {/* CREATE STORY / MY STORY */}
                 <div className="shrink-0 flex flex-col items-center gap-1.5 w-[52px] group">
                     <div className="relative flex items-center justify-center w-[52px]">
