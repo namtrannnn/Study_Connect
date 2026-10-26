@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import {
     BadgeCheck,
-    Brain,
     Flame,
     Hash,
     Heart,
@@ -11,7 +10,6 @@ import {
     TrendingUp,
     UserPlus,
     Users,
-    Zap,
     GraduationCap,
 } from 'lucide-react';
 import { getSuggestSummary } from '../../../services/suggest.services';
@@ -249,7 +247,7 @@ function HotPosts({ posts = [] }) {
                         <button
                             key={post._id}
                             type="button"
-                            onClick={() => navigate(`/posts/${post._id}`)}
+                            onClick={() => navigate(`/post/${post._id}`)}
                             className="group w-full rounded-xl p-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/5"
                         >
                             <div className="flex gap-3">
@@ -321,51 +319,6 @@ function HotPosts({ posts = [] }) {
     );
 }
 
-// ─── Suggested Quiz ──────────────────────────────────────────────────────────
-function SuggestedQuiz({ quizzes = [] }) {
-    const navigate = useNavigate();
-
-    return (
-        <Card className="p-4">
-            <SectionTitle icon={Brain} label="Quiz nổi bật" color="text-violet-500" />
-            {quizzes.length === 0 ? (
-                <EmptyHint text="Chưa có quiz nào" />
-            ) : (
-                <div className="space-y-2">
-                    {quizzes.map((quiz) => (
-                        <button
-                            key={quiz._id}
-                            type="button"
-                            onClick={() => navigate(`/posts/${quiz._id}`)}
-                            className="group flex w-full items-start gap-3 rounded-xl p-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/5"
-                        >
-                            {/* Icon */}
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-500/10">
-                                <Zap className="h-5 w-5 text-violet-500" />
-                            </div>
-
-                            {/* Info */}
-                            <div className="min-w-0 flex-1">
-                                <p className="line-clamp-2 text-xs font-semibold leading-4 text-gray-800 group-hover:text-violet-600 dark:text-gray-200 dark:group-hover:text-violet-400 transition">
-                                    {quiz.caption || 'Quiz không có tiêu đề'}
-                                </p>
-                                <div className="mt-1 flex items-center gap-2">
-                                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
-                                        {quiz.optionsCount} lựa chọn
-                                    </span>
-                                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                        {quiz.totalAnswers} lượt làm
-                                    </span>
-                                </div>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            )}
-        </Card>
-    );
-}
-
 // ─── Active Learners ─────────────────────────────────────────────────────────
 function ActiveLearners({ learners = [] }) {
     const navigate = useNavigate();
@@ -425,7 +378,7 @@ export default function Suggest() {
 
     if (loading) return <SuggestSkeleton />;
 
-    const { peopleToFollow, trendingHashtags, hotPosts, suggestedQuiz, activeLearners } = data;
+    const { peopleToFollow, trendingHashtags, hotPosts, activeLearners } = data;
 
     return (
         <div className="space-y-3 pb-6">
@@ -440,9 +393,6 @@ export default function Suggest() {
 
             {/* Hot posts */}
             <HotPosts posts={hotPosts} />
-
-            {/* Suggested quiz */}
-            <SuggestedQuiz quizzes={suggestedQuiz} />
 
             {/* Footer */}
             <p className="px-2 text-center text-[11px] text-gray-300 dark:text-gray-600">

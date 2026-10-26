@@ -341,28 +341,66 @@
     scrollbar-width: none;
 }
 
+/* Swiper Custom Navigation & Pagination */
 .swiper-button-prev,
-.swiper-button-next {
-    width: 38px;
-    height: 38px;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.45);
-    color: white;
+.swiper-button-next,
+.post-detail-swiper .swiper-button-prev,
+.post-detail-swiper .swiper-button-next {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9999px !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(8px) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+    transition: all 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-top: -17px !important;
+}
+
+.swiper-button-prev:hover,
+.swiper-button-next:hover,
+.post-detail-swiper .swiper-button-prev:hover,
+.post-detail-swiper .swiper-button-next:hover {
+    background: rgba(0, 0, 0, 0.8) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: scale(1.08) !important;
 }
 
 .swiper-button-prev::after,
-.swiper-button-next::after {
-    font-size: 16px;
-    font-weight: 700;
+.swiper-button-next::after,
+.post-detail-swiper .swiper-button-prev::after,
+.post-detail-swiper .swiper-button-next::after {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+}
+
+.swiper-button-prev {
+    left: 12px !important;
+}
+
+.swiper-button-next {
+    right: 12px !important;
 }
 
 .swiper-pagination-bullet {
-    background: rgba(255, 255, 255, 0.75);
-    opacity: 1;
+    background: rgba(255, 255, 255, 0.6) !important;
+    opacity: 0.8 !important;
+    width: 6px !important;
+    height: 6px !important;
+    transition: all 0.2s ease !important;
 }
 
 .swiper-pagination-bullet-active {
-    background: white;
+    background: #ffffff !important;
+    opacity: 1 !important;
+    width: 8px !important;
+    height: 8px !important;
+    transform: scale(1.2) !important;
 }
 
 /* ─── Message bubble animations ─────────────────────────────────────── */
