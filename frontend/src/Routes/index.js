@@ -5,6 +5,7 @@ import Home from '../pages/Home';
 
 import DashboardPage from '../pages/Dashboard';
 import PostPage from '../pages/Post';
+import PostDetailPage from '../pages/Post/PostDetailPage';
 
 import Login from '../pages/Auth/login';
 import Register from '../pages/Auth/register';
@@ -84,6 +85,30 @@ const publicRoute = [
         component: Messenger,
         layout: MessengerLayout,
         protected: ProtectedRoute,
+    },
+
+    {
+        path: config.routes.postDetail,
+        component: PostDetailPage,
+        layout: StudyConnectLayout,
+        protected: ProtectedRoute,
+        layoutProps: {
+            showSuggest: true,
+            contentClassName: 'max-w-[680px]',
+            mainId: 'post-detail-scroll-container',
+        },
+    },
+
+    {
+        path: config.routes.postsDetail,
+        component: PostDetailPage,
+        layout: StudyConnectLayout,
+        protected: ProtectedRoute,
+        layoutProps: {
+            showSuggest: true,
+            contentClassName: 'max-w-[680px]',
+            mainId: 'post-detail-scroll-container',
+        },
     },
 
     { path: '*', component: Error, layout: null },

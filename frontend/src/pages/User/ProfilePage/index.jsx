@@ -37,6 +37,7 @@ import { TOGGLE_THEME } from '../../../redux/themeSlice';
 import EditProfileModal from './EditProfileModal';
 import StoryArchiveModal from './StoryArchiveModal';
 import CreateHighlightModal from './CreateHighlightModal';
+import FollowListModal from './FollowListModal';
 import StoryViewerModal from '../../../components/StoryViewerModal';
 import Post from '../../Dashboard/Post';
 import UnfollowConfirmModal from '../../../components/UnfollowConfirmModal';
@@ -44,6 +45,7 @@ import { LoadingProfile } from '../../../components/Loading';
 import * as ProfileServices from '../../../services/ProfileServices';
 import * as FriendServices from '../../../services/friend.services';
 import * as PostServices from '../../../services/posts.services';
+import { getOrCreateFriendRoom } from '../../../services/chatServices';
 import { getUserHighlights, getUserActiveStories } from '../../../services/story.services';
 import httpRequest from '../../../config/axios';
 
@@ -94,6 +96,8 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [showUnfollowModal, setShowUnfollowModal] = useState(false);
     const [relationStatus, setRelationStatus] = useState('none');
+    const [showFollowModal, setShowFollowModal] = useState(false);
+    const [followModalTab, setFollowModalTab] = useState('followers');
 
     // Story Highlights & Archive States
     const [highlights, setHighlights] = useState([]);
@@ -378,14 +382,16 @@ export default function ProfilePage() {
     const handleMessageUser = async () => {
         if (!user?._id) return;
         try {
-            const res = await httpRequest.post(`/room-chat/create-private/${user._id}`);
-            if (res.data?.code === 200 && res.data?.data?._id) {
-                navigate(`/messages/${res.data.data._id}`);
+            const res = await getOrCreateFriendRoom(user._id);
+            const roomId = res?._id || res?.roomId;
+            if (roomId) {
+                navigate(`/messenger?roomId=${roomId}`);
             } else {
-                navigate('/messages');
+                navigate('/messenger');
             }
-        } catch {
-            navigate('/messages');
+        } catch (err) {
+            console.error('Error opening chat room:', err);
+            navigate('/messenger');
         }
     };
 
@@ -432,11 +438,13 @@ export default function ProfilePage() {
     };
 
     const handleGoFollowers = () => {
-        navigate('/ban-be', { state: { tab: 'followers' } });
+        setFollowModalTab('followers');
+        setShowFollowModal(true);
     };
 
     const handleGoFollowing = () => {
-        navigate('/ban-be', { state: { tab: 'following' } });
+        setFollowModalTab('following');
+        setShowFollowModal(true);
     };
 
     /* ── Render States ── */
@@ -1146,6 +1154,20 @@ export default function ProfilePage() {
                 onDeleteSuccess={(deletedId) => {
                     setActiveStories((prev) => prev.filter((s) => s._id !== deletedId));
                     if (typeof loadActiveStories === 'function') loadActiveStories();
+                }}
+            />
+
+            {/* Followers / Following List Modal */}
+            <FollowListModal
+                open={showFollowModal}
+                onClose={() => setShowFollowModal(false)}
+                userId={user?._id}
+                username={user?.username}
+                fullName={user?.fullName}
+                initialTab={followModalTab}
+                currentUser={currentUser}
+                onFollowChange={() => {
+                    loadProfile();
                 }}
             />
         </div>

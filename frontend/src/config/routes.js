@@ -7,6 +7,8 @@ export const routes = {
     dashboard: '/trang-chu',
 
     post: '/posts/create',
+    postDetail: '/post/:id',
+    postsDetail: '/posts/:id',
 
     // friend
     friends: '/ban-be',

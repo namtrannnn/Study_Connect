@@ -103,6 +103,10 @@ socketIO();
 const { startStage3Worker } = require("./services/moderation/stage3_asyncQueue.service");
 startStage3Worker();
 
+// KÍCH HOẠT BOT SIMULATOR (Tự động đăng bài lúc 8h sáng & 18h tối)
+const { startBotSimulator } = require("./services/botSimulator.service");
+startBotSimulator();
+
 server.listen(port, "0.0.0.0", () => {
   console.log(`Server running on port ${port}`);
 });

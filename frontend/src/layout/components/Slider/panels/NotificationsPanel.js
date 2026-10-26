@@ -151,7 +151,7 @@ export default function NotificationsPanel({ onClose }) {
         // Đánh dấu đã đọc nếu chưa
         if (!notif.isRead) await handleMarkAsRead(notif._id);
 
-        const refId = notif.refId;
+        const targetPostId = notif.refId?._id || notif.refId || notif.postId;
         const senderId = notif.sender?._id;
         const senderUsername = notif.sender?.username;
 
@@ -173,12 +173,17 @@ export default function NotificationsPanel({ onClose }) {
             case 'moderation_rejected':
             case 'appeal_approved':
             case 'appeal_rejected':
-                if (refId) navigate(`/post/${refId}`);
+                if (targetPostId) navigate(`/post/${targetPostId}`);
                 break;
             case 'study_room_invite':
-                if (refId) navigate(`/study-room/${refId}`);
+                if (targetPostId) navigate(`/study-room/${targetPostId}`);
                 break;
             default:
+                if (targetPostId && (notif.refType === 'post' || notif.refType === 'comment')) {
+                    navigate(`/post/${targetPostId}`);
+                } else if (senderUsername || senderId) {
+                    navigate(`/profile/${senderUsername || senderId}`);
+                }
                 break;
         }
         onClose?.();
