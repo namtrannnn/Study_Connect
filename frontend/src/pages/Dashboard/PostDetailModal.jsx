@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, MoreHorizontal, Heart, SendHorizontal, MessageCircle, Pencil, Trash2, Bookmark, ChevronDown, ChevronUp, CornerDownRight, Loader2 } from 'lucide-react';
-import { Swiper, SwiperSlide } from 'swiper/react';
+import { X, MoreHorizontal, Heart, SendHorizontal, MessageCircle, Pencil, Trash2, Bookmark, ChevronDown, ChevronUp, CornerDownRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Swiper, SwiperSlide, useSwiper } from 'swiper/react';
 import { Navigation, Pagination, Keyboard } from 'swiper/modules';
 import { createPortal } from 'react-dom';
 import 'swiper/css';
@@ -295,10 +295,59 @@ function CommentItem({
     );
 }
 
+/* ─── Custom Swiper Navigation Buttons ─── */
+function SwiperCustomNav({ total = 0 }) {
+    const swiper = useSwiper();
+    const [activeIndex, setActiveIndex] = useState(swiper?.activeIndex || 0);
+
+    useEffect(() => {
+        if (!swiper) return;
+        const onSlide = () => setActiveIndex(swiper.activeIndex || 0);
+        swiper.on('slideChange', onSlide);
+        return () => {
+            swiper.off('slideChange', onSlide);
+        };
+    }, [swiper]);
+
+    if (total <= 1) return null;
+
+    return (
+        <>
+            {activeIndex > 0 && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        swiper.slidePrev();
+                    }}
+                    className="absolute left-3.5 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition hover:bg-black/85 hover:scale-105 active:scale-95 border border-white/20 shadow-xl"
+                    title="Ảnh trước"
+                >
+                    <ChevronLeft size={18} strokeWidth={2.5} />
+                </button>
+            )}
+
+            {activeIndex < total - 1 && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        swiper.slideNext();
+                    }}
+                    className="absolute right-3.5 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition hover:bg-black/85 hover:scale-105 active:scale-95 border border-white/20 shadow-xl"
+                    title="Ảnh tiếp theo"
+                >
+                    <ChevronRight size={18} strokeWidth={2.5} />
+                </button>
+            )}
+        </>
+    );
+}
+
 /* ═══════════════════════════════════════════════
    Main PostDetailModal
    ═══════════════════════════════════════════════ */
-export default function PostDetailModal({ open, onClose, post, currentUser, onSubmitComment }) {
+export default function PostDetailModal({ open, onClose, post, currentUser, onSubmitComment, initialMediaIndex = 0 }) {
     const navigate = useNavigate();
     const [commentText, setCommentText] = useState('');
     const [editingCommentId, setEditingCommentId] = useState(null);
@@ -707,12 +756,22 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                 <div className="hidden min-w-0 bg-black md:flex md:items-center md:justify-center">
                     {mediaItems.length > 0 ? (
                         <Swiper
-                            modules={[Navigation, Pagination, Keyboard]}
-                            navigation={mediaItems.length > 1}
+                            key={`${postId}-${initialMediaIndex}`}
+                            modules={[Pagination, Keyboard]}
+                            initialSlide={initialMediaIndex || 0}
+                            navigation={false}
                             pagination={mediaItems.length > 1 ? { clickable: true } : false}
                             keyboard={{ enabled: true }}
-                            className="h-full w-full"
-                            style={{ height: '100%' }}
+                            onSwiper={(swiper) => {
+                                if (initialMediaIndex > 0) {
+                                    swiper.slideTo(initialMediaIndex, 0);
+                                }
+                            }}
+                            className="h-full w-full post-detail-swiper"
+                            style={{
+                                height: '100%',
+                                '--swiper-theme-color': '#ffffff',
+                            }}
                         >
                             {mediaItems.map((media, index) => {
                                 const mediaUrl = media?.url || media;
@@ -729,6 +788,7 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                     </SwiperSlide>
                                 );
                             })}
+                            <SwiperCustomNav total={mediaItems.length} />
                         </Swiper>
                     ) : (
                         <div className="flex h-full w-full items-center justify-center px-10 text-center">
