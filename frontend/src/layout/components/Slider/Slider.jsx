@@ -139,24 +139,19 @@ export default function Slider({
         [],
     );
     const moreMenuItems = [
-        {
-            id: 'settings',
-            label: 'Cài đặt',
-            icon: Settings,
-            path: '/settings',
-        },
-        {
-            id: 'activity',
-            label: 'Hoạt động học tập',
-            icon: Activity,
-            path: '/activity',
-        },
-        {
-            id: 'saved',
-            label: 'Đã lưu',
-            icon: Bookmark,
-            path: '/saved',
-        },
+        // {
+        //     id: 'settings',
+        //     label: 'Cài đặt',
+        //     icon: Settings,
+        //     path: '/settings',
+        // },
+
+        // {
+        //     id: 'saved',
+        //     label: 'Đã lưu',
+        //     icon: Bookmark,
+        //     path: '/saved',
+        // },
         {
             id: 'theme',
             label: theme === 'dark' ? 'Chuyển giao diện sáng' : 'Chuyển giao diện tối',
@@ -179,11 +174,10 @@ export default function Slider({
         const getItemClass = (isActive = false) => `
         group w-full h-[60px] flex items-center rounded-xl transition-all duration-200
         ${collapsed ? 'justify-center px-2' : 'gap-3 px-2.5'}
-        ${
-            isActive
+        ${isActive
                 ? 'bg-blue-50 text-primary font-semibold dark:bg-blue-500/10 dark:text-blue-300'
                 : 'text-slate-800 hover:bg-blue-50 dark:text-gray-100 dark:hover:bg-white/10'
-        }
+            }
     `;
 
         const renderContent = (isActive = false) => (
@@ -341,7 +335,7 @@ export default function Slider({
                                 </div>
 
                                 <div className="border-t border-blue-100 bg-white p-2 dark:border-white/10 dark:bg-surface-cardDark">
-                                    <button
+                                    {/* <button
                                         type="button"
                                         className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-blue-50 dark:hover:bg-white/10"
                                     >
@@ -352,7 +346,7 @@ export default function Slider({
                                         <span className="text-[15px] font-medium text-gray-800 dark:text-gray-100">
                                             Chuyển tài khoản
                                         </span>
-                                    </button>
+                                    </button> */}
 
                                     <button
                                         type="button"

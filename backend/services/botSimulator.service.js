@@ -153,12 +153,12 @@ async function createBotPost(botUser, timeOfDay = "morning") {
     hideShare: false,
     visibility: "public",
     allowedUsers: [],
-    status: "processing",
-    moderationStatus: "pending",
+    status: "active",
+    moderationStatus: "approved",
     moderationSource: "system",
     requestId,
     contentVersion: 1,
-    isAudited: false,
+    isAudited: true,
   });
 
   await newPost.save();

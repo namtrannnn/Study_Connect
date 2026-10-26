@@ -511,7 +511,7 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
 
     // 1 image: Threads style - compact max-height, auto-constrained portrait width, rounded-2xl
     if (mediaItems.length === 1) {
-        return <SingleMediaItem media={mediaItems[0]} onOpenDetail={onOpenDetail} />;
+        return <SingleMediaItem media={mediaItems[0]} onOpenDetail={() => onOpenDetail(0)} />;
     }
 
     // 2 images: 50-50 side-by-side grid
@@ -526,7 +526,7 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
                         <button
                             key={media?.public_id || mediaUrl || index}
                             type="button"
-                            onClick={onOpenDetail}
+                            onClick={() => onOpenDetail(index)}
                             className="group relative h-full w-full overflow-hidden bg-black/5 focus:outline-none dark:bg-white/5"
                         >
                             {mediaType === 'video' ? (
@@ -556,7 +556,7 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
                         media={media}
                         index={index}
                         total={mediaItems.length}
-                        onOpenDetail={onOpenDetail}
+                        onOpenDetail={() => onOpenDetail(index)}
                     />
                 ))}
             </HorizontalDragScroll>
@@ -570,6 +570,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const [localLikesCount, setLocalLikesCount] = useState(post?.likesCount ?? post?.likes ?? 0);
     const [openLikes, setOpenLikes] = useState(false);
     const [openDetail, setOpenDetail] = useState(false);
+    const [initialMediaIndex, setInitialMediaIndex] = useState(0);
     const [openShare, setOpenShare] = useState(false);
     const [openEdit, setOpenEdit] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -703,6 +704,12 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     };
 
     const handleComment = () => {
+        setInitialMediaIndex(0);
+        setOpenDetail(true);
+    };
+
+    const handleOpenDetail = (index = 0) => {
+        setInitialMediaIndex(typeof index === 'number' ? index : 0);
         setOpenDetail(true);
     };
 
@@ -1050,7 +1057,7 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                 )}
 
                 {mediaItems.length > 0 && (
-                    <PostMediaGallery mediaItems={mediaItems} onOpenDetail={() => setOpenDetail(true)} />
+                    <PostMediaGallery mediaItems={mediaItems} onOpenDetail={handleOpenDetail} />
                 )}
 
                 <div className="mt-1 flex items-center justify-between">
@@ -1102,10 +1109,15 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                             {commentCount}
                         </button>
 
+                        {/* Nút chia sẻ - Chức năng đang hoàn thiện */}
                         <button
                             type="button"
-                            onClick={() => setOpenShare(true)}
+                            onClick={() => {
+                                // setOpenShare(true);
+                                toast.info('Chức năng đang hoàn thiện');
+                            }}
                             className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+                            title="Chia sẻ (Chức năng đang hoàn thiện)"
                         >
                             <Send className="h-4 w-4" />
                             {shareCount}
@@ -1132,13 +1144,14 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                 onClose={() => setOpenDetail(false)}
                 post={post}
                 currentUser={currentUser}
+                initialMediaIndex={initialMediaIndex}
                 onSubmitComment={(text) => {
                     onComment?.(text);
                 }}
             />
 
             <LikesModal open={openLikes} onClose={() => setOpenLikes(false)} postId={post?._id || post?.id} />
-            <ShareModal open={openShare} onClose={() => setOpenShare(false)} post={post} currentUser={currentUser} />
+            {/* <ShareModal open={openShare} onClose={() => setOpenShare(false)} post={post} currentUser={currentUser} /> */}
 
             {/* Report Modal */}
             {showReportModal && (
