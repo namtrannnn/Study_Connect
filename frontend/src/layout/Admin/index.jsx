@@ -72,16 +72,10 @@ function AdminLayout({ children }) {
             description: 'Quản lý bình luận vi phạm',
         },
         {
-            label: 'Báo cáo & AI',
-            path: '/admin/reports',
-            icon: Bot,
-            description: 'Kiểm duyệt AI Gemini & Report',
-        },
-        {
-            label: 'Kiểm duyệt 4 Tầng',
+            label: 'Trung tâm Kiểm duyệt',
             path: '/admin/moderation',
             icon: ShieldAlert,
-            description: 'Hàng chờ duyệt tay Tầng 4 & AI risk',
+            description: 'Phễu 4 Tầng AI & Báo cáo cộng đồng',
         },
         {
             label: 'Quản lý Hashtag',
@@ -107,8 +101,7 @@ function AdminLayout({ children }) {
         if (location.pathname.includes('/users')) return { title: 'Quản lý Người dùng', subtitle: 'Tìm kiếm, phân quyền, khóa/mở khóa và quản lý tài khoản' };
         if (location.pathname.includes('/posts')) return { title: 'Quản lý Bài viết', subtitle: 'Kiểm duyệt bài đăng, xem nội dung và ẩn/xóa bài vi phạm' };
         if (location.pathname.includes('/comments')) return { title: 'Quản lý Bình luận', subtitle: 'Tìm kiếm và dọn dẹp các bình luận vi phạm tiêu chuẩn' };
-        if (location.pathname.includes('/reports')) return { title: 'Báo cáo Vi phạm & Gemini AI', subtitle: 'Trí tuệ nhân tạo Gemini tự động phân tích độc hại & gợi ý xử lý' };
-        if (location.pathname.includes('/moderation')) return { title: 'Kiểm duyệt Phễu 4 Tầng (AI Pipeline)', subtitle: 'Hàng chờ kiểm duyệt Tầng 4 cho các nội dung nghi vấn theo mức rủi ro' };
+        if (location.pathname.includes('/reports') || location.pathname.includes('/moderation')) return { title: 'Trung tâm Kiểm duyệt & Báo cáo', subtitle: 'Quản lý phễu 4 tầng tự động AI và xử lý báo cáo từ cộng đồng' };
         if (location.pathname.includes('/hashtags')) return { title: 'Quản lý Hashtags & Blacklist', subtitle: 'Theo dõi xu hướng hashtag và danh sách từ khóa cấm' };
         if (location.pathname.includes('/analytics')) return { title: 'Thống kê Tương tác', subtitle: 'Top bài viết viral và người dùng có lượng tương tác cao nhất' };
         if (location.pathname.includes('/logs')) return { title: 'Nhật ký Hệ thống (Audit Trail)', subtitle: 'Ghi nhận mọi thao tác xử lý của ban quản trị' };
@@ -185,7 +178,7 @@ function AdminLayout({ children }) {
 
                         {navItems.map((item) => {
                             const Icon = item.icon;
-                            const isActive = location.pathname === item.path;
+                            const isActive = location.pathname === item.path || (item.path === '/admin/moderation' && location.pathname.startsWith('/admin/reports'));
 
                             // Assign distinct accent colors per nav item
                             const accentColors = {
@@ -193,6 +186,7 @@ function AdminLayout({ children }) {
                                 '/admin/users': { bg: 'bg-violet-500/15', text: 'text-violet-400', glow: 'shadow-violet-500/20' },
                                 '/admin/posts': { bg: 'bg-blue-500/15', text: 'text-blue-400', glow: 'shadow-blue-500/20' },
                                 '/admin/comments': { bg: 'bg-teal-500/15', text: 'text-teal-400', glow: 'shadow-teal-500/20' },
+                                '/admin/moderation': { bg: 'bg-rose-500/15', text: 'text-rose-400', glow: 'shadow-rose-500/20' },
                                 '/admin/reports': { bg: 'bg-indigo-500/15', text: 'text-indigo-400', glow: 'shadow-indigo-500/20' },
                                 '/admin/hashtags': { bg: 'bg-pink-500/15', text: 'text-pink-400', glow: 'shadow-pink-500/20' },
                                 '/admin/analytics': { bg: 'bg-amber-500/15', text: 'text-amber-400', glow: 'shadow-amber-500/20' },
