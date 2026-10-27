@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom';
 import config from '../config';
 
 // pages
@@ -114,13 +115,15 @@ const publicRoute = [
     { path: '*', component: Error, layout: null },
 ];
 
+const AdminReportsRedirect = () => <Navigate to="/admin/moderation?tab=reports" replace />;
+
 const privateRoute = [
     { path: config.routes.admin_root, component: AdminDashboard },
     { path: config.routes.admin, component: AdminDashboard },
     { path: config.routes.admin_users, component: AdminUsers },
     { path: config.routes.admin_posts, component: AdminPosts },
     { path: config.routes.admin_comments, component: AdminComments },
-    { path: config.routes.admin_reports, component: AdminReports },
+    { path: config.routes.admin_reports, component: AdminReportsRedirect },
     { path: config.routes.admin_hashtags, component: AdminHashtags },
     { path: config.routes.admin_analytics, component: AdminAnalytics },
     { path: config.routes.admin_logs, component: AdminLogs },

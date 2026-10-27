@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
+import ReportsAdmin from '../Reports/reports.admin';
 import {
     Search,
     Loader2,
@@ -411,6 +413,17 @@ function ModerationDetailModal({ post, onClose, onApprove, onReject, onResolveAp
 // ─── Main Page Component ──────────────────────────────────
 function ModerationAdmin() {
     const { isDark } = useAdminTheme();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeMainTab = searchParams.get('tab') === 'reports' ? 'reports' : 'pipeline';
+
+    const handleSwitchMainTab = (tab) => {
+        if (tab === 'reports') {
+            setSearchParams({ tab: 'reports' });
+        } else {
+            setSearchParams({});
+        }
+    };
+
     const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState([]);
     const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1, total: 0 });
@@ -505,10 +518,54 @@ function ModerationAdmin() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className={`flex flex-wrap items-center justify-between gap-4 rounded-3xl border p-6 backdrop-blur-xl ${
+            {/* Master Tab Bar */}
+            <div className={`flex items-center gap-2 p-1.5 rounded-2xl border backdrop-blur-xl ${
                 isDark ? 'border-white/10 bg-[#0f172a]/80' : 'border-slate-200 bg-white shadow-sm'
             }`}>
+                <button
+                    type="button"
+                    onClick={() => handleSwitchMainTab('pipeline')}
+                    className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-bold text-xs transition-all ${
+                        activeMainTab === 'pipeline'
+                            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25'
+                            : isDark
+                            ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                >
+                    <ShieldAlert className="h-4 w-4" />
+                    <span>Hàng chờ Phễu 4 Tầng & Khiếu nại</span>
+                    {counts.pending > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white shadow-sm">
+                            {counts.pending}
+                        </span>
+                    )}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => handleSwitchMainTab('reports')}
+                    className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-bold text-xs transition-all ${
+                        activeMainTab === 'reports'
+                            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25'
+                            : isDark
+                            ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                >
+                    <Bot className="h-4 w-4" />
+                    <span>Báo cáo Vi phạm từ Cộng đồng (AI Gemini)</span>
+                </button>
+            </div>
+
+            {activeMainTab === 'reports' ? (
+                <ReportsAdmin />
+            ) : (
+                <>
+                    {/* Header */}
+                    <div className={`flex flex-wrap items-center justify-between gap-4 rounded-3xl border p-6 backdrop-blur-xl ${
+                        isDark ? 'border-white/10 bg-[#0f172a]/80' : 'border-slate-200 bg-white shadow-sm'
+                    }`}>
                 <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
                         <Shield className="h-5 w-5 text-white" />
@@ -774,6 +831,8 @@ function ModerationAdmin() {
                 limit={pagination.limit}
                 onPageChange={(p) => fetchPosts(p)}
             />
+        </>
+    )}
 
             {/* Detail Modal */}
             <ModerationDetailModal

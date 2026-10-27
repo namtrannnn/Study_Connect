@@ -11,6 +11,7 @@ import {
 import { toast } from 'react-toastify';
 import { getAdminReports, analyzeReportWithAI, resolveReport } from '../../../services/adminServices';
 import { useAdminTheme } from '../../../layout/Admin/index.jsx';
+import AdminPagination from '../../../components/AdminPagination';
 
 function ReportsAdmin() {
     const { isDark } = useAdminTheme();
@@ -375,6 +376,15 @@ function ReportsAdmin() {
                     })}
                 </div>
             )}
+
+            {/* Pagination */}
+            <AdminPagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                limit={pagination.limit}
+                onPageChange={(p) => fetchReports(p)}
+            />
         </div>
     );
 }
