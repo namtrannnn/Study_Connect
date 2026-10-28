@@ -234,13 +234,20 @@ function ReportsAdmin() {
                                                         @{(report.targetDetails.author || report.targetDetails.user)?.username || ''}
                                                     </div>
                                                 </div>
-                                                <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                                                    report.target_type === 'post'
-                                                        ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                                                        : 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-                                                }`}>
-                                                    {report.target_type === 'post' ? 'Bài viết' : report.target_type === 'comment' ? 'Bình luận' : 'Người dùng'}
-                                                </span>
+                                                <div className="ml-auto flex items-center gap-1.5">
+                                                    {report.targetDetails?.status === 'hidden' && (
+                                                        <span className="rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold">
+                                                            🛡️ Đã tự động tạm ẩn
+                                                        </span>
+                                                    )}
+                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                                                        report.target_type === 'post'
+                                                            ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                                            : 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                                                    }`}>
+                                                        {report.target_type === 'post' ? 'Bài viết' : report.target_type === 'comment' ? 'Bình luận' : 'Người dùng'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         )}
 
@@ -346,11 +353,16 @@ function ReportsAdmin() {
                                         {report.target_type === 'post' && (
                                             <button
                                                 type="button"
-                                                disabled={isResolving}
+                                                disabled={isResolving || report.targetDetails?.status === 'hidden'}
                                                 onClick={() => handleResolveAction(report._id, 'hide_post')}
-                                                className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold text-amber-500 transition hover:bg-amber-500/20"
+                                                className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${
+                                                    report.targetDetails?.status === 'hidden'
+                                                        ? 'border-gray-500/20 bg-gray-500/10 text-gray-400 cursor-not-allowed opacity-70'
+                                                        : 'border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
+                                                }`}
                                             >
-                                                <EyeOff className="h-3.5 w-3.5" /> Ẩn bài viết
+                                                <EyeOff className="h-3.5 w-3.5" />
+                                                {report.targetDetails?.status === 'hidden' ? 'Bài viết đã bị ẩn' : 'Ẩn bài viết'}
                                             </button>
                                         )}
                                         <button
