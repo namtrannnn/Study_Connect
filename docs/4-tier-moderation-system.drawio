@@ -1,0 +1,270 @@
+<mxfile host="app.diagrams.net" modified="2026-10-30T07:02:00.000Z" agent="StudyConnect" version="24.0.0">
+  <diagram id="moderation-4-tier" name="Kiểm duyệt 4 Tầng">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ========== TITLE ========== -->
+        <mxCell id="title" value="🛡️ HỆ THỐNG KIỂM DUYỆT 4 TẦNG - StudyConnect" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;fillColor=none;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ========== USER ACTION ========== -->
+        <mxCell id="user_post" value="👤 Người dùng nhấn &quot;Đăng bài&quot;&#xa;(Text + Ảnh)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;size=20;fontSize=13;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="660" y="70" width="280" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: User -> Tầng 1 -->
+        <mxCell id="arrow_user_t1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=11;" edge="1" source="user_post" target="tier1_container" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_user_t1_label" value="Request" style="edgeLabel;html=1;fontSize=11;fontColor=#6c8ebf;fontStyle=2;" vertex="1" connectable="0" parent="arrow_user_t1">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== TẦNG 1: FAST FILTER ========== -->
+        <mxCell id="tier1_container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;shadow=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="460" y="180" width="680" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="tier1_title" value="⚡ TẦNG 1: FAST FILTER (0ms)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=top;fillColor=none;fontColor=#b45309;" vertex="1" parent="1">
+          <mxGeometry x="480" y="185" width="350" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tier1_file" value="📁 stage1_fastFilter.helper.js" style="text;html=1;fontSize=10;fontStyle=2;align=left;fillColor=none;fontColor=#92400e;" vertex="1" parent="1">
+          <mxGeometry x="480" y="210" width="250" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t1_regex" value="📝 Regex Blacklist&#xa;─────────────&#xa;• Cờ bạc: 88bet, kubet...&#xa;• Gian lận: bán đề thi...&#xa;• Lừa đảo: kiếm tiền nhanh...&#xa;• Tục tĩu: đụ, địt, dmm...&#xa;• NSFW: sex, porn, xxx..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="480" y="232" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t1_phash" value="🖼️ pHash Image Match&#xa;─────────────&#xa;• So sánh hash ảnh upload&#xa;  với DB ảnh bị cấm&#xa;• Hamming distance ≤ 5&#xa;• Collection: BlacklistedHash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="720" y="232" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t1_status" value="✅ ĐÃ HOÀN THIỆN" style="text;html=1;fontSize=11;fontStyle=1;fillColor=#d4edda;strokeColor=#28a745;rounded=1;fontColor=#155724;align=center;" vertex="1" parent="1">
+          <mxGeometry x="960" y="190" width="160" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Tầng 1 BLOCK -->
+        <mxCell id="t1_block" value="🚫 CHẶN NGAY" style="text;html=1;fontSize=12;fontStyle=1;fontColor=#dc2626;align=center;" vertex="1" parent="1">
+          <mxGeometry x="200" y="235" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="t1_block_result" value="❌ Từ chối đăng bài&#xa;Hiện thông báo lỗi&#xa;cho người dùng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8d7da;strokeColor=#dc3545;fontSize=11;fontColor=#721c24;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="170" y="265" width="200" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_t1_block" value="Phát hiện vi phạm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#dc3545;dashed=1;fontSize=10;fontColor=#dc3545;" edge="1" source="tier1_container" target="t1_block_result" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Tầng 1 -> Tầng 2 -->
+        <mxCell id="arrow_t1_t2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#059669;" edge="1" source="tier1_container" target="tier2_container" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_t1_t2_label" value="Pass ✅" style="edgeLabel;html=1;fontSize=12;fontColor=#059669;fontStyle=1;" vertex="1" connectable="0" parent="arrow_t1_t2">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== TẦNG 2: LOCAL VISION ========== -->
+        <mxCell id="tier2_container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#43a047;shadow=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="400" width="1000" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="tier2_title" value="🔍 TẦNG 2: LOCAL VISION &amp; IMAGE INSPECTOR (20-50ms)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=top;fillColor=none;fontColor=#2e7d32;" vertex="1" parent="1">
+          <mxGeometry x="320" y="405" width="550" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tier2_file" value="📁 stage2_localVision.helper.js" style="text;html=1;fontSize=10;fontStyle=2;align=left;fillColor=none;fontColor=#388e3c;" vertex="1" parent="1">
+          <mxGeometry x="320" y="430" width="250" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Tầng 2: Hiện có -->
+        <mxCell id="t2_current_title" value="📦 HIỆN CÓ" style="text;html=1;fontSize=12;fontStyle=1;fontColor=#2e7d32;align=center;" vertex="1" parent="1">
+          <mxGeometry x="330" y="450" width="130" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="t2_current" value="📐 Check Aspect Ratio&#xa;─────────────&#xa;• Tỷ lệ &gt; 20 → SPAM&#xa;• Tỷ lệ &lt; 0.05 → SPAM&#xa;• Dùng thư viện Sharp&#xa;&#xa;⚠️ Chỉ có vậy thôi!" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#43a047;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="475" width="170" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Tầng 2: Cần bổ sung -->
+        <mxCell id="t2_need_title" value="🔧 CẦN BỔ SUNG (tương lai)" style="text;html=1;fontSize=12;fontStyle=1;fontColor=#e65100;align=center;" vertex="1" parent="1">
+          <mxGeometry x="560" y="450" width="250" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t2_nsfw" value="🔞 NSFW Detection&#xa;─────────────&#xa;• Dùng nsfwjs / tensorflow&#xa;• Nhận diện ảnh 18+&#xa;• Chạy offline, không API&#xa;• ⚠️ Tốn ~200-500MB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#e65100;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="510" y="475" width="165" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t2_ocr" value="📝 OCR (Đọc text ảnh)&#xa;─────────────&#xa;• Dùng tesseract.js&#xa;• Phát hiện text spam&#xa;  trong ảnh (QC, SĐT...)&#xa;• Chạy offline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#e65100;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="690" y="475" width="155" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t2_logo" value="🎰 Logo Detection&#xa;─────────────&#xa;• Phát hiện logo cờ bạc&#xa;• Logo web lừa đảo&#xa;• Template matching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#e65100;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="475" width="155" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t2_quality" value="📊 Image Quality&#xa;─────────────&#xa;• Ảnh lặp lại (duplicate)&#xa;• Ảnh quá mờ/nhỏ&#xa;• Ảnh chất lượng thấp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#e65100;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;strokeWidth=2;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="475" width="155" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t2_status" value="⚠️ CƠ BẢN - Cần nâng cấp" style="text;html=1;fontSize=11;fontStyle=1;fillColor=#fff3cd;strokeColor=#ffc107;rounded=1;fontColor=#856404;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="408" width="180" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Tầng 2 -> Bài đăng -->
+        <mxCell id="arrow_t2_post" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#059669;" edge="1" source="tier2_container" target="post_published" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_t2_post_label" value="Pass ✅" style="edgeLabel;html=1;fontSize=12;fontColor=#059669;fontStyle=1;" vertex="1" connectable="0" parent="arrow_t2_post">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Bài đăng lên feed -->
+        <mxCell id="post_published" value="📰 Bài đăng lên Feed&#xa;status: &quot;processing&quot;&#xa;(Người dùng thấy bài ngay)" style="shape=document;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;shadow=1;size=0.15;" vertex="1" parent="1">
+          <mxGeometry x="650" y="640" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Post -> Tầng 3 (async) -->
+        <mxCell id="arrow_post_t3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#7c3aed;dashed=1;dashPattern=8 4;" edge="1" source="post_published" target="tier3_container" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_post_t3_label" value="🔄 Chạy ngầm (Async)" style="edgeLabel;html=1;fontSize=12;fontColor=#7c3aed;fontStyle=3;" vertex="1" connectable="0" parent="arrow_post_t3">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== TẦNG 3: DEEP AI ========== -->
+        <mxCell id="tier3_container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;shadow=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="780" width="1000" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="tier3_title" value="🤖 TẦNG 3: DEEP CONTEXT AI - Gemini Multimodal (2-10s, Async)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=top;fillColor=none;fontColor=#5b21b6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="785" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tier3_file" value="📁 stage3_asyncQueue.service.js + stage3_deepContextAI.service.js" style="text;html=1;fontSize=10;fontStyle=2;align=left;fillColor=none;fontColor=#6d28d9;" vertex="1" parent="1">
+          <mxGeometry x="320" y="810" width="450" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t3_queue" value="📋 Hàng đợi (Queue)&#xa;─────────────&#xa;• Redis Queue (chính)&#xa;• MongoDB fallback&#xa;• Rate limit: 15 req/phút&#xa;• Auto-retry: 3 lần" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ddd6fe;strokeColor=#7c3aed;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="835" width="170" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t3_gemini" value="🧠 Gemini AI Analysis&#xa;─────────────&#xa;• Gửi Text + Ảnh (URL)&#xa;• Phân tích 6 tiêu chí:&#xa;  sexual, violence,&#xa;  harassment, hate,&#xa;  scam, spam&#xa;• Trả về % rủi ro" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ddd6fe;strokeColor=#7c3aed;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="510" y="835" width="170" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t3_decision" value="📊 Decision Engine&#xa;─────────────&#xa;• Risk &lt; 40% → ✅ ALLOW&#xa;• 40-80%  → ⏳ HOLD&#xa;• Risk ≥ 80% → 🚫 HIDE&#xa;&#xa;📁 decisionEngine.service.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ddd6fe;strokeColor=#7c3aed;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="700" y="835" width="185" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t3_notify" value="🔔 Socket.io Notify&#xa;─────────────&#xa;• Thông báo tác giả&#xa;• Cập nhật feed&#xa;• Realtime status change&#xa;&#xa;⚡ Fail-closed:&#xa;Lỗi → pending_admin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ddd6fe;strokeColor=#7c3aed;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="905" y="835" width="170" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t3_status" value="✅ ĐÃ HOÀN THIỆN" style="text;html=1;fontSize=11;fontStyle=1;fillColor=#d4edda;strokeColor=#28a745;rounded=1;fontColor=#155724;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="788" width="160" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Decision Results -->
+        <mxCell id="result_allow" value="✅ ALLOW&#xa;status: active&#xa;Risk &lt; 40%" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d4edda;strokeColor=#28a745;fontSize=11;fontStyle=1;fontColor=#155724;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="1040" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="result_hold" value="⏳ HOLD&#xa;status: pending_admin&#xa;Risk 40-80%" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff3cd;strokeColor=#ffc107;fontSize=11;fontStyle=1;fontColor=#856404;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="1040" width="170" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="result_hide" value="🚫 HIDE&#xa;status: hidden&#xa;Risk ≥ 80%" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8d7da;strokeColor=#dc3545;fontSize=11;fontStyle=1;fontColor=#721c24;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="1040" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from Tầng 3 to Results -->
+        <mxCell id="arrow_t3_allow" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#28a745;" edge="1" source="tier3_container" target="result_allow" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_t3_hold" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#ffc107;" edge="1" source="tier3_container" target="result_hold" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_t3_hide" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#dc3545;" edge="1" source="tier3_container" target="result_hide" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: HOLD -> Tầng 4 -->
+        <mxCell id="arrow_hold_t4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#0369a1;" edge="1" source="result_hold" target="tier4_container" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_hold_t4_label" value="Chờ Admin duyệt" style="edgeLabel;html=1;fontSize=11;fontColor=#0369a1;fontStyle=1;" vertex="1" connectable="0" parent="arrow_hold_t4">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: HIDE -> Tầng 4 (appeal) -->
+        <mxCell id="arrow_hide_t4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#dc3545;dashed=1;" edge="1" source="result_hide" target="tier4_container" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_hide_t4_label" value="Khiếu nại (Appeal)" style="edgeLabel;html=1;fontSize=11;fontColor=#dc3545;fontStyle=2;" vertex="1" connectable="0" parent="arrow_hide_t4">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== TẦNG 4: ADMIN QUEUE ========== -->
+        <mxCell id="tier4_container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;shadow=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1180" width="800" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="tier4_title" value="👨‍💼 TẦNG 4: ADMIN QUEUE (Con người quyết định)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=top;fillColor=none;fontColor=#1d4ed8;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1185" width="500" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tier4_file" value="📁 stage4_adminQueue.service.js" style="text;html=1;fontSize=10;fontStyle=2;align=left;fillColor=none;fontColor=#2563eb;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1210" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t4_review" value="📋 Admin Review&#xa;─────────────&#xa;• Xem bài pending_admin&#xa;• Xem điểm AI&#xa;• Xem nội dung gốc&#xa;• Xem lịch sử vi phạm" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bfdbfe;strokeColor=#2563eb;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1235" width="170" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t4_actions" value="⚡ Hành động Admin&#xa;─────────────&#xa;✅ Phê duyệt → active&#xa;❌ Từ chối → hidden&#xa;📝 Ghi lý do&#xa;📊 Log vào ModerationLog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bfdbfe;strokeColor=#2563eb;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="610" y="1235" width="180" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t4_appeal" value="📨 Hệ thống Khiếu nại&#xa;─────────────&#xa;• User gửi appeal&#xa;• Admin xem xét lại&#xa;• Chấp nhận → active&#xa;• Từ chối → giữ hidden&#xa;• Thông báo qua 🔔" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bfdbfe;strokeColor=#2563eb;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="810" y="1235" width="175" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t4_status" value="✅ ĐÃ HOÀN THIỆN" style="text;html=1;fontSize=11;fontStyle=1;fillColor=#d4edda;strokeColor=#28a745;rounded=1;fontColor=#155724;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="1188" width="160" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- ========== ADMIN UI ========== -->
+        <mxCell id="admin_ui" value="🖥️ ADMIN UI: Trung tâm Kiểm duyệt (/admin/moderation)" style="text;html=1;fontSize=14;fontStyle=1;align=center;fillColor=none;fontColor=#374151;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1400" width="800" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tab1" value="Tab 1️⃣&#xa;Hàng chờ Phễu 4 Tầng&#xa;&amp; Khiếu nại&#xa;─────────────&#xa;• Bài pending_admin&#xa;• Bài hidden (có appeal)&#xa;• Approve / Reject&#xa;• Xem AI score" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=8;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1440" width="200" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="tab2" value="Tab 2️⃣&#xa;Báo cáo Vi phạm&#xa;từ Cộng đồng (AI Gemini)&#xa;─────────────&#xa;• Danh sách reports&#xa;• Auto AI scan (≥2 report)&#xa;• Auto hide (≥3 report)&#xa;• Toxic score" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=8;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="740" y="1440" width="200" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- ========== LEGEND ========== -->
+        <mxCell id="legend_container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9fafb;strokeColor=#d1d5db;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="70" width="220" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" value="📌 CHÚ THÍCH" style="text;html=1;fontSize=13;fontStyle=1;align=center;fillColor=none;fontColor=#374151;" vertex="1" parent="1">
+          <mxGeometry x="30" y="75" width="220" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="legend1" value="─── Luồng chính" style="text;html=1;fontSize=10;align=left;fillColor=none;fontColor=#059669;" vertex="1" parent="1">
+          <mxGeometry x="45" y="100" width="180" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend2" value="- - - Luồng async / phụ" style="text;html=1;fontSize=10;align=left;fillColor=none;fontColor=#7c3aed;" vertex="1" parent="1">
+          <mxGeometry x="45" y="118" width="180" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend3" value="🟢 Đã hoàn thiện" style="text;html=1;fontSize=10;align=left;fillColor=none;fontColor=#155724;" vertex="1" parent="1">
+          <mxGeometry x="45" y="136" width="180" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend4" value="🟡 Cơ bản - Cần nâng cấp" style="text;html=1;fontSize=10;align=left;fillColor=none;fontColor=#856404;" vertex="1" parent="1">
+          <mxGeometry x="45" y="154" width="180" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend5" value="🟠 Tính năng tương lai (dashed)" style="text;html=1;fontSize=10;align=left;fillColor=none;fontColor=#e65100;" vertex="1" parent="1">
+          <mxGeometry x="45" y="172" width="200" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend6" value="🔴 Chặn / Từ chối" style="text;html=1;fontSize=10;align=left;fillColor=none;fontColor=#dc2626;" vertex="1" parent="1">
+          <mxGeometry x="45" y="190" width="180" height="18" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+

@@ -274,14 +274,17 @@ function ReportsAdmin() {
                                         {/* Ảnh nếu có */}
                                         {Array.isArray(report.targetDetails.media) && report.targetDetails.media.length > 0 && (
                                             <div className="flex flex-wrap gap-2 pt-1">
-                                                {report.targetDetails.media.slice(0, 4).map((url, idx) => (
-                                                    <img
-                                                        key={idx}
-                                                        src={url}
-                                                        alt={`media-${idx}`}
-                                                        className="h-20 w-20 rounded-xl object-cover border border-white/10"
-                                                    />
-                                                ))}
+                                                {report.targetDetails.media.slice(0, 4).map((item, idx) => {
+                                                    const mediaUrl = typeof item === 'string' ? item : item?.url;
+                                                    return (
+                                                        <img
+                                                            key={idx}
+                                                            src={mediaUrl}
+                                                            alt={`media-${idx}`}
+                                                            className="h-20 w-20 rounded-xl object-cover border border-white/10"
+                                                        />
+                                                    );
+                                                })}
                                                 {report.targetDetails.media.length > 4 && (
                                                     <div className={`flex h-20 w-20 items-center justify-center rounded-xl border text-xs font-bold ${isDark ? 'border-white/10 bg-white/5 text-gray-400' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
                                                         +{report.targetDetails.media.length - 4}

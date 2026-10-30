@@ -707,15 +707,36 @@ module.exports.analyzeReportWithAI = async (req, res) => {
     if (!report) return res.status(404).json({ message: "Không tìm thấy báo cáo" });
 
     let textToAnalyze = "";
+    let imageUrls = [];
+
     if (report.target_type === "post") {
       const post = await Post.findById(report.target_id);
-      textToAnalyze = post ? `${post.title || ""} ${post.content || ""}` : "";
+      if (post) {
+        textToAnalyze = [post.caption, post.question?.title, post.question?.detail, post.title, post.content]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+        if (Array.isArray(post.media)) {
+          imageUrls = post.media
+            .filter((m) => m && (m.type === "image" || !m.type) && m.url)
+            .map((m) => m.url);
+        }
+      }
     } else if (report.target_type === "comment") {
       const comment = await PostComment.findById(report.target_id);
       textToAnalyze = comment ? comment.content : "";
+      if (comment && comment.image) {
+        imageUrls = [comment.image];
+      }
+    } else if (report.target_type === "user") {
+      const u = await User.findById(report.target_id);
+      textToAnalyze = u ? `${u.fullName || ""} ${u.bio || ""}` : "";
+      if (u && u.avatar) {
+        imageUrls = [u.avatar];
+      }
     }
 
-    const aiResult = await analyzeContentWithAI(textToAnalyze, report.reason, report.reasonCategory);
+    const aiResult = await analyzeContentWithAI(textToAnalyze, report.reason, report.reasonCategory, imageUrls);
 
     report.aiAnalysis = {
       ...aiResult,

@@ -37,19 +37,36 @@ async function handleAutoReportModeration({ target_type, target_id, reasonCatego
         aiResult = existingAnalyzed.aiAnalysis;
       } else {
         let textToAnalyze = "";
+        let imageUrls = [];
         if (target_type === "post") {
           const post = await Post.findById(target_id);
-          textToAnalyze = post ? `${post.title || ""} ${post.content || ""}` : "";
+          if (post) {
+            textToAnalyze = [post.caption, post.question?.title, post.question?.detail, post.title, post.content]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            if (Array.isArray(post.media)) {
+              imageUrls = post.media
+                .filter((m) => m && (m.type === "image" || !m.type) && m.url)
+                .map((m) => m.url);
+            }
+          }
         } else if (target_type === "comment") {
           const comment = await PostComment.findById(target_id);
           textToAnalyze = comment ? comment.content : "";
+          if (comment && comment.image) {
+            imageUrls = [comment.image];
+          }
         } else if (target_type === "user") {
           const u = await User.findById(target_id);
           textToAnalyze = u ? `${u.fullName || ""} ${u.bio || ""}` : "";
+          if (u && u.avatar) {
+            imageUrls = [u.avatar];
+          }
         }
 
-        console.log(`[Auto Report AI] 🤖 Kích hoạt Gemini AI quét ngầm cho ${target_type} ${target_id} (${reportCount} lượt báo cáo)`);
-        aiResult = await analyzeContentWithAI(textToAnalyze, reason, reasonCategory);
+        console.log(`[Auto Report AI] 🤖 Kích hoạt Gemini AI quét ngầm cho ${target_type} ${target_id} (${reportCount} lượt báo cáo, ${imageUrls.length} ảnh)`);
+        aiResult = await analyzeContentWithAI(textToAnalyze, reason, reasonCategory, imageUrls);
       }
 
       // Cập nhật kết quả AI cho toàn bộ các báo cáo pending của target này
