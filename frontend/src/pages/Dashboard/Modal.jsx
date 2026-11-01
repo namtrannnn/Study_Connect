@@ -337,7 +337,10 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
             }
         } catch (error) {
             console.log('Submit post error:', error);
-            toast.error(error?.response?.data?.message || (isEdit ? 'Không thể cập nhật bài viết' : 'Tạo bài viết thất bại'));
+            // Tránh hiển thị 2 thông báo trùng nhau vì axios interceptor đã tự động toast lỗi từ server
+            if (!error?.response) {
+                toast.error(isEdit ? 'Không thể cập nhật bài viết' : 'Tạo bài viết thất bại');
+            }
         } finally {
             setLoading(false);
         }
