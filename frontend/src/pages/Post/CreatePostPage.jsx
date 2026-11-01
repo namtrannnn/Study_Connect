@@ -184,7 +184,9 @@ function CreatePostPage() {
             }
         } catch (error) {
             console.log('Create post error:', error);
-            toast.error(error?.response?.data?.message || 'Tạo bài viết thất bại');
+            if (!error?.response) {
+                toast.error('Tạo bài viết thất bại');
+            }
         } finally {
             setLoading(false);
         }
