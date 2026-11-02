@@ -126,11 +126,11 @@ async function checkFastImageHashes(files = []) {
         for (const doc of blacklistedDocs) {
           const dist = hammingDistance(hash, doc.hash);
           if (dist <= 5) {
-            // Trùng khớp ảnh vi phạm
+            console.log(`[Tầng 1 Fast Filter] 🚫 CHẶN BỞI pHASH (Khớp với BlacklistedHash DB: dist=${dist})`);
             return {
               isAllowed: false,
               category: doc.category || "SAFETY",
-              reason: doc.reason || "Hình ảnh trùng khớp với dữ liệu vi phạm tiêu chuẩn cộng đồng.",
+              reason: `Hình ảnh này đã từng bị phát hiện vi phạm trước đây: ${doc.reason || "Vi phạm tiêu chuẩn cộng đồng"}.`,
             };
           }
         }
