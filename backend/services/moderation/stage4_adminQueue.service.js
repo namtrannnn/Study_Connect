@@ -165,6 +165,40 @@ async function rejectPostByAdmin(postId, reason = "Bị từ chối bởi Quản
   }
   await post.save();
 
+  // Tự động lưu vân tay (pHash) của các ảnh bị Admin từ chối vào BlacklistedHash DB
+  if (Array.isArray(post.media) && post.media.length > 0) {
+    setImmediate(async () => {
+      try {
+        const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+        const BlacklistedHash = require("../../api/v1/models/blacklistedHash.model");
+        const { generateImageHash } = require("../../helpers/moderation/stage1_fastFilter.helper");
+
+        for (const item of post.media) {
+          if (item?.url && (item.type === "image" || !item.type)) {
+            const resp = await fetch(item.url, { timeout: 8000 });
+            if (resp.ok) {
+              const arrayBuf = await resp.arrayBuffer();
+              const hash = await generateImageHash(Buffer.from(arrayBuf));
+              if (hash) {
+                const existing = await BlacklistedHash.findOne({ hash });
+                if (!existing) {
+                  await BlacklistedHash.create({
+                    hash,
+                    reason: `Bị từ chối bởi Quản trị viên (Tầng 4): ${reason}`,
+                    category: "HUMAN_REJECTED",
+                  });
+                  console.log(`[Tầng 4 ➡️ Tầng 1] 💾 Đã lưu pHash ảnh bị Admin từ chối vào BlacklistedHash DB!`);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[Admin Reject Hash Save Warning]:", err.message);
+      }
+    });
+  }
+
   // Ghi nhận Audit Trail cho quyết định từ chối của Admin
   try {
     await ModerationLog.create({

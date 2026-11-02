@@ -13,6 +13,8 @@
   "dependencies": {
     "@google/genai": "^2.6.0",
     "@google/generative-ai": "^0.24.1",
+    "@img/sharp-linux-x64": "^0.35.4",
+    "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.10.0",
     "body-parser": "^2.2.0",
     "cloudinary": "^2.7.0",
@@ -26,10 +28,12 @@
     "mongoose": "^8.9.2",
     "multer": "^2.0.1",
     "nodemailer": "^7.0.3",
+    "nsfwjs": "^4.3.0",
     "redis": "^5.12.1",
     "sharp": "^0.35.4",
     "socket.io": "^4.8.1",
-    "streamifier": "^0.1.1"
+    "streamifier": "^0.1.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "jest": "^30.3.0",
