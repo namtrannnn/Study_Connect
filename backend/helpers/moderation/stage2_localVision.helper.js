@@ -31,32 +31,7 @@ try {
   console.warn("[Stage 2 NSFW Load Warning]:", err.message);
 }
 
-const BlacklistedHash = require("../../api/v1/models/blacklistedHash.model");
-const { checkFastText, generateImageHash } = require("./stage1_fastFilter.helper");
-
-/**
- * Tự động lưu vân tay (pHash) của ảnh vi phạm vào BlacklistedHash DB
- * để từ lần sau Tầng 1 sẽ chặn ngay lập tức (2ms) mà không cần Tầng 2 phải chạy AI lại.
- */
-async function autoSaveBlacklistedHash(fileBuffer, reason, category) {
-  if (!fileBuffer) return;
-  try {
-    const hash = await generateImageHash(fileBuffer);
-    if (!hash) return;
-
-    const existing = await BlacklistedHash.findOne({ hash });
-    if (!existing) {
-      await BlacklistedHash.create({
-        hash,
-        reason: reason || "Hình ảnh vi phạm do Tầng 2 phát hiện",
-        category: category || "SCAM_FRAUD",
-      });
-      console.log(`[Tầng 2 ➡️ Tầng 1] 💾 Đã tự động lưu pHash (${hash.slice(0, 16)}...) vào Danh sách đen Tầng 1!`);
-    }
-  } catch (err) {
-    console.warn("[AutoSave Blacklist Hash Warning]:", err.message);
-  }
-}
+const { checkFastText } = require("./stage1_fastFilter.helper");
 
 /**
  * TẦNG 2: LOCAL AI VISION & IMAGE PATTERN INSPECTOR (20ms - 50ms)
@@ -282,7 +257,6 @@ async function runStage2LocalVision({ files = [] } = {}) {
       const nsfwCheck = await inspectImageNSFWLocal(file.buffer);
       if (!nsfwCheck.isAllowed) {
         console.log(`[Tầng 2 Local Vision] 🚫 CHẶN BỞI NSFW AI: ${nsfwCheck.reason}`);
-        await autoSaveBlacklistedHash(file.buffer, nsfwCheck.reason, nsfwCheck.category);
         return nsfwCheck;
       }
 
@@ -290,7 +264,6 @@ async function runStage2LocalVision({ files = [] } = {}) {
       const ocrCheck = await inspectImageOCRLocal(file.buffer);
       if (!ocrCheck.isAllowed) {
         console.log(`[Tầng 2 Local Vision] 🚫 CHẶN BỞI OCR: ${ocrCheck.reason}`);
-        await autoSaveBlacklistedHash(file.buffer, ocrCheck.reason, ocrCheck.category);
         return ocrCheck;
       }
     }

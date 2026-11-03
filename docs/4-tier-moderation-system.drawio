@@ -38,7 +38,7 @@
           <mxGeometry x="480" y="232" width="220" height="100" as="geometry" />
         </mxCell>
 
-        <mxCell id="t1_phash" value="🖼️ pHash Image Match&#xa;─────────────&#xa;• So sánh hash ảnh upload&#xa;  với DB ảnh bị cấm&#xa;• Hamming distance ≤ 5&#xa;• Collection: BlacklistedHash&#xa;• 🔄 Tự động học từ Tầng 2 &amp; 4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
+        <mxCell id="t1_phash" value="🖼️ pHash Image Match&#xa;─────────────&#xa;• So sánh hash ảnh upload&#xa;  với DB ảnh bị cấm&#xa;• Hamming distance ≤ 5&#xa;• Collection: BlacklistedHash&#xa;• 🔄 Tự động học từ Tầng 4 (Admin từ chối)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=5;" vertex="1" parent="1">
           <mxGeometry x="720" y="232" width="220" height="100" as="geometry" />
         </mxCell>
 
