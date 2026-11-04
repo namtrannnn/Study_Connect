@@ -38,7 +38,7 @@ function formatTime(dateStr) {
     return date.toLocaleDateString('vi-VN');
 }
 
-export default function NotificationsPanel({ onClose }) {
+export default function NotificationsPanel({ onClose, isOpen = false }) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
@@ -47,7 +47,7 @@ export default function NotificationsPanel({ onClose }) {
     const [loading, setLoading] = useState(false);
     const [markingAll, setMarkingAll] = useState(false);
 
-    const fetchNotifications = useCallback(async () => {
+    const fetchNotifications = useCallback(async (isUserViewing = false) => {
         try {
             setLoading(true);
             const res = await NotificationServices.getNotifications();
@@ -61,25 +61,40 @@ export default function NotificationsPanel({ onClose }) {
                 );
                 setNewlyUnreadIds(unreadSet);
 
-                // Automatically mark all as read in DB and reset badge count to 0
-                NotificationServices.markAllAsRead().catch(() => {});
-                dispatch(setUnreadCount(0));
-                setUnreadCountLocal(0);
+                // Chỉ tự động đánh dấu đã đọc khi người dùng thực sự mở panel xem
+                if (isUserViewing) {
+                    NotificationServices.markAllAsRead().catch(() => {});
+                    dispatch(setUnreadCount(0));
+                    setUnreadCountLocal(0);
+                } else if (typeof res.unreadCount === 'number') {
+                    setUnreadCountLocal(res.unreadCount);
+                    dispatch(setUnreadCount(res.unreadCount));
+                }
             }
         } catch {
-            toast.error('Không thể tải thông báo');
+            if (isUserViewing) {
+                toast.error('Không thể tải thông báo');
+            }
         } finally {
             setLoading(false);
         }
     }, [dispatch]);
 
+    // Khi người dùng mở panel (click quả chuông) -> Tự động nạp mới thông báo lập tức
     useEffect(() => {
-        fetchNotifications();
+        if (isOpen) {
+            fetchNotifications(true);
+        }
+    }, [isOpen, fetchNotifications]);
+
+    // Lần đầu mount -> Nạp ngầm dữ liệu
+    useEffect(() => {
+        fetchNotifications(false);
     }, [fetchNotifications]);
 
     useEffect(() => {
-        const socket = getSocket();
-        if (!socket) return;
+        let socket = getSocket();
+        let retryInterval = null;
 
         const handleNew = ({ notification, unreadCount: serverCount }) => {
             if (!notification) return;
@@ -111,14 +126,36 @@ export default function NotificationsPanel({ onClose }) {
             setNotifications((prev) => prev.filter((n) => String(n._id) !== String(notificationId)));
         };
 
-        socket.on('SERVER_NOTIFICATION_NEW', handleNew);
-        socket.on('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
-        socket.on('SERVER_NOTIFICATION_DELETED', handleDeleted);
+        const registerListeners = (s) => {
+            s.off('SERVER_NOTIFICATION_NEW', handleNew);
+            s.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
+            s.off('SERVER_NOTIFICATION_DELETED', handleDeleted);
+
+            s.on('SERVER_NOTIFICATION_NEW', handleNew);
+            s.on('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
+            s.on('SERVER_NOTIFICATION_DELETED', handleDeleted);
+        };
+
+        if (socket) {
+            registerListeners(socket);
+        } else {
+            retryInterval = setInterval(() => {
+                socket = getSocket();
+                if (socket) {
+                    registerListeners(socket);
+                    clearInterval(retryInterval);
+                    retryInterval = null;
+                }
+            }, 400);
+        }
 
         return () => {
-            socket.off('SERVER_NOTIFICATION_NEW', handleNew);
-            socket.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
-            socket.off('SERVER_NOTIFICATION_DELETED', handleDeleted);
+            if (retryInterval) clearInterval(retryInterval);
+            if (socket) {
+                socket.off('SERVER_NOTIFICATION_NEW', handleNew);
+                socket.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
+                socket.off('SERVER_NOTIFICATION_DELETED', handleDeleted);
+            }
         };
     }, [dispatch]);
 

@@ -11,8 +11,18 @@ module.exports.getPendingPosts = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const status = req.query.status || "pending";
+    const dateRange = req.query.dateRange || "all";
+    const startDate = req.query.startDate || null;
+    const endDate = req.query.endDate || null;
 
-    const data = await getPendingAdminPosts({ page, limit, status });
+    const data = await getPendingAdminPosts({
+      page,
+      limit,
+      status,
+      dateRange,
+      startDate,
+      endDate,
+    });
 
     return res.status(200).json({
       code: 200,

@@ -6,33 +6,126 @@ const ModerationLog = require("../../api/v1/models/moderationLog.model");
  */
 
 /**
- * Lấy danh sách các bài viết theo bộ lọc kiểm duyệt
+ * Helper: Tạo query MongoDB theo khoảng thời gian
  */
-async function getPendingAdminPosts({ page = 1, limit = 10, status = "pending" } = {}) {
-  const skip = (page - 1) * limit;
+function buildDateQuery(dateRange, field = "createdAt", startDate = null, endDate = null) {
+  if (!dateRange || dateRange === "all") return {};
 
-  let filter = { status: "pending_admin" };
-  if (status === "appeals") {
-    filter = { isAppealed: true, appealStatus: "pending" };
-  } else if (status === "rejected") {
-    filter = { $or: [{ moderationStatus: "rejected" }, { status: "hidden" }] };
-  } else if (status === "approved") {
-    filter = { moderationStatus: "approved" };
-  } else if (status === "all") {
-    filter = { $or: [{ isAudited: true }, { status: { $in: ["pending_admin", "hidden"] } }] };
+  const now = new Date();
+  const vnOffsetMs = 7 * 60 * 60 * 1000;
+  const vnNow = new Date(now.getTime() + vnOffsetMs);
+
+  let start = null;
+  let end = null;
+
+  if (dateRange === "today") {
+    start = new Date(Date.UTC(vnNow.getUTCFullYear(), vnNow.getUTCMonth(), vnNow.getUTCDate(), 0, 0, 0, 0) - vnOffsetMs);
+    end = new Date(Date.UTC(vnNow.getUTCFullYear(), vnNow.getUTCMonth(), vnNow.getUTCDate(), 23, 59, 59, 999) - vnOffsetMs);
+  } else if (dateRange === "yesterday") {
+    start = new Date(Date.UTC(vnNow.getUTCFullYear(), vnNow.getUTCMonth(), vnNow.getUTCDate() - 1, 0, 0, 0, 0) - vnOffsetMs);
+    end = new Date(Date.UTC(vnNow.getUTCFullYear(), vnNow.getUTCMonth(), vnNow.getUTCDate() - 1, 23, 59, 59, 999) - vnOffsetMs);
+  } else if (dateRange === "7days") {
+    start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (dateRange === "30days") {
+    start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  } else if (dateRange === "custom" && startDate) {
+    start = new Date(startDate);
+    if (endDate) {
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    }
   }
 
+  const query = {};
+  if (start || end) {
+    query[field] = {};
+    if (start) query[field].$gte = start;
+    if (end) query[field].$lte = end;
+  }
+  return query;
+}
+
+/**
+ * Lấy danh sách các bài viết theo bộ lọc kiểm duyệt và khoảng thời gian
+ */
+async function getPendingAdminPosts({
+  page = 1,
+  limit = 10,
+  status = "pending",
+  dateRange = "all",
+  startDate = null,
+  endDate = null,
+} = {}) {
+  const skip = (page - 1) * limit;
+
+  // Sắp xếp và phân luồng động theo từng Tab
+  let sortQuery = { createdAt: -1 };
+  let primaryDateField = "createdAt";
+  let baseFilter = {};
+
+  if (status === "appeals") {
+    // 1. Tab Khiếu nại: Chỉ lấy các bài có đơn chờ giải quyết, sort theo thời điểm khiếu nại mới nhất
+    baseFilter = { isAppealed: true, appealStatus: "pending" };
+    sortQuery = { appealedAt: -1, createdAt: -1 };
+    primaryDateField = "appealedAt";
+  } else if (status === "rejected") {
+    // 2. Tab Đã ẩn / Từ chối: Loại trừ bài đang khiếu nại (để không bị trùng với tab Khiếu nại)
+    // Sắp xếp theo updatedAt để các bài mới bị từ chối nổi lên trước, bài cũ tự trôi dần xuống
+    baseFilter = {
+      $or: [{ moderationStatus: "rejected" }, { status: "hidden" }],
+      appealStatus: { $ne: "pending" },
+    };
+    sortQuery = { updatedAt: -1, createdAt: -1 };
+    primaryDateField = "updatedAt";
+  } else if (status === "approved") {
+    // 3. Tab Đã duyệt: Sắp xếp theo updatedAt mới nhất
+    baseFilter = { moderationStatus: "approved" };
+    sortQuery = { updatedAt: -1, createdAt: -1 };
+    primaryDateField = "updatedAt";
+  } else if (status === "all") {
+    // 4. Tab Tất cả bài viết
+    baseFilter = {
+      $or: [{ isAudited: true }, { status: { $in: ["pending_admin", "hidden"] } }],
+    };
+    sortQuery = { createdAt: -1 };
+    primaryDateField = "createdAt";
+  } else {
+    // 5. Tab Chờ duyệt tay (pending)
+    baseFilter = { status: "pending_admin" };
+    sortQuery = { createdAt: -1 };
+    primaryDateField = "createdAt";
+  }
+
+  // Gắn bộ lọc thời gian vào truy vấn chính
+  const dateQuery = buildDateQuery(dateRange, primaryDateField, startDate, endDate);
+  const finalFilter = { ...baseFilter, ...dateQuery };
+
+  // Tính số lượng badge theo khoảng thời gian được chọn
+  const pendingDateQuery = buildDateQuery(dateRange, "createdAt", startDate, endDate);
+  const appealsDateQuery = buildDateQuery(dateRange, "appealedAt", startDate, endDate);
+  const rejectedDateQuery = buildDateQuery(dateRange, "updatedAt", startDate, endDate);
+  const approvedDateQuery = buildDateQuery(dateRange, "updatedAt", startDate, endDate);
+
+  const pendingFilter = { status: "pending_admin", ...pendingDateQuery };
+  const appealsFilter = { isAppealed: true, appealStatus: "pending", ...appealsDateQuery };
+  const rejectedFilter = {
+    $or: [{ moderationStatus: "rejected" }, { status: "hidden" }],
+    appealStatus: { $ne: "pending" },
+    ...rejectedDateQuery,
+  };
+  const approvedFilter = { moderationStatus: "approved", ...approvedDateQuery };
+
   const [posts, total, pendingCount, rejectedCount, approvedCount, appealsCount] = await Promise.all([
-    Post.find(filter)
-      .sort({ appealedAt: -1, createdAt: -1 })
+    Post.find(finalFilter)
+      .sort(sortQuery)
       .skip(skip)
       .limit(limit)
       .populate("author", "fullName username avatar isVerified"),
-    Post.countDocuments(filter),
-    Post.countDocuments({ status: "pending_admin" }),
-    Post.countDocuments({ $or: [{ moderationStatus: "rejected" }, { status: "hidden" }] }),
-    Post.countDocuments({ moderationStatus: "approved" }),
-    Post.countDocuments({ isAppealed: true, appealStatus: "pending" }),
+    Post.countDocuments(finalFilter),
+    Post.countDocuments(pendingFilter),
+    Post.countDocuments(rejectedFilter),
+    Post.countDocuments(approvedFilter),
+    Post.countDocuments(appealsFilter),
   ]);
 
   // Lấy ModerationLog tương ứng với từng bài để FE có dữ liệu AI chi tiết
@@ -84,6 +177,38 @@ async function approvePostByAdmin(postId, adminId = null) {
     post.appealResolvedBy = adminId;
   }
   await post.save();
+
+  // Xóa Temporary Blacklist (Redis) khi Admin phê duyệt / phục hồi bài viết
+  // Đảm bảo người dùng vô tội không bị chặn bởi temp hash nữa
+  if (Array.isArray(post.media) && post.media.length > 0) {
+    setImmediate(async () => {
+      try {
+        const { redisClient } = require("../../config/redis");
+        if (!redisClient || !redisClient.isOpen) return;
+        const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+        const { generateImageHash } = require("../../helpers/moderation/stage1_fastFilter.helper");
+
+        for (const item of post.media) {
+          if (item?.url && (item.type === "image" || !item.type)) {
+            const resp = await fetch(item.url, { timeout: 8000 });
+            if (resp.ok) {
+              const arrayBuf = await resp.arrayBuffer();
+              const hash = await generateImageHash(Buffer.from(arrayBuf));
+              if (hash) {
+                const redisKey = `temp_bl_hash:${hash}`;
+                const deleted = await redisClient.del(redisKey);
+                if (deleted > 0) {
+                  console.log(`[Tầng 4 Admin Approve] ✅ Đã XÓA temp pHash khỏi Redis cho post ${post._id}`);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[Admin Approve Temp Hash Delete Warning]:", err.message);
+      }
+    });
+  }
 
   // Ghi nhận Audit Trail cho quyết định duyệt của Admin
   try {

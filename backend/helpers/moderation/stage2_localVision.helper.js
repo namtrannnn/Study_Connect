@@ -244,7 +244,7 @@ async function runStage2LocalVision({ files = [] } = {}) {
   console.log(`[Tầng 2 Local Vision] 🛡️ Bắt đầu kiểm tra ${files.length} ảnh upload...`);
 
   for (const file of files) {
-    console.log(`[Tầng 2 Local Vision] 📷 File: mimetype=${file?.mimetype}, buffer=${file?.buffer ? file.buffer.length + ' bytes' : 'KHÔNG CÓ'}`);
+    console.log(`[Tầng 2 Local Vision] 📷 File: mimetype=$1{file?.mimetype}, buffer=${file?.buffer ? file.buffer.length + ' bytes' : 'KHÔNG CÓ'}`);
     if (file?.mimetype?.startsWith("image/") && file.buffer) {
       // 1. Kiểm tra tính toàn vẹn & kích thước ảnh (Sharp)
       const integrityCheck = await inspectImageIntegrityAndMetadata(file.buffer);

@@ -120,29 +120,60 @@ YÊU CẦU BẮT BUỘC: Trả về DUY NHẤT một chuỗi JSON hợp lệ (kh
     },
   };
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-      timeout: 15000, // Timeout 15s
-    }
-  );
+  const candidateModels = [
+    MODEL_NAME,
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+  ];
+  // Loại bỏ model trùng lặp
+  const uniqueModels = [...new Set(candidateModels.filter(Boolean))];
 
-  if (response.status === 429) {
-    const err = new Error("Gemini API Rate Limit Exceeded (HTTP 429 Resource Exhausted)");
-    err.code = "RATE_LIMIT_429";
-    err.status = 429;
-    throw err;
+  let data = null;
+  let lastError = null;
+
+  for (const model of uniqueModels) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (response.status === 429) {
+        console.warn(`[Gemini Rate Limit]: Model ${model} chạm ngưỡng 429. Đang chuyển sang model dự phòng...`);
+        lastError = new Error(`Gemini model ${model} rate limit (429)`);
+        continue;
+      }
+
+      const resJson = await response.json();
+      if (resJson?.error) {
+        console.warn(`[Gemini API Error with ${model}]: ${resJson.error.message?.slice(0, 80)}. Đang chuyển sang model dự phòng...`);
+        lastError = new Error(`[Gemini API Error]: ${resJson.error.message}`);
+        continue;
+      }
+
+      if (resJson?.candidates?.[0]) {
+        data = resJson;
+        break;
+      }
+    } catch (reqErr) {
+      clearTimeout(timeoutId);
+      console.warn(`[Gemini Request Failed on ${model}]: ${reqErr.message}. Thử model tiếp theo...`);
+      lastError = reqErr;
+    }
   }
 
-  const data = await response.json();
-
-  if (data?.error) {
-    const err = new Error(`[Gemini API Error]: ${data.error.message}`);
-    err.code = data.error.status || "GEMINI_API_ERROR";
-    throw err;
+  if (!data) {
+    throw lastError || new Error("Không thể kết nối tới bất kỳ Gemini model nào");
   }
 
   const candidate = data?.candidates?.[0];

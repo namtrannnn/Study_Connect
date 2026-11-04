@@ -146,6 +146,41 @@ async function processSinglePost(post) {
 
     console.log(`🎯 [Tầng 3 Decision Engine] Post ${freshPost._id} -> Status: ${decision.status.toUpperCase()} (Risk: ${Math.round(decision.overallRisk * 100)}%)`);
 
+    // 5b. Temporary Blacklist: Khi AI tự động ẩn (Risk >= 80%), lưu pHash ảnh vào Redis TTL 15 phút
+    //     Ngăn spammer đăng lại cùng ảnh liên tục mà không tốn thêm Gemini API call
+    if (decision.status === "hidden" && decision.overallRisk >= 0.80 && Array.isArray(freshPost.media) && freshPost.media.length > 0) {
+      setImmediate(async () => {
+        try {
+          if (!isRedisReady()) return;
+          const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+          const { generateImageHash } = require("../../helpers/moderation/stage1_fastFilter.helper");
+          const TEMP_BL_TTL = 900; // 15 phút (test)
+
+          for (const item of freshPost.media) {
+            if (item?.url && (item.type === "image" || !item.type)) {
+              const resp = await fetch(item.url, { timeout: 8000 });
+              if (resp.ok) {
+                const arrayBuf = await resp.arrayBuffer();
+                const hash = await generateImageHash(Buffer.from(arrayBuf));
+                if (hash) {
+                  const redisKey = `temp_bl_hash:${hash}`;
+                  await redisClient.setEx(redisKey, TEMP_BL_TTL, JSON.stringify({
+                    reason: decision.reason,
+                    postId: freshPost._id.toString(),
+                    risk: decision.overallRisk,
+                    createdAt: new Date().toISOString(),
+                  }));
+                  console.log(`[Tầng 3 ➡️ Temp Blacklist] ⏱️ Đã lưu pHash tạm vào Redis (TTL ${TEMP_BL_TTL}s) cho post ${freshPost._id}`);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[Temp Blacklist Save Warning]:", err.message);
+        }
+      });
+    }
+
     // 6. Phát sự kiện Realtime qua Socket.io (nếu có kết nối)
     if (global._io) {
       // Thông báo riêng cho tác giả bài viết
@@ -231,15 +266,24 @@ async function handleFailClosedError(postId, error, previousStatus = "processing
  * Lấy và xử lý bài viết tiếp theo từ hàng đợi Redis (FIFO)
  */
 async function processNextRedisJob() {
-  if (!isRedisReady()) return;
+  if (!isRedisReady()) {
+    console.warn("[Redis Worker] ⚠️ Redis chưa sẵn sàng, bỏ qua job.");
+    return;
+  }
 
   try {
     const postIdStr = await redisClient.lPop(REDIS_QUEUE_KEY);
-    if (!postIdStr) return;
+    if (!postIdStr) {
+      return;
+    }
+    console.log(`🔄 [Redis Worker] Đang xử lý bài ${postIdStr}...`);
 
     // Tránh xử lý đồng thời cùng 1 bài viết
     const isAlreadyProcessing = await redisClient.sIsMember(REDIS_PROCESSING_SET, postIdStr);
-    if (isAlreadyProcessing) return;
+    if (isAlreadyProcessing) {
+      console.warn(`[Redis Worker] ⚠️ Bài ${postIdStr} đang processing, skip.`);
+      return;
+    }
 
     await redisClient.sAdd(REDIS_PROCESSING_SET, postIdStr);
 
@@ -277,6 +321,8 @@ async function processNextRedisJob() {
           const backoffDelay = retryCount * 2500; // 2.5s, 5s, 7.5s
           console.log(`🔁 [Redis Auto-Retry] Google quá tải. Đang tự động thử lại bài ${postIdStr} (Lần ${retryCount}/${MAX_RETRIES}) sau ${backoffDelay}ms...`);
 
+          // Xóa khỏi processing set TRƯỚC khi đẩy lại queue (tránh bị skip do sIsMember check)
+          await redisClient.sRem(REDIS_PROCESSING_SET, postIdStr);
           setTimeout(async () => {
             try {
               if (isRedisReady()) {
@@ -316,7 +362,7 @@ async function triggerImmediateModeration(postId) {
     try {
       await redisClient.rPush(REDIS_QUEUE_KEY, postIdStr);
       console.log(`⚡ [Redis Queue] Đã nạp bài viết ${postIdStr} vào hàng đợi Redis.`);
-      processNextRedisJob();
+      processNextRedisJob().catch(err => console.error("[Redis Worker Trigger Error]:", err.message));
       return;
     } catch (err) {
       console.warn(`[Redis Enqueue Warning, fallback to Mongo]:`, err.message);

@@ -97,7 +97,13 @@ function App() {
             const handleNotificationNew = ({ notification, unreadCount: serverCount }) => {
                 console.log('[NOTIF NEW RECEIVED]', notification, serverCount);
                 if (notification?.message) {
-                    toast.info(notification.message);
+                    if (notification.type === 'moderation_rejected' || notification.type === 'appeal_rejected') {
+                        toast.error(notification.message);
+                    } else if (notification.type === 'moderation_approved' || notification.type === 'appeal_approved') {
+                        toast.success(notification.message);
+                    } else {
+                        toast.info(notification.message);
+                    }
                 }
                 if (typeof serverCount === 'number') {
                     dispatch(setUnreadCount(serverCount));
