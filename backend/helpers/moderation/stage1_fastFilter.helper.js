@@ -7,6 +7,14 @@ try {
 
 const BlacklistedHash = require("../../api/v1/models/blacklistedHash.model");
 
+// Redis client cho Temporary Blacklist check
+let redisClient;
+try {
+  redisClient = require("../../config/redis").redisClient;
+} catch (err) {
+  console.warn("[Stage 1 Redis Warning]: Không thể kết nối Redis cho Temp Blacklist.");
+}
+
 // ----------------------------------------------------
 // TẦNG 1.1: FAST KEYWORD REGEX FILTER (0ms)
 // ----------------------------------------------------
@@ -109,20 +117,41 @@ function hammingDistance(hash1, hash2) {
 }
 
 /**
- * Kiểm tra mảng Buffer ảnh với DB BlacklistedHashes
+ * Kiểm tra mảng Buffer ảnh với DB BlacklistedHashes + Redis Temporary Blacklist
  */
 async function checkFastImageHashes(files = []) {
   if (!Array.isArray(files) || files.length === 0) return null;
 
   try {
-    const blacklistedDocs = await BlacklistedHash.find().lean();
-    if (blacklistedDocs.length === 0) return null;
-
     for (const file of files) {
       if (file?.mimetype?.startsWith("image/") && file.buffer) {
         const hash = await generateImageHash(file.buffer);
         if (!hash) continue;
 
+        // 1. Check Temporary Blacklist trong Redis (TTL 15 phút - chặn spam ảnh lặp lại)
+        if (redisClient && redisClient.isOpen) {
+          try {
+            const tempKeys = await redisClient.keys("temp_bl_hash:*");
+            for (const key of tempKeys) {
+              const tempHash = key.replace("temp_bl_hash:", "");
+              const dist = hammingDistance(hash, tempHash);
+              if (dist <= 5) {
+                const ttl = await redisClient.ttl(key);
+                console.log(`[Tầng 1 Fast Filter] 🚫 CHẶN BỞI TEMP pHASH Redis (dist=${dist}, TTL còn ${ttl}s)`);
+                return {
+                  isAllowed: false,
+                  category: "TEMP_BLOCKED",
+                  reason: `Hình ảnh này vừa bị hệ thống AI phát hiện vi phạm gần đây (tạm khóa ${Math.ceil(ttl / 60)} phút nữa). Bạn có thể khiếu nại bài viết gốc nếu cho rằng đây là nhầm lẫn.`,
+                };
+              }
+            }
+          } catch (redisErr) {
+            console.warn("[Temp Blacklist Redis Check Warning]:", redisErr.message);
+          }
+        }
+
+        // 2. Check Permanent Blacklist trong MongoDB
+        const blacklistedDocs = await BlacklistedHash.find().lean();
         for (const doc of blacklistedDocs) {
           const dist = hammingDistance(hash, doc.hash);
           if (dist <= 5) {

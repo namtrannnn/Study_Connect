@@ -431,12 +431,18 @@ function ModerationAdmin() {
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false });
     const [statusTab, setStatusTab] = useState('pending');
+    const [dateRange, setDateRange] = useState('all');
     const [counts, setCounts] = useState({ pending: 0, appeals: 0, rejected: 0, approved: 0, all: 0 });
 
-    const fetchPosts = useCallback(async (page = 1, currentStatus = statusTab) => {
+    const fetchPosts = useCallback(async (page = 1, currentStatus = statusTab, currentDateRange = dateRange) => {
         try {
             setLoading(true);
-            const res = await getAdminModerationPending({ page, limit: 10, status: currentStatus });
+            const res = await getAdminModerationPending({
+                page,
+                limit: 10,
+                status: currentStatus,
+                dateRange: currentDateRange,
+            });
             if (res?.code === 200 || res?.data) {
                 const data = res?.data || res;
                 setPosts(data.posts || []);
@@ -455,11 +461,11 @@ function ModerationAdmin() {
         } finally {
             setLoading(false);
         }
-    }, [statusTab]);
+    }, [statusTab, dateRange]);
 
     useEffect(() => {
-        fetchPosts(1, statusTab);
-    }, [fetchPosts, statusTab]);
+        fetchPosts(1, statusTab, dateRange);
+    }, [fetchPosts, statusTab, dateRange]);
 
     const handleApprove = async (postId) => {
         try {
@@ -587,7 +593,7 @@ function ModerationAdmin() {
                         <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>bài chờ duyệt</span>
                     </div>
                     <button
-                        onClick={() => fetchPosts(pagination.page)}
+                        onClick={() => fetchPosts(pagination.page, statusTab, dateRange)}
                         className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
                             isDark ? 'border-white/10 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'
                         }`}
@@ -614,7 +620,7 @@ function ModerationAdmin() {
                             type="button"
                             onClick={() => {
                                 setStatusTab(tab.id);
-                                fetchPosts(1, tab.id);
+                                fetchPosts(1, tab.id, dateRange);
                             }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
                                 isActive
@@ -637,6 +643,56 @@ function ModerationAdmin() {
                         </button>
                     );
                 })}
+            </div>
+
+            {/* Quick Date Filters Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className={`flex flex-wrap items-center gap-1.5 p-1 rounded-2xl border ${
+                    isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-100'
+                }`}>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-400">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>Khoảng thời gian:</span>
+                    </div>
+                    {[
+                        { id: 'all', label: 'Tất cả' },
+                        { id: 'today', label: 'Hôm nay' },
+                        { id: 'yesterday', label: 'Hôm qua' },
+                        { id: '7days', label: '7 ngày qua' },
+                        { id: '30days', label: '30 ngày qua' },
+                    ].map((item) => {
+                        const isDateActive = dateRange === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                    setDateRange(item.id);
+                                    fetchPosts(1, statusTab, item.id);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                                    isDateActive
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : isDark
+                                        ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                                }`}
+                            >
+                                {item.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className={`text-xs font-medium px-3 py-1.5 rounded-xl border ${
+                    isDark ? 'border-white/5 bg-white/[0.02] text-gray-400' : 'border-slate-100 bg-slate-50 text-slate-500'
+                }`}>
+                    {statusTab === 'appeals' && '🎯 Sắp xếp: Đơn khiếu nại mới nhất lên trước'}
+                    {statusTab === 'pending' && '🎯 Sắp xếp: Bài viết chờ duyệt mới nhất'}
+                    {statusTab === 'rejected' && '🎯 Sắp xếp: Bài viết mới bị từ chối gần nhất'}
+                    {statusTab === 'approved' && '🎯 Sắp xếp: Bài viết mới được duyệt gần nhất'}
+                    {statusTab === 'all' && '🎯 Sắp xếp: Bài viết mới đăng gần nhất'}
+                </div>
             </div>
 
             {/* Info Banner */}

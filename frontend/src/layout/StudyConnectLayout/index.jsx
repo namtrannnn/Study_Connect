@@ -48,7 +48,7 @@ function StudyConnectLayout({
         } catch {}
     }, [collapsed]);
 
-    // Global fetch and socket listener for unread notifications count
+    // Global fetch for unread notifications count
     useEffect(() => {
         NotificationServices.getNotifications()
             .then((res) => {
@@ -57,32 +57,6 @@ function StudyConnectLayout({
                 }
             })
             .catch(() => {});
-
-        const socket = getSocket();
-        if (!socket) return;
-
-        const handleNew = ({ notification, unreadCount: serverCount }) => {
-            if (notification?.message) {
-                toast.info(notification.message);
-            }
-            if (typeof serverCount === 'number') {
-                dispatch(setUnreadCount(serverCount));
-            } else {
-                dispatch(incrementUnread());
-            }
-        };
-
-        const handleReadAll = ({ unreadCount: count }) => {
-            dispatch(setUnreadCount(count ?? 0));
-        };
-
-        socket.on('SERVER_NOTIFICATION_NEW', handleNew);
-        socket.on('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
-
-        return () => {
-            socket.off('SERVER_NOTIFICATION_NEW', handleNew);
-            socket.off('SERVER_NOTIFICATION_READ_ALL', handleReadAll);
-        };
     }, [dispatch]);
 
     // Load nicknames khi mount
@@ -201,7 +175,7 @@ function StudyConnectLayout({
                 }`}
                 style={{ left: sidebarWidth + 16 }}
             >
-                <NotificationsPanel onClose={handleClosePanel} />
+                <NotificationsPanel onClose={handleClosePanel} isOpen={isNotifOpen} />
             </div>
 
             {/* Search panel mobile */}
@@ -223,7 +197,7 @@ function StudyConnectLayout({
                         : 'pointer-events-none translate-y-6 scale-[0.98] opacity-0'
                 }`}
             >
-                <NotificationsPanel onClose={handleClosePanel} />
+                <NotificationsPanel onClose={handleClosePanel} isOpen={isNotifOpen} />
             </div>
 
             {/* Mobile Bottom Nav */}
