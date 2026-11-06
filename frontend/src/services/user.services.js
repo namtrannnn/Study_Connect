@@ -45,3 +45,9 @@ export const resetChatBadge = async () => {
     const res = await httpRequest.patch('/user/reset-chat-badge');
     return res.data;
 };
+
+// [PATCH] /api/v1/user/change-password
+export const changePassword = async (data) => {
+    const res = await httpRequest.patch('/user/change-password', data);
+    return res.data;
+};

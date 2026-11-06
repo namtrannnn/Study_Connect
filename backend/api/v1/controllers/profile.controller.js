@@ -4,7 +4,7 @@ const Post = require("../models/post.model");
 const Like = require("../models/postLike.model");
 const PostSave = require("../models/postsave.model");
 const userSelect =
-  "_id fullName username avatar isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
+  "_id fullName username avatar bio isVerified isPrivate postsCount followersCount followingCount followers following pendingFollowRequests pinnedPosts createdAt";
 const uploadStreamToCloudinary = require("../../../helpers/cloudinary.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
 
@@ -375,7 +375,7 @@ module.exports.getUserPostFeed = async (req, res) => {
 // [PATCH] /api/v1/profile/update
 module.exports.updateProfile = async (req, res) => {
   try {
-    const allowFields = ["fullName", "username", "isPrivate"];
+    const allowFields = ["fullName", "username", "isPrivate", "bio"];
     const updateData = {};
 
     allowFields.forEach((field) => {
@@ -383,6 +383,10 @@ module.exports.updateProfile = async (req, res) => {
         updateData[field] = req.body[field];
       }
     });
+
+    if (typeof updateData.bio === "string") {
+      updateData.bio = updateData.bio.trim().slice(0, 150);
+    }
 
     if (req.file) {
       const result = await uploadStreamToCloudinary(req.file.buffer, "/users");

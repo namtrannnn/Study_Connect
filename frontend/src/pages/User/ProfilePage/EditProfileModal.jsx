@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Camera, Loader2, Lock, Globe } from 'lucide-react';
 
-export default function EditProfileModal({ isOpen, onClose, formData, onChange, onSave, saving }) {
+export default function EditProfileModal({
+    isOpen,
+    onClose,
+    formData,
+    onChange,
+    onSave,
+    saving,
+}) {
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -120,6 +127,26 @@ export default function EditProfileModal({ isOpen, onClose, formData, onChange, 
                                 className="h-11 w-full rounded-2xl border border-gray-200 bg-gray-50/80 pl-8 pr-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
                             />
                         </div>
+                    </div>
+
+                    {/* Bio / Tiểu sử */}
+                    <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                Tiểu sử
+                            </label>
+                            <span className="text-xs font-medium text-gray-400">
+                                {(formData.bio || '').length}/150
+                            </span>
+                        </div>
+                        <textarea
+                            rows={3}
+                            value={formData.bio || ''}
+                            onChange={(e) => onChange('bio', e.target.value.slice(0, 150))}
+                            maxLength={150}
+                            placeholder="Mô tả bản thân hoặc châm ngôn sống của bạn..."
+                            className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50/80 p-3.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white"
+                        />
                     </div>
 
                     {/* Privacy Toggle */}

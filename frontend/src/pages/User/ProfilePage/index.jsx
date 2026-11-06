@@ -30,11 +30,13 @@ import {
     LogOut,
     Sun,
     Moon,
+    KeyRound,
 } from 'lucide-react';
 import { LOGOUT } from '../../../redux/userSlice';
 import { TOGGLE_THEME } from '../../../redux/themeSlice';
 
 import EditProfileModal from './EditProfileModal';
+import ChangePasswordModal from './ChangePasswordModal';
 import StoryArchiveModal from './StoryArchiveModal';
 import CreateHighlightModal from './CreateHighlightModal';
 import FollowListModal from './FollowListModal';
@@ -110,10 +112,12 @@ export default function ProfilePage() {
     // Active 24h Stories State
     const [activeStories, setActiveStories] = useState([]);
     const [showActiveStoriesModal, setShowActiveStoriesModal] = useState(false);
+    const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
     const [formData, setFormData] = useState({
         fullName: '',
         username: '',
+        bio: '',
         isPrivate: false,
         avatar: '',
         avatarFile: null,
@@ -400,6 +404,7 @@ export default function ProfilePage() {
         setFormData({
             fullName: user.fullName || '',
             username: user.username || '',
+            bio: user.bio || '',
             isPrivate: !!user.isPrivate,
             avatar: user.avatar || '',
             avatarFile: null,
@@ -413,6 +418,7 @@ export default function ProfilePage() {
             const payload = new FormData();
             payload.append('fullName', formData.fullName);
             payload.append('username', formData.username);
+            payload.append('bio', formData.bio || '');
             payload.append('isPrivate', String(formData.isPrivate));
             if (formData.avatarFile) payload.append('avatar', formData.avatarFile);
 
@@ -490,7 +496,7 @@ export default function ProfilePage() {
     /* ────────────────────────────── JSX ────────────────────────────── */
     return (
         <div className="py-2 sm:py-6">
-            <div className="mx-auto w-full max-w-[680px] space-y-4">
+            <div className="mx-auto w-full max-w-4xl xl:max-w-5xl space-y-4">
                 {/* Back Button Header (Threads style for other profiles) */}
                 {!isOwnProfile && (
                     <div className="flex items-center gap-3 px-1 pb-1">
@@ -509,7 +515,7 @@ export default function ProfilePage() {
                 )}
 
                 {/* ─── Profile Header Card (Threads style: Avatar LEFT, Info RIGHT) ─── */}
-                <div className="relative rounded-2xl sm:rounded-[28px] border border-gray-200/80 bg-white p-4 sm:p-6 shadow-sm dark:border-white/10 dark:bg-[#18181b]">
+                <div className="relative bg-white p-4 sm:p-6 dark:bg-[#18181b]">
                     {/* Settings Button - own profile only */}
                     {isOwnProfile && (
                         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10" ref={settingsRef}>
@@ -562,6 +568,19 @@ export default function ProfilePage() {
                                             </div>
                                         </button>
 
+                                        {/* Change Password Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowSettingsMenu(false);
+                                                setShowChangePasswordModal(true);
+                                            }}
+                                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                        >
+                                            <KeyRound className="h-4.5 w-4.5 text-indigo-500" />
+                                            <span>Đổi mật khẩu</span>
+                                        </button>
+
                                         <div className="my-1 border-t border-gray-100 dark:border-white/10" />
 
                                         {/* Logout Button */}
@@ -585,8 +604,8 @@ export default function ProfilePage() {
                         </div>
                     )}
 
-                    {/* Header Row: Avatar on LEFT, Name/Username on RIGHT */}
-                    <div className="flex items-start gap-4 sm:gap-5">
+                    {/* Header Row: Avatar on LEFT, Info on RIGHT (TikTok / Threads style) */}
+                    <div className="flex items-start gap-4 sm:gap-6">
                         {/* Avatar on LEFT with Active 24h Story Ring */}
                         <div
                             onClick={() => {
@@ -613,17 +632,148 @@ export default function ProfilePage() {
                             )}
                         </div>
 
-                        {/* Name & Username on RIGHT */}
-                        <div className="min-w-0 flex-1 pt-1">
-                            <h1 className="text-xl font-extrabold leading-tight text-gray-900 dark:text-white sm:text-2xl">
-                                {user.fullName}
-                            </h1>
-                            <p className="mt-0.5 text-sm font-semibold text-gray-500 dark:text-gray-400">
-                                @{user.username || 'username'}
-                            </p>
+                        {/* Info on RIGHT */}
+                        <div className="min-w-0 flex-1 pt-0.5">
+                            {/* Hàng 1: Tên hiển thị & Username */}
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                                <h1 className="text-xl font-extrabold leading-tight text-gray-900 dark:text-white sm:text-2xl">
+                                    {user.fullName}
+                                </h1>
+                                <span className="font-semibold text-gray-400 dark:text-gray-500 select-none">|</span>
+                                <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                                    @{user.username || 'username'}
+                                </span>
+                            </div>
 
-                            {/* Meta items */}
-                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
+                            {/* Hàng 2: Đang theo dõi & Người theo dõi (đưa lên ngay dưới tên) */}
+                            <div className="mt-2.5 flex items-center gap-5 text-sm sm:text-[15px]">
+                                <button
+                                    type="button"
+                                    onClick={handleGoFollowing}
+                                    className="group flex items-center gap-1.5 transition hover:opacity-80"
+                                >
+                                    <span className="font-extrabold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
+                                        {stats?.followingCount ?? user.followingCount ?? 0}
+                                    </span>
+                                    <span className="font-medium text-gray-500 dark:text-gray-400">
+                                        đang theo dõi
+                                    </span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleGoFollowers}
+                                    className="group flex items-center gap-1.5 transition hover:opacity-80"
+                                >
+                                    <span className="font-extrabold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
+                                        {stats?.followersCount ?? user.followersCount ?? 0}
+                                    </span>
+                                    <span className="font-medium text-gray-500 dark:text-gray-400">
+                                        người theo dõi
+                                    </span>
+                                </button>
+                            </div>
+
+                            {/* Hàng 3: Các nút hành động (Chỉnh sửa hồ sơ, Kho lưu trữ) */}
+                            <div className="mt-3.5 flex flex-wrap items-center gap-2 sm:gap-2.5">
+                                {isOwnProfile ? (
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenEdit}
+                                            className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-xs sm:text-sm font-bold text-gray-900 transition hover:bg-gray-100 active:scale-95 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                        >
+                                            <Edit3 className="h-4 w-4" />
+                                            Chỉnh sửa hồ sơ
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowArchiveModal(true)}
+                                            className="inline-flex h-9 sm:h-10 px-3.5 sm:px-4 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-xs sm:text-sm font-bold text-gray-900 transition hover:bg-gray-100 active:scale-95 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                            title="Kho lưu trữ Story"
+                                        >
+                                            <Archive className="h-4 w-4 text-indigo-500" />
+                                            <span>Kho lưu trữ</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                                        {relationStatus === 'pending_received' ? (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    disabled={friendLoading}
+                                                    onClick={handleFollowClick}
+                                                    className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs sm:text-sm font-bold text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-60"
+                                                >
+                                                    <Check className="h-4 w-4" />
+                                                    Chấp nhận
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={friendLoading}
+                                                    onClick={handleRefuseRequest}
+                                                    className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-600 active:scale-95 dark:border-white/15 dark:text-gray-200"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                    Từ chối
+                                                </button>
+                                            </>
+                                        ) : relationStatus === 'pending_sent' ? (
+                                            <button
+                                                type="button"
+                                                disabled={friendLoading}
+                                                onClick={handleFollowClick}
+                                                className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-700 transition hover:bg-gray-50 active:scale-95 dark:border-white/15 dark:text-gray-300"
+                                            >
+                                                <Clock className="h-4 w-4" />
+                                                Đã gửi yêu cầu
+                                            </button>
+                                        ) : relationStatus === 'following' ||
+                                            relationStatus === 'mutual' ||
+                                            relationStatus === 'friend' ? (
+                                            <button
+                                                type="button"
+                                                disabled={friendLoading}
+                                                onClick={handleFollowClick}
+                                                className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-600 active:scale-95 dark:border-white/15 dark:text-gray-200"
+                                            >
+                                                <UserCheck className="h-4 w-4" />
+                                                Đang theo dõi
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                disabled={friendLoading}
+                                                onClick={handleFollowClick}
+                                                className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs sm:text-sm font-bold text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-60"
+                                            >
+                                                <UserPlus className="h-4 w-4" />
+                                                Theo dõi
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={handleMessageUser}
+                                            className="inline-flex h-9 sm:h-10 px-4 sm:px-5 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-xs sm:text-sm font-bold text-gray-900 transition hover:bg-gray-100 active:scale-95 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                                        >
+                                            <MessageSquare className="h-4 w-4" />
+                                            Nhắn tin
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Bio / Tiểu sử (nếu có) */}
+                            {user.bio && (
+                                <p className="mt-3 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line font-medium leading-relaxed max-w-2xl">
+                                    {user.bio}
+                                </p>
+                            )}
+
+                            {/* Hàng 4: Ngày tham gia & Riêng tư */}
+                            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
                                 {user.isPrivate && (
                                     <span className="inline-flex items-center gap-1 font-medium text-amber-500">
                                         <Lock className="h-3 w-3" />
@@ -638,128 +788,6 @@ export default function ProfilePage() {
                                 )}
                             </div>
                         </div>
-                    </div>
-
-                    {/* Stats Row (Clickable Followers & Following) */}
-                    <div className="mt-5 flex items-center gap-6 border-t border-gray-100 pt-4 text-[15px] dark:border-white/10">
-                        <button
-                            type="button"
-                            onClick={handleGoFollowers}
-                            className="group flex items-center gap-1.5 transition hover:opacity-80"
-                        >
-                            <span className="font-extrabold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
-                                {stats?.followersCount ?? user.followersCount ?? 0}
-                            </span>
-                            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                người theo dõi
-                            </span>
-                        </button>
-
-                        <span className="text-gray-300 dark:text-white/10">·</span>
-
-                        <button
-                            type="button"
-                            onClick={handleGoFollowing}
-                            className="group flex items-center gap-1.5 transition hover:opacity-80"
-                        >
-                            <span className="font-extrabold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">
-                                {stats?.followingCount ?? user.followingCount ?? 0}
-                            </span>
-                            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                đang theo dõi
-                            </span>
-                        </button>
-                    </div>
-
-                    {/* Action Buttons Row */}
-                    <div className="mt-4 flex gap-2">
-                        {isOwnProfile ? (
-                            <div className="flex w-full gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleOpenEdit}
-                                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                                >
-                                    <Edit3 className="h-4 w-4" />
-                                    Chỉnh sửa hồ sơ
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowArchiveModal(true)}
-                                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 px-4 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                                    title="Kho lưu trữ Story"
-                                >
-                                    <Archive className="h-4 w-4 text-indigo-500" />
-                                    <span className="hidden sm:inline">Kho lưu trữ</span>
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                {relationStatus === 'pending_received' ? (
-                                    <>
-                                        <button
-                                            type="button"
-                                            disabled={friendLoading}
-                                            onClick={handleFollowClick}
-                                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                                        >
-                                            <Check className="h-4 w-4" />
-                                            Chấp nhận
-                                        </button>
-                                        <button
-                                            type="button"
-                                            disabled={friendLoading}
-                                            onClick={handleRefuseRequest}
-                                            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-600 dark:border-white/15 dark:text-gray-200"
-                                        >
-                                            <X className="h-4 w-4" />
-                                            Từ chối
-                                        </button>
-                                    </>
-                                ) : relationStatus === 'pending_sent' ? (
-                                    <button
-                                        type="button"
-                                        disabled={friendLoading}
-                                        onClick={handleFollowClick}
-                                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 transition hover:bg-gray-50 dark:border-white/15 dark:text-gray-300"
-                                    >
-                                        <Clock className="h-4 w-4" />
-                                        Đã gửi yêu cầu
-                                    </button>
-                                ) : relationStatus === 'following' ||
-                                    relationStatus === 'mutual' ||
-                                    relationStatus === 'friend' ? (
-                                    <button
-                                        type="button"
-                                        disabled={friendLoading}
-                                        onClick={handleFollowClick}
-                                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 transition hover:bg-red-50 hover:text-red-600 dark:border-white/15 dark:text-gray-200"
-                                    >
-                                        <UserCheck className="h-4 w-4" />
-                                        Đang theo dõi
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        disabled={friendLoading}
-                                        onClick={handleFollowClick}
-                                        className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                                    >
-                                        <UserPlus className="h-4 w-4" />
-                                        Theo dõi
-                                    </button>
-                                )}
-
-                                <button
-                                    type="button"
-                                    onClick={handleMessageUser}
-                                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200/90 bg-gray-50 text-sm font-bold text-gray-900 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                                >
-                                    <MessageSquare className="h-4 w-4" />
-                                    Nhắn tin
-                                </button>
-                            </>
-                        )}
                     </div>
 
                     {/* ─── Story Highlights Horizontal Bar ─── */}
@@ -1107,6 +1135,12 @@ export default function ProfilePage() {
                 onChange={(field, val) => setFormData((prev) => ({ ...prev, [field]: val }))}
                 onSave={handleSaveProfile}
                 saving={saving}
+            />
+
+            {/* Change Password Modal */}
+            <ChangePasswordModal
+                isOpen={showChangePasswordModal}
+                onClose={() => setShowChangePasswordModal(false)}
             />
 
             {/* Unfollow Confirmation Modal */}

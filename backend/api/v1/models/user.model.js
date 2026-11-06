@@ -32,6 +32,13 @@ const userSchema = new mongoose.Schema(
         "https://res.cloudinary.com/dn2u3dcrh/image/upload/v1778744158/users/user_somhbs.png",
     },
 
+    bio: {
+      type: String,
+      default: "",
+      maxLength: 150,
+      trim: true,
+    },
+
     status: {
       type: String,
       enum: ["active", "inactive", "blocked"],

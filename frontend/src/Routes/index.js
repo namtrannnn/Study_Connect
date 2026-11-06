@@ -52,7 +52,7 @@ const publicRoute = [
         protected: ProtectedRoute,
         layoutProps: {
             showSuggest: false,
-            contentClassName: 'max-w-[680px]',
+            contentClassName: 'max-w-4xl xl:max-w-5xl',
             mainId: 'profile-scroll-container',
         },
     },
