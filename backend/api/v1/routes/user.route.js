@@ -21,6 +21,13 @@ router.post(
 // search
 router.get("/search-user", userMiddleware.requireUser, controller.searchUsers);
 
+// change password
+router.patch(
+  "/change-password",
+  userMiddleware.requireUser,
+  controller.changePassword,
+);
+
 // chat badge
 router.get("/chat-badge", userMiddleware.requireUser, controller.getChatBadge);
 router.patch("/reset-chat-badge", userMiddleware.requireUser, controller.resetChatBadge);

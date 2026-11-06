@@ -499,3 +499,68 @@ module.exports.resetChatBadge = async (req, res) => {
     return res.status(500).json({ code: 500, message: "FAILED!" });
   }
 };
+
+// [PATCH] /api/v1/user/change-password
+module.exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        code: 400,
+        message: "Vui lòng nhập đầy đủ thông tin mật khẩu",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        code: 400,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        code: 400,
+        message: "Mật khẩu xác nhận không khớp",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        code: 404,
+        message: "Người dùng không tồn tại",
+      });
+    }
+
+    if (user.password !== md5(currentPassword)) {
+      return res.status(400).json({
+        code: 400,
+        message: "Mật khẩu hiện tại không chính xác",
+      });
+    }
+
+    if (user.password === md5(newPassword)) {
+      return res.status(400).json({
+        code: 400,
+        message: "Mật khẩu mới không được trùng với mật khẩu cũ",
+      });
+    }
+
+    user.password = md5(newPassword);
+    await user.save();
+
+    return res.status(200).json({
+      code: 200,
+      message: "Đổi mật khẩu thành công",
+    });
+  } catch (error) {
+    console.error("changePassword error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi máy chủ",
+      error: error.message,
+    });
+  }
+};
