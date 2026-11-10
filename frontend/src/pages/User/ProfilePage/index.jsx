@@ -964,6 +964,7 @@ export default function ProfilePage() {
                                         post={postItem}
                                         currentUser={currentUser}
                                         onDelete={handleDeletePost}
+                                        onPinChange={() => loadUserPosts({ reset: true })}
                                     />
                                 ))}
                             </div>

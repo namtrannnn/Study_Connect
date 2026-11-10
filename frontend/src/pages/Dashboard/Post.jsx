@@ -564,7 +564,16 @@ function PostMediaGallery({ mediaItems, onOpenDetail }) {
     );
 }
 
-export default function Post({ post, currentUser, onLike, onComment, onEdit, onDelete, onSave }) {
+export default function Post({
+    post,
+    currentUser,
+    onLike,
+    onComment,
+    onEdit,
+    onDelete,
+    onSave,
+    onPinChange,
+}) {
     const [isLiked, setIsLiked] = useState(!!post?.isLiked);
     const [isSaved, setIsSaved] = useState(!!post?.isSaved);
     const [localLikesCount, setLocalLikesCount] = useState(post?.likesCount ?? post?.likes ?? 0);
@@ -576,6 +585,10 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingPost, setDeletingPost] = useState(false);
     const [isPinned, setIsPinned] = useState(!!post?.isPinned);
+
+    useEffect(() => {
+        setIsPinned(!!post?.isPinned);
+    }, [post?.isPinned]);
     const [privacy, setPrivacy] = useState(post?.visibility || post?.privacy || 'public');
     const [commentsEnabled, setCommentsEnabled] = useState(post?.allowComments ?? post?.commentsEnabled ?? true);
     const [appealStatus, setAppealStatus] = useState(post?.appealStatus || (post?.isAppealed ? 'pending' : 'none'));
@@ -716,17 +729,27 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
     const handleTogglePin = async () => {
         const next = !isPinned;
         try {
-            setIsPinned(next);
             if (next) {
-                await PostServices.pinPost(postId);
-                toast('Đã ghim bài viết');
+                const res = await PostServices.pinPost(postId);
+                if (res?.code === 200 || res?.status === 200) {
+                    setIsPinned(true);
+                    toast.success('Đã ghim bài viết lên đầu trang 📌');
+                    onPinChange?.();
+                } else {
+                    toast.error(res?.message || 'Không thể ghim bài viết');
+                }
             } else {
-                await PostServices.unpinPost(postId);
-                toast('Đã bỏ ghim');
+                const res = await PostServices.unpinPost(postId);
+                if (res?.code === 200 || res?.status === 200) {
+                    setIsPinned(false);
+                    toast.success('Đã bỏ ghim bài viết');
+                    onPinChange?.();
+                } else {
+                    toast.error(res?.message || 'Không thể bỏ ghim');
+                }
             }
-        } catch {
-            setIsPinned(!next);
-            toast.error('Không thể thực hiện thao tác này');
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Không thể thực hiện thao tác này');
         }
     };
     const handleDeletePost = async () => {
@@ -939,9 +962,9 @@ export default function Post({ post, currentUser, onLike, onComment, onEdit, onD
                                 )}
 
                                 {isPinned && (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                                        <Pin size={11} />
-                                        Ghim
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-600 border border-amber-200/80 shadow-xs dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
+                                        <Pin size={11} className="fill-amber-500/30 text-amber-600 dark:text-amber-400" />
+                                        Đã ghim
                                     </span>
                                 )}
                             </div>

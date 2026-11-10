@@ -676,12 +676,10 @@ module.exports.getFeedPosts = async (req, res) => {
     // 2. Lấy hashtag sở thích của user
     const userInterestHashtags = await getUserInterestHashtags(user._id);
 
-    // 3. Lấy bài của mình (kể cả pending_admin / hidden để chính tác giả thấy trạng thái) + following (chỉ lấy active)
+    // 3. Lấy bài của mình + following (chỉ lấy bài active đã được duyệt)
     const followingPostsRaw = await Post.find({
-      $or: [
-        { author: user._id, status: { $ne: "deleted" } },
-        { author: { $in: followingIds }, status: "active" },
-      ],
+      author: { $in: [...followingIds, user._id] },
+      status: "active",
     })
       .populate("author", "fullName username avatar isVerified")
       .sort({ createdAt: -1 })
@@ -956,6 +954,12 @@ module.exports.deletePost = async (req, res) => {
     post.status = "deleted";
     await post.save();
 
+    // Tự động gỡ bài viết khỏi danh sách bài ghim nếu đang được ghim
+    await User.updateOne(
+      { _id: user._id },
+      { $pull: { pinnedPosts: { post: post._id } } }
+    );
+
     // Xóa tất cả ảnh / video của bài viết khỏi Cloudinary để giải phóng dung lượng
     if (post.media && post.media.length > 0) {
       const imageIds = post.media
@@ -1152,7 +1156,7 @@ module.exports.pinPost = async (req, res) => {
     const user = await User.findById(userId).select("pinnedPosts");
 
     const alreadyPinned = (user.pinnedPosts || []).some(
-      (item) => item.post.toString() === postId,
+      (item) => item.post && item.post.toString() === postId,
     );
 
     if (alreadyPinned) {
@@ -1162,6 +1166,16 @@ module.exports.pinPost = async (req, res) => {
       });
     }
 
+    // Lọc lại các bài ghim còn hợp lệ và kiểm tra giới hạn tối đa 3 bài
+    const validPinned = (user.pinnedPosts || []).filter((item) => item && item.post);
+    if (validPinned.length >= 3) {
+      return res.status(400).json({
+        code: 400,
+        message: "Bạn chỉ có thể ghim tối đa 3 bài viết. Vui lòng bỏ ghim bài cũ trước khi ghim bài mới.",
+      });
+    }
+
+    user.pinnedPosts = validPinned;
     user.pinnedPosts.push({
       post: post._id,
       pinnedAt: new Date(),
