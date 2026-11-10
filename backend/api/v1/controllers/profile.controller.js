@@ -284,7 +284,9 @@ module.exports.getUserPostFeed = async (req, res) => {
       ? { _id: userId, deleted: false, status: "active" }
       : { username: userId.trim().toLowerCase(), deleted: false, status: "active" };
 
-    const author = await User.findOne(authorQuery).select("followers following _id");
+    const author = await User.findOne(authorQuery).select(
+      "followers following _id pinnedPosts",
+    );
 
     if (!author) {
       return res.status(404).json({
@@ -301,6 +303,54 @@ module.exports.getUserPostFeed = async (req, res) => {
       statusCondition = { $in: ["pending_admin", "hidden", "processing"] };
     }
 
+    // ─── Xử lý bài ghim (chỉ lấy tối đa 3 bài ở trang đầu tiên khi không có cursor và không phải tab vi phạm) ───
+    let pinnedPosts = [];
+    const pinnedPostIds = [];
+    const pinnedSet = new Set();
+
+    if (
+      !cursor &&
+      !moderationOnly &&
+      author.pinnedPosts &&
+      author.pinnedPosts.length > 0
+    ) {
+      // Sắp xếp bài ghim mới nhất lên trước, tối đa 3 bài
+      const sortedPinned = [...author.pinnedPosts]
+        .filter((item) => item && item.post)
+        .sort((a, b) => new Date(b.pinnedAt) - new Date(a.pinnedAt))
+        .slice(0, 3);
+
+      sortedPinned.forEach((p) => {
+        const idStr = p.post.toString();
+        pinnedPostIds.push(new mongoose.Types.ObjectId(idStr));
+        pinnedSet.add(idStr);
+      });
+
+      if (pinnedPostIds.length > 0) {
+        const rawPinnedPosts = await Post.find({
+          _id: { $in: pinnedPostIds },
+          author: author._id,
+          status: "active",
+        })
+          .populate("author", "_id fullName username avatar isVerified")
+          .populate("mentions", "_id fullName username avatar")
+          .populate("allowedUsers", "_id fullName username avatar")
+          .select(
+            "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare visibility allowedUsers isEdited editedAt createdAt updatedAt status moderationStatus violationReason",
+          );
+
+        // Giữ đúng thứ tự ghim và kiểm tra quyền xem
+        pinnedPosts = sortedPinned
+          .map((sp) =>
+            rawPinnedPosts.find(
+              (rp) => rp._id.toString() === sp.post.toString(),
+            ),
+          )
+          .filter(Boolean)
+          .filter((post) => canViewPost(post, viewerId, author));
+      }
+    }
+
     const filter = {
       author: author._id,
       status: statusCondition,
@@ -310,7 +360,12 @@ module.exports.getUserPostFeed = async (req, res) => {
       filter.createdAt = { $lt: new Date(cursor) };
     }
 
-    const [posts, moderationCount] = await Promise.all([
+    // Nếu có bài ghim ở trang đầu tiên thì loại trừ để không bị lặp lại ở danh sách bài viết thường
+    if (pinnedPostIds.length > 0) {
+      filter._id = { $nin: pinnedPostIds };
+    }
+
+    const [regularPosts, moderationCount] = await Promise.all([
       Post.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit * 3)
@@ -328,11 +383,13 @@ module.exports.getUserPostFeed = async (req, res) => {
         : 0,
     ]);
 
-    const visiblePosts = posts
+    const visibleRegularPosts = regularPosts
       .filter((post) => canViewPost(post, viewerId, author))
       .slice(0, limit);
 
-    const postIds = visiblePosts.map((post) => post._id);
+    // Ghép bài ghim lên đầu danh sách bài viết
+    const combinedPosts = [...pinnedPosts, ...visibleRegularPosts];
+    const postIds = combinedPosts.map((post) => post._id);
 
     const [likedPosts, savedPosts] = await Promise.all([
       Like.find({ user: viewerId, post: { $in: postIds } }).select("post"),
@@ -342,10 +399,11 @@ module.exports.getUserPostFeed = async (req, res) => {
     const likedSet = new Set(likedPosts.map((item) => item.post.toString()));
     const savedSet = new Set(savedPosts.map((item) => item.post.toString()));
 
-    const data = visiblePosts.map((post) => {
+    const data = combinedPosts.map((post) => {
       const obj = post.toObject();
       return {
         ...obj,
+        isPinned: pinnedSet.has(post._id.toString()),
         isLiked: likedSet.has(post._id.toString()),
         isSaved: savedSet.has(post._id.toString()),
       };
@@ -357,10 +415,10 @@ module.exports.getUserPostFeed = async (req, res) => {
       data,
       moderationCount,
       nextCursor:
-        visiblePosts.length > 0
-          ? visiblePosts[visiblePosts.length - 1].createdAt
+        visibleRegularPosts.length > 0
+          ? visibleRegularPosts[visibleRegularPosts.length - 1].createdAt
           : null,
-      hasMore: posts.length > visiblePosts.length,
+      hasMore: regularPosts.length > visibleRegularPosts.length,
     });
   } catch (error) {
     console.error("getUserPostFeed error:", error);
