@@ -336,7 +336,7 @@ module.exports.getUserPostFeed = async (req, res) => {
           .populate("mentions", "_id fullName username avatar")
           .populate("allowedUsers", "_id fullName username avatar")
           .select(
-            "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare visibility allowedUsers isEdited editedAt createdAt updatedAt status moderationStatus violationReason",
+            "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare filterToxicComments visibility allowedUsers isEdited editedAt createdAt updatedAt status moderationStatus violationReason",
           );
 
         // Giữ đúng thứ tự ghim và kiểm tra quyền xem
@@ -373,7 +373,7 @@ module.exports.getUserPostFeed = async (req, res) => {
         .populate("mentions", "_id fullName username avatar")
         .populate("allowedUsers", "_id fullName username avatar")
         .select(
-          "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare visibility allowedUsers isEdited editedAt createdAt updatedAt status moderationStatus violationReason",
+          "_id author caption media location hashtags mentions likesCount commentsCount savesCount sharesCount allowComments hideLikeCount hideShare filterToxicComments visibility allowedUsers isEdited editedAt createdAt updatedAt status moderationStatus violationReason",
         ),
       isOwner
         ? Post.countDocuments({

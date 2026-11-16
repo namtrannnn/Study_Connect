@@ -193,6 +193,7 @@ module.exports.createPost = async (req, res) => {
       allowComments = true,
       hideLikeCount = false,
       hideShare = false,
+      filterToxicComments = false,
       visibility = "public",
       allowedUsers = [],
       question,
@@ -304,6 +305,7 @@ module.exports.createPost = async (req, res) => {
       allowComments: String(allowComments) === "false" ? false : true,
       hideLikeCount: String(hideLikeCount) === "true",
       hideShare: String(hideShare) === "true",
+      filterToxicComments: String(filterToxicComments) === "true",
       visibility,
       allowedUsers,
       status: "processing",
@@ -359,6 +361,7 @@ module.exports.editPost = async (req, res) => {
       allowComments,
       hideLikeCount,
       hideShare,
+      filterToxicComments,
       visibility,
       allowedUsers,
       keepMediaIds,
@@ -443,6 +446,10 @@ module.exports.editPost = async (req, res) => {
 
     if (hideShare !== undefined) {
       updateData.hideShare = String(hideShare) === "true";
+    }
+
+    if (filterToxicComments !== undefined) {
+      updateData.filterToxicComments = String(filterToxicComments) === "true";
     }
 
     const finalPostType =
@@ -1320,6 +1327,50 @@ exports.sharePost = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+// [PATCH] /api/v1/post/:id/toggle-filter-comments
+module.exports.toggleFilterComments = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const postId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({
+        code: 400,
+        message: "ID bài viết không hợp lệ",
+      });
+    }
+
+    const post = await Post.findOne({ _id: postId, author: userId });
+    if (!post) {
+      return res.status(404).json({
+        code: 404,
+        message: "Bài viết không tồn tại hoặc bạn không có quyền chỉnh sửa",
+      });
+    }
+
+    post.filterToxicComments = !post.filterToxicComments;
+    await post.save();
+
+    return res.status(200).json({
+      code: 200,
+      message: post.filterToxicComments
+        ? "Đã bật chế độ lọc bình luận tiêu cực cho bài viết"
+        : "Đã tắt chế độ lọc bình luận tiêu cực cho bài viết",
+      data: {
+        postId: post._id,
+        filterToxicComments: post.filterToxicComments,
+      },
+    });
+  } catch (error) {
+    console.error("toggleFilterComments error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi máy chủ",
+      error: error.message,
     });
   }
 };

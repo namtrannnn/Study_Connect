@@ -130,3 +130,10 @@ export const submitAppeal = async (postId, reason) => {
     return res.data;
 };
 
+// [PATCH] /api/v1/post/:id/toggle-filter-comments
+export const toggleFilterComments = async (postId) => {
+    const res = await httpRequest.patch(`/post/${postId}/toggle-filter-comments`);
+    return res.data;
+};
+
+

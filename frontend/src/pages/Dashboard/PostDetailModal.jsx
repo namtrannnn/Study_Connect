@@ -152,6 +152,12 @@ function CommentItem({
 
                             <span className="text-slate-700 dark:text-slate-300">{comment?.content}</span>
 
+                            {comment?.status === 'hidden' && (
+                                <span className="ml-1.5 inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                    🛡️ Đã lọc do tiêu cực
+                                </span>
+                            )}
+
                             {comment?.isEdited && (
                                 <span className="ml-1.5 text-[11px] italic text-slate-400">(đã sửa)</span>
                             )}
@@ -588,6 +594,13 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
     /* ── Socket handlers ── */
     const handleSocketNewComment = ({ postId: socketPostId, comment }) => {
         if (!comment || String(socketPostId) !== String(postId)) return;
+
+        // Nếu bình luận bị ẩn do tiêu cực, chỉ chủ bài viết và tác giả bình luận mới thấy
+        if (comment.status === 'hidden') {
+            const isOwner = String(post?.author?._id || postAuthorId) === String(currentUser?._id);
+            const isCommentAuthor = String(comment.user?._id) === String(currentUser?._id);
+            if (!isOwner && !isCommentAuthor) return;
+        }
         setComments((prev) => {
             const existed = prev.some((item) => String(item._id) === String(comment._id));
             if (existed) return prev;

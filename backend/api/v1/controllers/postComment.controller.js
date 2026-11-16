@@ -8,6 +8,9 @@ const {
   getMentionUserIdsFromContent,
 } = require("../../../helpers/mention.helper");
 const { canViewPost } = require("../../../helpers/postVisibility.helper");
+const {
+  checkCommentWithAI,
+} = require("../../../helpers/moderation/commentFilter.helper");
 
 async function finalizeExpiredPendingDeleteComments(postId = null) {
   const now = new Date();
@@ -70,6 +73,22 @@ module.exports.createComment = async (req, res) => {
         message: "Nội dung bình luận không được để trống",
       });
     }
+
+    // Rate limiting chống spam/DoS: 2.5s mỗi bình luận đối với từng người dùng
+    if (!global._userCommentCooldown) {
+      global._userCommentCooldown = new Map();
+    }
+    const senderId = userId.toString();
+    const lastCommentTime = global._userCommentCooldown.get(senderId);
+    const now = Date.now();
+    if (lastCommentTime && now - lastCommentTime < 2500) {
+      const waitSeconds = Math.ceil((2500 - (now - lastCommentTime)) / 1000);
+      return res.status(429).json({
+        code: 429,
+        message: `Bạn đang bình luận quá nhanh. Vui lòng thử lại sau ${waitSeconds}s`,
+      });
+    }
+    global._userCommentCooldown.set(senderId, now);
 
     const post = await Post.findOne({
       _id: postId,
@@ -158,6 +177,22 @@ module.exports.createComment = async (req, res) => {
         message: "Bài viết này đã tắt bình luận",
       });
     }
+
+    // Kiểm tra tính năng lọc bình luận tiêu cực
+    let commentStatus = "active";
+    let isToxicDetected = false;
+    if (post.filterToxicComments) {
+      try {
+        const toxicCheck = await checkCommentWithAI(content);
+        if (toxicCheck && toxicCheck.isToxic) {
+          commentStatus = "hidden";
+          isToxicDetected = true;
+        }
+      } catch (err) {
+        console.error("Filter comment error:", err);
+      }
+    }
+
     const newComment = await Comment.create({
       post: postId,
       user: userId,
@@ -166,6 +201,7 @@ module.exports.createComment = async (req, res) => {
       replyToComment: repliedComment ? repliedComment._id : null,
       replyToUser: repliedUser || null,
       mentions: mentionIds,
+      status: commentStatus,
     });
 
     // tăng số comment
@@ -192,44 +228,44 @@ module.exports.createComment = async (req, res) => {
       },
     });
 
-    // Gửi notification
-    const senderId = userId.toString();
-
-    // 1. Notify chủ bài (post_comment) — không gửi nếu tự comment
-    if (post.author._id.toString() !== senderId) {
-      await createNotification({
-        receiver: post.author._id,
-        sender: userId,
-        type: "post_comment",
-        message: `đã bình luận bài viết của bạn`,
-        refId: post._id,
-        refType: "post",
-      }).catch(() => {});
-    }
-
-    // 2. Notify người được reply (comment_reply) — không gửi nếu tự reply
-    if (repliedComment && repliedComment.user.toString() !== senderId) {
-      await createNotification({
-        receiver: repliedComment.user,
-        sender: userId,
-        type: "comment_reply",
-        message: `đã trả lời bình luận của bạn`,
-        refId: post._id,
-        refType: "post",
-      }).catch(() => {});
-    }
-
-    // 3. Notify các user được @mention — không gửi cho chính mình
-    for (const mentionId of mentionIds) {
-      if (mentionId.toString() !== senderId) {
+    // Gửi notification nếu bình luận không bị ẩn do tiêu cực
+    if (commentStatus === "active") {
+      // 1. Notify chủ bài (post_comment) — không gửi nếu tự comment
+      if (post.author._id.toString() !== senderId) {
         await createNotification({
-          receiver: mentionId,
+          receiver: post.author._id,
           sender: userId,
-          type: "mention",
-          message: `đã nhắc đến bạn trong một bình luận`,
+          type: "post_comment",
+          message: `đã bình luận bài viết của bạn`,
           refId: post._id,
           refType: "post",
         }).catch(() => {});
+      }
+
+      // 2. Notify người được reply (comment_reply) — không gửi nếu tự reply
+      if (repliedComment && repliedComment.user.toString() !== senderId) {
+        await createNotification({
+          receiver: repliedComment.user,
+          sender: userId,
+          type: "comment_reply",
+          message: `đã trả lời bình luận của bạn`,
+          refId: post._id,
+          refType: "post",
+        }).catch(() => {});
+      }
+
+      // 3. Notify các user được @mention — không gửi cho chính mình
+      for (const mentionId of mentionIds) {
+        if (mentionId.toString() !== senderId) {
+          await createNotification({
+            receiver: mentionId,
+            sender: userId,
+            type: "mention",
+            message: `đã nhắc đến bạn trong một bình luận`,
+            refId: post._id,
+            refType: "post",
+          }).catch(() => {});
+        }
       }
     }
 
@@ -296,12 +332,19 @@ module.exports.getCommentsByPost = async (req, res) => {
 
     const isPostOwner = post.author._id.toString() === viewerId.toString();
 
-    const visibleStatuses = isPostOwner ? ["active", "hidden"] : ["active"];
+    const commentFilterCondition = isPostOwner
+      ? { status: { $in: ["active", "hidden"] } }
+      : {
+          $or: [
+            { status: "active" },
+            { status: "hidden", user: viewerId },
+          ],
+        };
 
     const parentComments = await Comment.find({
       post: postId,
       parentComment: null,
-      status: { $in: visibleStatuses },
+      ...commentFilterCondition,
     })
       .populate("user", "fullName username avatar isVerified")
       .populate("replyToUser", "fullName username avatar isVerified")
@@ -347,7 +390,7 @@ module.exports.getCommentsByPost = async (req, res) => {
     const total = await Comment.countDocuments({
       post: postId,
       parentComment: null,
-      status: { $in: visibleStatuses },
+      ...commentFilterCondition,
     });
 
     return res.status(200).json({
@@ -1113,12 +1156,19 @@ module.exports.getRepliesByComment = async (req, res) => {
     }
 
     const isPostOwner = post.author._id.toString() === viewerId.toString();
-    const visibleStatuses = isPostOwner ? ["active", "hidden"] : ["active"];
+    const replyFilterCondition = isPostOwner
+      ? { status: { $in: ["active", "hidden"] } }
+      : {
+          $or: [
+            { status: "active" },
+            { status: "hidden", user: viewerId },
+          ],
+        };
 
     const replies = await Comment.find({
       post: parentComment.post,
       parentComment: parentComment._id,
-      status: { $in: visibleStatuses },
+      ...replyFilterCondition,
     })
       .populate("user", "fullName username avatar isVerified")
       .populate("replyToUser", "fullName username avatar isVerified")
@@ -1148,7 +1198,7 @@ module.exports.getRepliesByComment = async (req, res) => {
     const total = await Comment.countDocuments({
       post: parentComment.post,
       parentComment: parentComment._id,
-      status: { $in: visibleStatuses },
+      ...replyFilterCondition,
     });
 
     return res.status(200).json({

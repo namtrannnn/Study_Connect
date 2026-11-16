@@ -172,6 +172,11 @@ const postSchema = new mongoose.Schema(
       default: false,
     },
 
+    filterToxicComments: {
+      type: Boolean,
+      default: false,
+    },
+
     status: {
       type: String,
       enum: ["processing", "active", "pending_admin", "hidden", "deleted"],
