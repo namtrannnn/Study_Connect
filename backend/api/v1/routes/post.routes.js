@@ -71,6 +71,13 @@ router.post(
 // POST /api/v1/post/:id/appeal
 router.post("/:id/appeal", userMiddleware.requireUser, controller.submitAppeal);
 
+// PATCH /api/v1/post/:id/toggle-filter-comments
+router.patch(
+  "/:id/toggle-filter-comments",
+  userMiddleware.requireUser,
+  controller.toggleFilterComments,
+);
+
 // GET /api/v1/post/:id
 // Route động /:id nên để gần cuối
 router.get("/:id", userMiddleware.requireUser, controller.detailPost);

@@ -17,6 +17,7 @@ import {
     MapPin,
     Pencil,
     StopCircle,
+    ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -42,6 +43,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
     const [selectedCustomUsers, setSelectedCustomUsers] = useState([]);
 
     const [allowComments, setAllowComments] = useState(true);
+    const [filterToxicComments, setFilterToxicComments] = useState(false);
     const [hideLikeCount, setHideLikeCount] = useState(false);
     const [hideShare, setHideShare] = useState(false);
 
@@ -140,6 +142,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
         setVisibility(post.visibility || post.privacy || 'public');
         setLocation(post.location || '');
         setAllowComments(post.allowComments ?? true);
+        setFilterToxicComments(post.filterToxicComments ?? false);
         setHideLikeCount(post.hideLikeCount ?? false);
         setHideShare(post.hideShare ?? false);
         setImages([]);
@@ -278,6 +281,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
             formData.append('visibility', visibility);
 
             formData.append('allowComments', String(allowComments));
+            formData.append('filterToxicComments', String(filterToxicComments));
             formData.append('hideLikeCount', String(hideLikeCount));
             formData.append('hideShare', String(hideShare));
 
@@ -327,6 +331,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                     setShowMentionSuggestions(false);
                     setSelectedMentions([]);
                     setAllowComments(true);
+                    setFilterToxicComments(false);
                     setHideLikeCount(false);
                     setHideShare(false);
                     setShowAdvancedOptions(false);
@@ -717,7 +722,7 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
                                         <div 
                                             onClick={() => setAllowComments(!allowComments)}
                                             className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3.5 transition hover:bg-gray-100 dark:border-white/10 dark:bg-[#20232b] dark:hover:bg-white/10"
@@ -747,6 +752,40 @@ function Modal({ setOpenModal, user, onCreated, mode = 'create', post, onUpdated
                                                 <span
                                                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
                                                         allowComments ? 'translate-x-5' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        <div 
+                                            onClick={() => setFilterToxicComments(!filterToxicComments)}
+                                            className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3.5 transition hover:bg-gray-100 dark:border-white/10 dark:bg-[#20232b] dark:hover:bg-white/10"
+                                        >
+                                            <div>
+                                                <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
+                                                    <ShieldCheck size={15} className="text-emerald-500" />
+                                                    Lọc độc hại
+                                                </div>
+                                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                    {filterToxicComments ? 'Tự động ẩn' : 'Đang tắt'}
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={filterToxicComments}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setFilterToxicComments(!filterToxicComments);
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                    filterToxicComments ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-white/20'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                                                        filterToxicComments ? 'translate-x-5' : 'translate-x-0'
                                                     }`}
                                                 />
                                             </button>

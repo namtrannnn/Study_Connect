@@ -23,6 +23,7 @@ import {
     Users,
     Clock,
     ShieldAlert,
+    ShieldCheck,
     Scale,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -591,11 +592,30 @@ export default function Post({
     }, [post?.isPinned]);
     const [privacy, setPrivacy] = useState(post?.visibility || post?.privacy || 'public');
     const [commentsEnabled, setCommentsEnabled] = useState(post?.allowComments ?? post?.commentsEnabled ?? true);
+    const [filterToxicComments, setFilterToxicComments] = useState(!!post?.filterToxicComments);
+
+    useEffect(() => {
+        setFilterToxicComments(!!post?.filterToxicComments);
+    }, [post?.filterToxicComments]);
     const [appealStatus, setAppealStatus] = useState(post?.appealStatus || (post?.isAppealed ? 'pending' : 'none'));
     const [showAppealModal, setShowAppealModal] = useState(false);
     const [appealReason, setAppealReason] = useState('');
     const [appealLoading, setAppealLoading] = useState(false);
     const postId = post?._id || post?.id;
+
+    const handleToggleFilterToxicComments = async () => {
+        try {
+            const res = await PostServices.toggleFilterComments(postId);
+            if (res.code === 200) {
+                setFilterToxicComments(res.data.filterToxicComments);
+                toast.success(res.message);
+            } else {
+                toast.error(res.message || 'Không thể thay đổi cài đặt lọc');
+            }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi đổi cài đặt lọc');
+        }
+    };
 
     const handleSubmitAppeal = async (e) => {
         e?.preventDefault();
@@ -1003,6 +1023,14 @@ export default function Post({
                                     </DropdownMenuItem>
 
                                     <DropdownMenuItem
+                                        onClick={handleToggleFilterToxicComments}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                        <ShieldCheck className={`h-4 w-4 ${filterToxicComments ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                        {filterToxicComments ? 'Tắt lọc bình luận tiêu cực' : 'Bật lọc bình luận tiêu cực'}
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuItem
                                         onClick={handleTogglePin}
                                         className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
                                     >
@@ -1165,7 +1193,7 @@ export default function Post({
             <PostDetailModal
                 open={openDetail}
                 onClose={() => setOpenDetail(false)}
-                post={post}
+                post={{ ...post, filterToxicComments }}
                 currentUser={currentUser}
                 initialMediaIndex={initialMediaIndex}
                 onSubmitComment={(text) => {
