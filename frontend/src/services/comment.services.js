@@ -73,3 +73,13 @@ export const toggleLikeComment = async (commentId) => {
         throw error;
     }
 };
+
+export const toggleAllowComments = async (postId, allowComments) => {
+    try {
+        const res = await httpRequest.patch(`/post/comment/allow/${postId}`, { allowComments });
+        return res.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
