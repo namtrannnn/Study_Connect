@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, MoreHorizontal, Heart, SendHorizontal, MessageCircle, Pencil, Trash2, Bookmark, ChevronDown, ChevronUp, CornerDownRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, MoreHorizontal, Heart, SendHorizontal, MessageCircle, Pencil, Trash2, Bookmark, ChevronDown, ChevronUp, CornerDownRight, Loader2, ChevronLeft, ChevronRight, ShieldAlert, ShieldOff } from 'lucide-react';
 import { Swiper, SwiperSlide, useSwiper } from 'swiper/react';
 import { Navigation, Pagination, Keyboard } from 'swiper/modules';
 import { createPortal } from 'react-dom';
@@ -374,6 +374,8 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
     const [isSaved, setIsSaved] = useState(false);
     const [savingPost, setSavingPost] = useState(false);
     const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+    const [showToxicRaidBanner, setShowToxicRaidBanner] = useState(false);
+    const [disablingComments, setDisablingComments] = useState(false);
     const postId = post?._id || post?.id;
     const inputRef = useRef(null);
 
@@ -660,6 +662,32 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
         setCommentMeta((prev) => ({ ...prev, total: (prev.total || 0) + 1 }));
     };
 
+    const handleToxicRaidWarning = ({ postId: socketPostId }) => {
+        if (String(socketPostId) !== String(postId)) return;
+        const isOwner = String(postAuthorId) === String(currentUser?._id || currentUser?.id || currentUser?.userId);
+        if (!isOwner) return;
+        setShowToxicRaidBanner(true);
+    };
+
+    const handleSocketToggleComments = ({ postId: socketPostId, allowComments: newVal }) => {
+        if (String(socketPostId) !== String(postId)) return;
+        // If comments were disabled, could update local state here if needed
+        console.log('Toggle comments:', newVal);
+    };
+
+    const handleDisableComments = async () => {
+        try {
+            setDisablingComments(true);
+            await CommentServices.toggleAllowComments(postId, false);
+            setShowToxicRaidBanner(false);
+            toast.info('Đã tắt bình luận cho bài viết này');
+        } catch {
+            toast.error('Không thể tắt bình luận');
+        } finally {
+            setDisablingComments(false);
+        }
+    };
+
     useEffect(() => {
         if (!open || !postId) return;
         registerPostCommentSocketEvents({
@@ -667,6 +695,8 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
             onUpdateComment: handleSocketUpdateComment,
             onPendingDeleteComment: handleSocketPendingDeleteComment,
             onUndoDeleteComment: handleSocketUndoDeleteComment,
+            onToxicRaidWarning: handleToxicRaidWarning,
+            onToggleComments: handleSocketToggleComments,
         });
         return () => unregisterPostCommentSocketEvents();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -903,6 +933,43 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
                                         <p className="mt-1.5 pl-1 text-[11px] font-semibold text-slate-400">
                                             {timeAgo(createdAt)}
                                         </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Toxic Raid Warning Banner */}
+                            {showToxicRaidBanner && (
+                                <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-500/20 dark:bg-red-500/10 animate-[fadeIn_300ms_ease-out]">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-500/20">
+                                            <ShieldAlert className="h-5 w-5 text-red-500" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                                                ⚠️ Bão bình luận tiêu cực!
+                                            </p>
+                                            <p className="mt-1 text-xs leading-relaxed text-red-600/80 dark:text-red-300/70">
+                                                Bài viết của bạn đang nhận nhiều bình luận tiêu cực. Bạn có muốn tạm tắt bình luận không?
+                                            </p>
+                                            <div className="mt-3 flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleDisableComments}
+                                                    disabled={disablingComments}
+                                                    className="flex items-center gap-1.5 rounded-xl bg-red-500 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-red-600 active:scale-95 disabled:opacity-50"
+                                                >
+                                                    <ShieldOff size={13} />
+                                                    {disablingComments ? 'Đang xử lý...' : 'Tắt bình luận ngay'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowToxicRaidBanner(false)}
+                                                    className="rounded-xl px-3.5 py-2 text-xs font-semibold text-red-500 transition hover:bg-red-100 dark:hover:bg-red-500/10"
+                                                >
+                                                    Bỏ qua
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}

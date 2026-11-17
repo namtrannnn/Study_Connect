@@ -32,6 +32,8 @@ export const registerPostCommentSocketEvents = ({
     onUpdateComment,
     onPendingDeleteComment,
     onUndoDeleteComment,
+    onToxicRaidWarning,
+    onToggleComments,
 } = {}) => {
     const socket = getSocket();
 
@@ -45,6 +47,8 @@ export const registerPostCommentSocketEvents = ({
     socket.off('SERVER_RETURN_UPDATE_COMMENT');
     socket.off('SERVER_RETURN_PENDING_DELETE_COMMENT');
     socket.off('SERVER_RETURN_UNDO_DELETE_COMMENT');
+    socket.off('SERVER_RETURN_TOXIC_RAID_WARNING');
+    socket.off('SERVER_RETURN_TOGGLE_COMMENTS');
 
     socket.on('SERVER_RETURN_NEW_COMMENT', (data) => {
         console.log('SERVER_RETURN_NEW_COMMENT:', data);
@@ -65,6 +69,16 @@ export const registerPostCommentSocketEvents = ({
         console.log('SERVER_RETURN_UNDO_DELETE_COMMENT:', data);
         onUndoDeleteComment?.(data);
     });
+
+    socket.on('SERVER_RETURN_TOXIC_RAID_WARNING', (data) => {
+        console.log('SERVER_RETURN_TOXIC_RAID_WARNING:', data);
+        onToxicRaidWarning?.(data);
+    });
+
+    socket.on('SERVER_RETURN_TOGGLE_COMMENTS', (data) => {
+        console.log('SERVER_RETURN_TOGGLE_COMMENTS:', data);
+        onToggleComments?.(data);
+    });
 };
 
 export const unregisterPostCommentSocketEvents = () => {
@@ -76,4 +90,6 @@ export const unregisterPostCommentSocketEvents = () => {
     socket.off('SERVER_RETURN_UPDATE_COMMENT');
     socket.off('SERVER_RETURN_PENDING_DELETE_COMMENT');
     socket.off('SERVER_RETURN_UNDO_DELETE_COMMENT');
+    socket.off('SERVER_RETURN_TOXIC_RAID_WARNING');
+    socket.off('SERVER_RETURN_TOGGLE_COMMENTS');
 };

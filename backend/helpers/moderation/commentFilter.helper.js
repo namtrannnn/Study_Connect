@@ -150,9 +150,61 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
   return regexResult;
 }
 
+/**
+ * Theo dõi bão toxic theo cửa sổ thời gian trượt (Sliding Window 10 phút)
+ * @param {string} postId ID bài viết
+ * @param {number} windowMs Thời gian cửa sổ (mặc định 10 phút = 600,000ms)
+ * @param {number} threshold Ngưỡng kích hoạt cảnh báo (mặc định 5 cmt toxic)
+ * @returns {{ isRaidDetected: boolean, count: number }}
+ */
+function recordToxicCommentAndCheckRaid(postId, windowMs = 10 * 60 * 1000, threshold = 5) {
+  if (!postId) return { isRaidDetected: false, count: 0 };
+  const postIdStr = postId.toString();
+
+  if (!global._postToxicTracker) {
+    global._postToxicTracker = new Map();
+  }
+
+  const now = Date.now();
+  let tracker = global._postToxicTracker.get(postIdStr);
+
+  if (!tracker) {
+    tracker = {
+      timestamps: [],
+      lastAlertedAt: 0,
+    };
+    global._postToxicTracker.set(postIdStr, tracker);
+  }
+
+  // 1. Lọc bỏ các timestamp cũ đã quá 10 phút (kết thúc chu kỳ cũ)
+  tracker.timestamps = tracker.timestamps.filter((ts) => now - ts <= windowMs);
+
+  // 2. Thêm timestamp của bình luận toxic hiện tại
+  tracker.timestamps.push(now);
+
+  const currentCount = tracker.timestamps.length;
+
+  // 3. Kiểm tra xem có đạt ngưỡng bão toxic (>= 5 cmt) và chưa báo động trong vòng 1 tiếng
+  const cooldownAlertMs = 60 * 60 * 1000; // 1 tiếng không bắn cảnh báo lặp lại
+  const shouldAlert = currentCount >= threshold && (now - tracker.lastAlertedAt > cooldownAlertMs);
+
+  if (shouldAlert) {
+    tracker.lastAlertedAt = now;
+    return {
+      isRaidDetected: true,
+      count: currentCount,
+    };
+  }
+
+  return {
+    isRaidDetected: false,
+    count: currentCount,
+  };
+}
+
 module.exports = {
   normalizeText,
   evaluateCommentToxicity,
   checkCommentWithAI,
+  recordToxicCommentAndCheckRaid,
 };
-

@@ -35,6 +35,7 @@ const notificationSchema = new mongoose.Schema(
         "moderation_rejected",
         "appeal_approved",
         "appeal_rejected",
+        "toxic_raid_warning",
       ],
       required: true,
     },

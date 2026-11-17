@@ -24,6 +24,7 @@ const TYPE_ICONS = {
     moderation_rejected: '🚫',
     appeal_approved: '🎉',
     appeal_rejected: '⚖️',
+    toxic_raid_warning: '⚠️',
 };
 
 function formatTime(dateStr) {
@@ -106,6 +107,12 @@ export default function NotificationsPanel({ onClose, isOpen = false }) {
 
             // Mark as new in current session
             setNewlyUnreadIds((prev) => new Set([...prev, String(notification._id)]));
+
+            if (notification.type === 'toxic_raid_warning') {
+                toast.warn(notification.message || 'Bài viết của bạn đang nhận nhiều bình luận tiêu cực dồn dập!', {
+                    autoClose: 8000,
+                });
+            }
 
             if (typeof serverCount === 'number') {
                 setUnreadCountLocal(serverCount);
@@ -210,6 +217,7 @@ export default function NotificationsPanel({ onClose, isOpen = false }) {
             case 'moderation_rejected':
             case 'appeal_approved':
             case 'appeal_rejected':
+            case 'toxic_raid_warning':
                 if (targetPostId) navigate(`/post/${targetPostId}`);
                 break;
             case 'study_room_invite':
