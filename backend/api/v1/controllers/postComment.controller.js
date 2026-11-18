@@ -182,12 +182,31 @@ module.exports.createComment = async (req, res) => {
     // Kiểm tra tính năng lọc bình luận tiêu cực & phát hiện bão toxic
     let commentStatus = "active";
     let isToxicDetected = false;
+    let moderationMeta = {
+      isToxic: false,
+      toxicScore: 0,
+      label: "CLEAN",
+      engine: "none",
+      reason: "",
+      evaluatedAt: new Date(),
+    };
+
     try {
       const toxicCheck = await checkCommentWithAI(content);
-      if (toxicCheck && toxicCheck.isToxic) {
-        isToxicDetected = true;
-        if (post.filterToxicComments) {
-          commentStatus = "hidden";
+      if (toxicCheck) {
+        moderationMeta = {
+          isToxic: Boolean(toxicCheck.isToxic),
+          toxicScore: toxicCheck.toxicScore || 0,
+          label: toxicCheck.label || (toxicCheck.isToxic ? "OFFENSIVE" : "CLEAN"),
+          engine: toxicCheck.engine || "regex",
+          reason: toxicCheck.reason || "",
+          evaluatedAt: new Date(),
+        };
+        if (toxicCheck.isToxic) {
+          isToxicDetected = true;
+          if (post.filterToxicComments) {
+            commentStatus = "hidden";
+          }
         }
       }
     } catch (err) {
@@ -203,6 +222,7 @@ module.exports.createComment = async (req, res) => {
       replyToUser: repliedUser || null,
       mentions: mentionIds,
       status: commentStatus,
+      moderation: moderationMeta,
     });
 
     const roomName = `post:${postId}`;
@@ -462,7 +482,7 @@ module.exports.hideComment = async (req, res) => {
 
     const comment = await Comment.findOne({
       _id: commentId,
-      status: "active",
+      status: { $in: ["active", "hidden"] },
     });
 
     if (!comment) {
@@ -570,6 +590,27 @@ module.exports.editComment = async (req, res) => {
     });
 
     const mentionIds = await getMentionUserIdsFromContent(content);
+
+    // Đánh giá lại độ độc hại khi nội dung bình luận được sửa đổi
+    try {
+      const post = await Post.findById(comment.post);
+      const toxicCheck = await checkCommentWithAI(content);
+      if (toxicCheck) {
+        comment.moderation = {
+          isToxic: Boolean(toxicCheck.isToxic),
+          toxicScore: toxicCheck.toxicScore || 0,
+          label: toxicCheck.label || (toxicCheck.isToxic ? "OFFENSIVE" : "CLEAN"),
+          engine: toxicCheck.engine || "regex",
+          reason: toxicCheck.reason || "",
+          evaluatedAt: new Date(),
+        };
+        if (post && post.filterToxicComments) {
+          comment.status = toxicCheck.isToxic ? "hidden" : "active";
+        }
+      }
+    } catch (err) {
+      console.error("Filter comment error on edit:", err);
+    }
 
     comment.content = content;
     comment.mentions = mentionIds;

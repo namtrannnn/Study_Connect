@@ -114,6 +114,35 @@ const commentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    moderation: {
+      isToxic: {
+        type: Boolean,
+        default: false,
+      },
+      toxicScore: {
+        type: Number,
+        default: 0,
+      },
+      label: {
+        type: String,
+        enum: ["CLEAN", "OFFENSIVE", "HATE"],
+        default: "CLEAN",
+      },
+      engine: {
+        type: String,
+        enum: ["regex", "visobert", "none"],
+        default: "none",
+      },
+      reason: {
+        type: String,
+        default: "",
+      },
+      evaluatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   { timestamps: true },
 );

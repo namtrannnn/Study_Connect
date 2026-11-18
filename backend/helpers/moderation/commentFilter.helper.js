@@ -169,10 +169,13 @@ function evaluateCommentToxicity(content = "", customKeywords = []) {
 
   // Ngưỡng phát hiện toxic là >= 70 điểm
   const isToxic = highestToxicScore >= 70;
+  const label = isToxic ? (highestToxicScore >= 90 ? "HATE" : "OFFENSIVE") : "CLEAN";
 
   return {
     isToxic,
     toxicScore: highestToxicScore,
+    label,
+    engine: "regex",
     reason: detectedReason || (isToxic ? "Bình luận chứa ngôn từ độc hại / tiêu cực" : ""),
   };
 }
@@ -200,7 +203,9 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
     if (response.data && (response.data.label === "HATE" || response.data.label === "OFFENSIVE")) {
       return {
         isToxic: true,
-        toxicScore: 85,
+        toxicScore: response.data.score ? Math.round(response.data.score * 100) : 85,
+        label: response.data.label,
+        engine: "visobert",
         reason: "Phát hiện nội dung thù ghét/xúc phạm qua ViSoBERT",
       };
     }
