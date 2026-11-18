@@ -103,7 +103,7 @@ const TOXIC_PATTERNS = [
 
   // 4. Miệt thị giới tính / gái gọi / mại dâm
   {
-    pattern: /\b(di|cave|pho|gai\s*goi|lam\s*tien|con\s*diem|thang\s*be\s*de|dam\s*tac|bien\s*thai)\b/i,
+    pattern: /\b(con\s*di|do\s*di|lam\s*di|di\s*thoa|di\s*diem|cave|pho|gai\s*goi|lam\s*tien|con\s*diem|thang\s*be\s*de|dam\s*tac|bien\s*thai|đĩ)\b/i,
     weight: 90,
     reason: "Miệt thị giới tính, ngôn từ quấy rối",
   },
@@ -191,26 +191,57 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
     return regexResult;
   }
 
-  // Nếu Regex không bắt nhưng có cài service ViSoBERT local, thử gọi phân tích ngữ cảnh
-  try {
-    const axios = require("axios");
-    const response = await axios.post(
-      "http://127.0.0.1:8001/predict",
-      { text: content },
-      { timeout: 80 } // Giới hạn 80ms, nếu không phản hồi thì bỏ qua ngay để không lag
-    );
+  // Nếu Regex không bắt nhưng có cài service ViSoBERT local/cloud, gọi phân tích ngữ cảnh
+  const candidateUrls = process.env.VISOBERT_SERVICE_URL
+    ? [process.env.VISOBERT_SERVICE_URL]
+    : [
+        "http://host.docker.internal:8001/predict",
+        "http://127.0.0.1:8001/predict",
+      ];
 
-    if (response.data && (response.data.label === "HATE" || response.data.label === "OFFENSIVE")) {
-      return {
-        isToxic: true,
-        toxicScore: response.data.score ? Math.round(response.data.score * 100) : 85,
-        label: response.data.label,
-        engine: "visobert",
-        reason: "Phát hiện nội dung thù ghét/xúc phạm qua ViSoBERT",
-      };
+  const axios = require("axios");
+  const timeoutMs = parseInt(process.env.VISOBERT_TIMEOUT || "2000", 10);
+
+  for (const serviceUrl of candidateUrls) {
+    try {
+      const response = await axios.post(
+        serviceUrl,
+        { text: content },
+        { timeout: timeoutMs }
+      );
+
+      if (
+        response.data &&
+        (response.data.label === "HATE" ||
+          response.data.label === "OFFENSIVE" ||
+          response.data.isToxic)
+      ) {
+        const score = response.data.score
+          ? Math.round(response.data.score * 100)
+          : 85;
+        return {
+          isToxic: true,
+          toxicScore: score,
+          label: response.data.label || "OFFENSIVE",
+          engine: "visobert",
+          reason:
+            response.data.reason ||
+            "Phát hiện nội dung xúc phạm/thù ghét qua ViSoBERT (Tầng 2)",
+        };
+      } else if (response.data && !response.data.isToxic) {
+        return {
+          isToxic: false,
+          toxicScore: response.data.score
+            ? Math.round((1 - response.data.score) * 100)
+            : 0,
+          label: "CLEAN",
+          engine: "visobert",
+          reason: "",
+        };
+      }
+    } catch (_) {
+      // Service offline hoặc endpoint này không tới được -> thử URL tiếp theo
     }
-  } catch (_) {
-    // ViSoBERT offline hoặc timeout -> tiếp tục dùng kết quả regexResult
   }
 
   return regexResult;

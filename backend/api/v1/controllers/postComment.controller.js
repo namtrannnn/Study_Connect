@@ -559,7 +559,7 @@ module.exports.editComment = async (req, res) => {
 
     const comment = await Comment.findOne({
       _id: commentId,
-      status: "active",
+      status: { $in: ["active", "hidden"] },
     });
 
     if (!comment) {
