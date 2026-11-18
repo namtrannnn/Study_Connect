@@ -205,32 +205,32 @@ module.exports.createComment = async (req, res) => {
       status: commentStatus,
     });
 
+    const roomName = `post:${postId}`;
+
     // Theo dõi bão toxic trong 10 phút gần nhất và cảnh báo nếu có dồn dập >= 5 bình luận
     if (isToxicDetected) {
       const raidCheck = recordToxicCommentAndCheckRaid(postId);
       if (raidCheck.isRaidDetected) {
         try {
+          const authorId = (post.author?._id || post.author).toString();
           await createNotification({
-            receiver: post.author._id,
+            receiver: authorId,
             sender: null,
             type: "toxic_raid_warning",
             title: "Cảnh báo bão bình luận",
             message: `Bài viết của bạn đang nhận ${raidCheck.count} bình luận tiêu cực dồn dập trong 10 phút qua. Bạn có thể tạm tắt bình luận để bảo vệ bài viết.`,
             refId: post._id,
             refType: "post",
-          }).catch(() => {});
+          }).catch((err) => console.error("Error creating raid notification:", err));
 
           if (global._io) {
-            global._io.to(post.author._id.toString()).emit("SERVER_RETURN_TOXIC_RAID_WARNING", {
+            const raidPayload = {
               postId: post._id.toString(),
               toxicCount: raidCheck.count,
               message: `Bài viết của bạn đang nhận ${raidCheck.count} bình luận tiêu cực dồn dập trong 10 phút qua.`,
-            });
-            global._io.to(roomName).emit("SERVER_RETURN_TOXIC_RAID_WARNING", {
-              postId: post._id.toString(),
-              toxicCount: raidCheck.count,
-              message: `Bài viết của bạn đang nhận ${raidCheck.count} bình luận tiêu cực dồn dập trong 10 phút qua.`,
-            });
+            };
+            global._io.to(authorId).emit("SERVER_RETURN_TOXIC_RAID_WARNING", raidPayload);
+            global._io.to(roomName).emit("SERVER_RETURN_TOXIC_RAID_WARNING", raidPayload);
           }
         } catch (err) {
           console.error("Toxic raid alert error:", err);
@@ -250,7 +250,6 @@ module.exports.createComment = async (req, res) => {
       .populate("user", "fullName username avatar isVerified")
       .populate("replyToUser", "fullName username avatar isVerified")
       .populate("mentions", "fullName username avatar isVerified");
-    const roomName = `post:${postId}`;
 
     global._io.to(roomName).emit("SERVER_RETURN_NEW_COMMENT", {
       postId: postId.toString(),

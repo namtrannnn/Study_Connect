@@ -4,6 +4,14 @@
  * Có thể kết nối service ViSoBERT local (port 8001) với fallback tự động sang Regex Engine.
  */
 
+function removeAccents(str = "") {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+}
+
 // Bảng ánh xạ Teencode & Leetspeak sang chữ cái thông thường
 const LEET_MAP = {
   "0": "o",
@@ -18,11 +26,13 @@ const LEET_MAP = {
 };
 
 /**
- * Chuẩn hóa văn bản: xóa dấu chấm xen kẽ, biến thể số, ký tự lặp
+ * Chuẩn hóa văn bản: xóa dấu chấm xen kẽ, biến thể số, ký tự lặp, bỏ dấu tiếng Việt
  * Ví dụ: "đ.m", "0'c ch'0", "v_c_l", "dmmmmm" -> "dm", "oc cho", "vcl", "dmm"
  */
 function normalizeText(input = "") {
-  if (!input || typeof input !== "string") return "";
+  if (!input || typeof input !== "string") {
+    return { raw: "", normalized: "", noAccent: "" };
+  }
 
   let text = input.toLowerCase().trim();
 
@@ -30,38 +40,80 @@ function normalizeText(input = "") {
   text = text.replace(/[013457@$!]/g, (char) => LEET_MAP[char] || char);
 
   // 2. Xóa các ký tự xen kẽ như . , _ - * ~
-  const strippedSeparators = text.replace(/[\.\,\_\-\*\~\^\`\'\"\(\)]/g, "");
+  const strippedSeparators = text.replace(/[\.\,\_\-\~\^\`\'\"\(\)]/g, "");
 
   // 3. Rút gọn ký tự lặp quá 2 lần (ví dụ: "dmmmm" -> "dmm", "đụuuuu" -> "đụ")
   const collapsedRepeats = strippedSeparators.replace(/(.)\1{2,}/g, "$1$1");
 
+  // 4. Bỏ dấu tiếng Việt và đ -> d để regex word boundary \b hoạt động chính xác 100%
+  const noAccent = removeAccents(collapsedRepeats);
+
   return {
     raw: text,
     normalized: collapsedRepeats,
+    noAccent: noAccent,
   };
 }
 
 /**
  * Danh sách Pattern nhận diện Toxic / Offensive / Hate Speech tiếng Việt
+ * Áp dụng trên cả chuỗi raw, chuỗi normalized và chuỗi không dấu (noAccent).
  */
 const TOXIC_PATTERNS = [
-  // 1. Chửi thề viết tắt / Acronyms
-  { pattern: /\b(vcl|vkl|dmm|clm|đbrr|vđr|đkm|cmnr|cđm|vcll|vclol|dm)\b/i, weight: 85, reason: "Từ ngữ chửi thề viết tắt" },
-  
-  // 2. Từ ngữ thô tục cơ quan sinh dục / chửi bới trực tiếp
-  { pattern: /\b(lồn|lon|l0n|buồi|buoi|cặc|cac|c4c|đụ|du|địt|dit|d1t|đéo|deo|đách|mẹ mày|bố mày|cha mày)\b/i, weight: 90, reason: "Ngôn từ thô tục, chửi thề" },
-  { pattern: /(nứng\s*(cặc|lồn)|bú\s*(buồi|cu|cặc)|chịch|đụ\s*má|địt\s*mẹ|đmm|dcm|đcm)/i, weight: 95, reason: "Ngôn từ dung tục, thô thiển" },
+  // 1. Chửi thề viết tắt / Acronyms (kiểm tra trên noAccent)
+  {
+    pattern: /\b(vcl|vkl|vcc|vcll|vclol|dmm|dkm|dkmm|clm|clmm|dcm|dcmm|dm|cmnr|cdm|dbrr|vdr|vdrr|cc|cl)\b/i,
+    weight: 85,
+    reason: "Từ ngữ chửi thề viết tắt",
+  },
 
-  // 3. Xúc phạm trí tuệ / hạ nhục nhân phẩm
-  { pattern: /(óc\s*chó|oc\s*cho|não\s*tàn|nao\s*tan|bại\s*não|bai\s*nao|ngu\s*(si|học|dốt|ngục|vcl|như\s*chó|như\s*bò))/i, weight: 85, reason: "Xúc phạm trí tuệ, hạ nhục nhân phẩm" },
-  { pattern: /(đồ\s*(súc\s*sinh|súc\s*vật|rác\s*rưởi|rẻ\s*rách|khuyết\s*tật|khốn\s*nạn|mất\s*dạy))/i, weight: 90, reason: "Lăng mạ, xúc phạm nặng nề" },
-  { pattern: /\b(cút\s*đi|biến\s*đi|chết\s*đi|mặt\s*lợn|mặt\s*chó|mặt\s*dày)\b/i, weight: 80, reason: "Xúc phạm, đuổi xua thù ghét" },
+  // 2. Từ ngữ thô tục / chửi bới trực tiếp
+  {
+    pattern: /\b(lon|buoi|cac|du|dit|deo|dach)\b/i,
+    weight: 90,
+    reason: "Ngôn từ thô tục, chửi thề",
+  },
+  {
+    pattern: /\b(me\s*(may|m|no)|bo\s*(may|m)|cha\s*(may|m)|con\s*me|dit\s*me|du\s*ma|du\s*me|chich|dmm|dcm|dkm)\b/i,
+    weight: 90,
+    reason: "Chửi bới xúc phạm",
+  },
+  {
+    pattern: /(nung\s*(cac|lon)|bu\s*(buoi|cu|cac)|chich\s*(nhau|choa)|dit\s*nhau)/i,
+    weight: 95,
+    reason: "Ngôn từ dung tục",
+  },
+
+  // 3. Xúc phạm trí tuệ / hạ nhục nhân phẩm / xua đuổi thù ghét
+  {
+    pattern: /(oc\s*cho|nao\s*tan|bai\s*nao|ngu\s*(si|hoc|dot|nguc|vcl|nhu\s*cho|nhu\s*bo|vl|the|vai|lon|qua|the\s*nho)|thang\s*ngu|con\s*ngu)/i,
+    weight: 85,
+    reason: "Xúc phạm trí tuệ, hạ nhục nhân phẩm",
+  },
+  {
+    pattern: /(do\s*(suc\s*sinh|suc\s*vat|rac\s*ruoi|re\s*rach|khuyet\s*tat|khon\s*nan|mat\s*day)|thang\s*mat\s*day|con\s*mat\s*day)/i,
+    weight: 90,
+    reason: "Lăng mạ, xúc phạm nặng nề",
+  },
+  {
+    pattern: /\b(cut(\s*(di|me|khoi|nhanh|ba|ra))?|bien(\s*(di|me|khoi|nhanh|ba|ra))?|chet\s*di|mat\s*(lon|cho|day))\b/i,
+    weight: 80,
+    reason: "Xúc phạm, xua đuổi thù ghét",
+  },
 
   // 4. Miệt thị giới tính / gái gọi / mại dâm
-  { pattern: /\b(đĩ|cave|phò|gái\s*gọi|làm\s*tiền|con\s*điếm|thằng\s*bê\s*đê|dâm\s*tặc|biến\s*thái)\b/i, weight: 90, reason: "Miệt thị giới tính, ngôn từ quấy rối" },
+  {
+    pattern: /\b(di|cave|pho|gai\s*goi|lam\s*tien|con\s*diem|thang\s*be\s*de|dam\s*tac|bien\s*thai)\b/i,
+    weight: 90,
+    reason: "Miệt thị giới tính, ngôn từ quấy rối",
+  },
 
   // 5. Cờ bạc / Lừa đảo / Bán đề
-  { pattern: /(tài\s*xỉu|kèo\s*nhà\s*cái|game\s*đổi\s*thưởng|nổ\s*hũ|chạy\s*điểm|bán\s*đề)/i, weight: 90, reason: "Quảng cáo cờ bạc, lừa đảo" },
+  {
+    pattern: /(tai\s*xiu|keo\s*nha\s*cai|game\s*doi\s*thuong|no\s*hu|chay\s*diem|ban\s*de)/i,
+    weight: 90,
+    reason: "Quảng cáo cờ bạc, lừa đảo",
+  },
 ];
 
 /**
@@ -75,7 +127,7 @@ function evaluateCommentToxicity(content = "", customKeywords = []) {
     return { isToxic: false, toxicScore: 0, reason: "" };
   }
 
-  const { raw, normalized } = normalizeText(content);
+  const { raw, normalized, noAccent } = normalizeText(content);
   let highestToxicScore = 0;
   let detectedReason = "";
 
@@ -84,9 +136,14 @@ function evaluateCommentToxicity(content = "", customKeywords = []) {
     for (const kw of customKeywords) {
       if (!kw || typeof kw !== "string") continue;
       const cleanKw = kw.trim().toLowerCase();
+      const cleanKwNoAccent = removeAccents(cleanKw);
       if (!cleanKw) continue;
 
-      if (raw.includes(cleanKw) || normalized.includes(cleanKw)) {
+      if (
+        raw.includes(cleanKw) ||
+        normalized.includes(cleanKw) ||
+        noAccent.includes(cleanKwNoAccent)
+      ) {
         return {
           isToxic: true,
           toxicScore: 100,
@@ -96,9 +153,13 @@ function evaluateCommentToxicity(content = "", customKeywords = []) {
     }
   }
 
-  // 2. Quét qua tập Toxic Patterns chuẩn hóa
+  // 2. Quét qua tập Toxic Patterns chuẩn hóa (quét raw, normalized, và noAccent)
   for (const item of TOXIC_PATTERNS) {
-    if (item.pattern.test(raw) || item.pattern.test(normalized)) {
+    if (
+      item.pattern.test(raw) ||
+      item.pattern.test(normalized) ||
+      item.pattern.test(noAccent)
+    ) {
       if (item.weight > highestToxicScore) {
         highestToxicScore = item.weight;
         detectedReason = item.reason;
@@ -139,12 +200,12 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
     if (response.data && (response.data.label === "HATE" || response.data.label === "OFFENSIVE")) {
       return {
         isToxic: true,
-        toxicScore: response.data.toxicScore || 85,
-        reason: "AI ViSoBERT nhận diện nội dung có yếu tố xúc phạm / thù ghét",
+        toxicScore: 85,
+        reason: "Phát hiện nội dung thù ghét/xúc phạm qua ViSoBERT",
       };
     }
-  } catch (err) {
-    // Không chạy ViSoBERT service hoặc timeout -> an tâm sử dụng kết quả Regex
+  } catch (_) {
+    // ViSoBERT offline hoặc timeout -> tiếp tục dùng kết quả regexResult
   }
 
   return regexResult;
@@ -203,6 +264,7 @@ function recordToxicCommentAndCheckRaid(postId, windowMs = 10 * 60 * 1000, thres
 }
 
 module.exports = {
+  removeAccents,
   normalizeText,
   evaluateCommentToxicity,
   checkCommentWithAI,
