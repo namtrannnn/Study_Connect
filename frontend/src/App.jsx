@@ -101,6 +101,11 @@ function App() {
                         toast.error(notification.message);
                     } else if (notification.type === 'moderation_approved' || notification.type === 'appeal_approved') {
                         toast.success(notification.message);
+                    } else if (notification.type === 'toxic_raid_warning') {
+                        toast.warn(notification.message, {
+                            toastId: `toxic-raid-${notification.refId || 'alert'}`,
+                            autoClose: 8000,
+                        });
                     } else {
                         toast.info(notification.message);
                     }
