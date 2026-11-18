@@ -20,6 +20,8 @@ import {
     ExternalLink,
     ImageIcon,
     Image as ImageIconSimple,
+    ShieldAlert,
+    ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getAdminComments, updateCommentStatus, deleteAdminComment, updatePostStatus, softDeleteAdminPost } from '../../../services/adminServices';
@@ -392,6 +394,26 @@ function CommentsAdmin() {
                                                 <p className={`line-clamp-2 truncate ${isDark ? 'text-gray-200' : 'text-slate-800'}`}>
                                                     {c.content || 'Hình ảnh / Sticker'}
                                                 </p>
+                                                {c.moderation && (
+                                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                        {c.moderation.isToxic ? (
+                                                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/20" title={c.moderation.reason || 'Tiêu cực'}>
+                                                                <ShieldAlert className="h-2.5 w-2.5" />
+                                                                {c.moderation.label || 'TOXIC'} • {c.moderation.toxicScore || 85}đ
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/20">
+                                                                <ShieldCheck className="h-2.5 w-2.5" />
+                                                                CLEAN
+                                                            </span>
+                                                        )}
+                                                        {c.moderation.reason && c.moderation.isToxic && (
+                                                            <span className="text-[10px] text-gray-400 truncate max-w-[130px]" title={c.moderation.reason}>
+                                                                {c.moderation.reason}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
 
                                             <td className="px-6 py-4 max-w-xs" onClick={(e) => e.stopPropagation()}>
@@ -538,6 +560,74 @@ function CommentsAdmin() {
                                 {selectedCommentDetail.content}
                             </div>
                         </div>
+
+                        {/* Moderation Details Card */}
+                        {selectedCommentDetail.moderation && (
+                            <div className={`rounded-2xl border p-4 space-y-3 ${
+                                selectedCommentDetail.moderation.isToxic 
+                                    ? (isDark ? 'border-rose-500/20 bg-rose-500/5' : 'border-rose-200 bg-rose-50/60')
+                                    : (isDark ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/60')
+                            }`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        {selectedCommentDetail.moderation.isToxic ? (
+                                            <ShieldAlert className="h-4 w-4 text-rose-500" />
+                                        ) : (
+                                            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                                        )}
+                                        <span className={`font-bold text-xs uppercase tracking-wider ${
+                                            selectedCommentDetail.moderation.isToxic ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                        }`}>
+                                            {selectedCommentDetail.moderation.isToxic ? 'Đánh giá: Tiêu cực / Độc hại' : 'Đánh giá: An toàn / Hợp lệ'}
+                                        </span>
+                                    </div>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
+                                        selectedCommentDetail.moderation.isToxic
+                                            ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                            : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                    }`}>
+                                        {selectedCommentDetail.moderation.label || 'CLEAN'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-xs pt-1 border-t border-black/5 dark:border-white/5">
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block mb-0.5">Điểm vi phạm:</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-extrabold text-xs">{selectedCommentDetail.moderation.toxicScore || 0}/100</span>
+                                            <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all ${
+                                                        selectedCommentDetail.moderation.toxicScore >= 90
+                                                            ? 'bg-rose-500'
+                                                            : selectedCommentDetail.moderation.toxicScore >= 70
+                                                            ? 'bg-amber-500'
+                                                            : 'bg-emerald-500'
+                                                    }`}
+                                                    style={{ width: `${selectedCommentDetail.moderation.toxicScore || 0}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block mb-0.5">Công nghệ kiểm tra:</span>
+                                        <span className="font-bold text-xs text-indigo-400">
+                                            {selectedCommentDetail.moderation.engine === 'visobert' ? 'ViSoBERT (AI Deep Learning)' : 'Local Regex Engine (0ms)'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {selectedCommentDetail.moderation.reason && (
+                                    <div className="text-xs pt-1.5 border-t border-black/5 dark:border-white/5">
+                                        <span className="text-[10px] text-gray-400 block mb-0.5">Lý do phát hiện:</span>
+                                        <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                                            {selectedCommentDetail.moderation.reason}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Child Replies List if any */}
                         {selectedCommentDetail.replies && selectedCommentDetail.replies.length > 0 && (

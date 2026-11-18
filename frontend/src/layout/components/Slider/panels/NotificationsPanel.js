@@ -108,11 +108,7 @@ export default function NotificationsPanel({ onClose, isOpen = false }) {
             // Mark as new in current session
             setNewlyUnreadIds((prev) => new Set([...prev, String(notification._id)]));
 
-            if (notification.type === 'toxic_raid_warning') {
-                toast.warn(notification.message || 'Bài viết của bạn đang nhận nhiều bình luận tiêu cực dồn dập!', {
-                    autoClose: 8000,
-                });
-            }
+
 
             if (typeof serverCount === 'number') {
                 setUnreadCountLocal(serverCount);

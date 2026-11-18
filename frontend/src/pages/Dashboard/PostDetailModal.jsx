@@ -599,8 +599,11 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
 
         // Nếu bình luận bị ẩn do tiêu cực, chỉ chủ bài viết và tác giả bình luận mới thấy
         if (comment.status === 'hidden') {
-            const isOwner = String(post?.author?._id || postAuthorId) === String(currentUser?._id);
-            const isCommentAuthor = String(comment.user?._id) === String(currentUser?._id);
+            const currentUserId = String(currentUser?._id || currentUser?.id || currentUser?.userId || '');
+            const authorId = String(postAuthorId || post?.author?._id || post?.author?.id || (typeof post?.author === 'string' ? post?.author : '') || '');
+            const isOwner = Boolean(currentUserId && authorId && currentUserId === authorId);
+            const commentUserId = String(comment.user?._id || comment.user?.id || (typeof comment.user === 'string' ? comment.user : '') || '');
+            const isCommentAuthor = Boolean(currentUserId && commentUserId && commentUserId === currentUserId);
             if (!isOwner && !isCommentAuthor) return;
         }
         setComments((prev) => {
@@ -664,7 +667,9 @@ export default function PostDetailModal({ open, onClose, post, currentUser, onSu
 
     const handleToxicRaidWarning = ({ postId: socketPostId }) => {
         if (String(socketPostId) !== String(postId)) return;
-        const isOwner = String(postAuthorId) === String(currentUser?._id || currentUser?.id || currentUser?.userId);
+        const currentUserId = String(currentUser?._id || currentUser?.id || currentUser?.userId || '');
+        const authorId = String(postAuthorId || post?.author?._id || post?.author?.id || (typeof post?.author === 'string' ? post?.author : '') || '');
+        const isOwner = Boolean(currentUserId && authorId && currentUserId === authorId);
         if (!isOwner) return;
         setShowToxicRaidBanner(true);
     };

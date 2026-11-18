@@ -182,12 +182,31 @@ module.exports.createComment = async (req, res) => {
     // Kiểm tra tính năng lọc bình luận tiêu cực & phát hiện bão toxic
     let commentStatus = "active";
     let isToxicDetected = false;
+    let moderationMeta = {
+      isToxic: false,
+      toxicScore: 0,
+      label: "CLEAN",
+      engine: "none",
+      reason: "",
+      evaluatedAt: new Date(),
+    };
+
     try {
       const toxicCheck = await checkCommentWithAI(content);
-      if (toxicCheck && toxicCheck.isToxic) {
-        isToxicDetected = true;
-        if (post.filterToxicComments) {
-          commentStatus = "hidden";
+      if (toxicCheck) {
+        moderationMeta = {
+          isToxic: Boolean(toxicCheck.isToxic),
+          toxicScore: toxicCheck.toxicScore || 0,
+          label: toxicCheck.label || (toxicCheck.isToxic ? "OFFENSIVE" : "CLEAN"),
+          engine: toxicCheck.engine || "regex",
+          reason: toxicCheck.reason || "",
+          evaluatedAt: new Date(),
+        };
+        if (toxicCheck.isToxic) {
+          isToxicDetected = true;
+          if (post.filterToxicComments) {
+            commentStatus = "hidden";
+          }
         }
       }
     } catch (err) {
@@ -203,34 +222,35 @@ module.exports.createComment = async (req, res) => {
       replyToUser: repliedUser || null,
       mentions: mentionIds,
       status: commentStatus,
+      moderation: moderationMeta,
     });
+
+    const roomName = `post:${postId}`;
 
     // Theo dõi bão toxic trong 10 phút gần nhất và cảnh báo nếu có dồn dập >= 5 bình luận
     if (isToxicDetected) {
       const raidCheck = recordToxicCommentAndCheckRaid(postId);
       if (raidCheck.isRaidDetected) {
         try {
+          const authorId = (post.author?._id || post.author).toString();
           await createNotification({
-            receiver: post.author._id,
+            receiver: authorId,
             sender: null,
             type: "toxic_raid_warning",
             title: "Cảnh báo bão bình luận",
             message: `Bài viết của bạn đang nhận ${raidCheck.count} bình luận tiêu cực dồn dập trong 10 phút qua. Bạn có thể tạm tắt bình luận để bảo vệ bài viết.`,
             refId: post._id,
             refType: "post",
-          }).catch(() => {});
+          }).catch((err) => console.error("Error creating raid notification:", err));
 
           if (global._io) {
-            global._io.to(post.author._id.toString()).emit("SERVER_RETURN_TOXIC_RAID_WARNING", {
+            const raidPayload = {
               postId: post._id.toString(),
               toxicCount: raidCheck.count,
               message: `Bài viết của bạn đang nhận ${raidCheck.count} bình luận tiêu cực dồn dập trong 10 phút qua.`,
-            });
-            global._io.to(roomName).emit("SERVER_RETURN_TOXIC_RAID_WARNING", {
-              postId: post._id.toString(),
-              toxicCount: raidCheck.count,
-              message: `Bài viết của bạn đang nhận ${raidCheck.count} bình luận tiêu cực dồn dập trong 10 phút qua.`,
-            });
+            };
+            global._io.to(authorId).emit("SERVER_RETURN_TOXIC_RAID_WARNING", raidPayload);
+            global._io.to(roomName).emit("SERVER_RETURN_TOXIC_RAID_WARNING", raidPayload);
           }
         } catch (err) {
           console.error("Toxic raid alert error:", err);
@@ -250,7 +270,6 @@ module.exports.createComment = async (req, res) => {
       .populate("user", "fullName username avatar isVerified")
       .populate("replyToUser", "fullName username avatar isVerified")
       .populate("mentions", "fullName username avatar isVerified");
-    const roomName = `post:${postId}`;
 
     global._io.to(roomName).emit("SERVER_RETURN_NEW_COMMENT", {
       postId: postId.toString(),
@@ -463,7 +482,7 @@ module.exports.hideComment = async (req, res) => {
 
     const comment = await Comment.findOne({
       _id: commentId,
-      status: "active",
+      status: { $in: ["active", "hidden"] },
     });
 
     if (!comment) {
@@ -540,7 +559,7 @@ module.exports.editComment = async (req, res) => {
 
     const comment = await Comment.findOne({
       _id: commentId,
-      status: "active",
+      status: { $in: ["active", "hidden"] },
     });
 
     if (!comment) {
@@ -571,6 +590,27 @@ module.exports.editComment = async (req, res) => {
     });
 
     const mentionIds = await getMentionUserIdsFromContent(content);
+
+    // Đánh giá lại độ độc hại khi nội dung bình luận được sửa đổi
+    try {
+      const post = await Post.findById(comment.post);
+      const toxicCheck = await checkCommentWithAI(content);
+      if (toxicCheck) {
+        comment.moderation = {
+          isToxic: Boolean(toxicCheck.isToxic),
+          toxicScore: toxicCheck.toxicScore || 0,
+          label: toxicCheck.label || (toxicCheck.isToxic ? "OFFENSIVE" : "CLEAN"),
+          engine: toxicCheck.engine || "regex",
+          reason: toxicCheck.reason || "",
+          evaluatedAt: new Date(),
+        };
+        if (post && post.filterToxicComments) {
+          comment.status = toxicCheck.isToxic ? "hidden" : "active";
+        }
+      }
+    } catch (err) {
+      console.error("Filter comment error on edit:", err);
+    }
 
     comment.content = content;
     comment.mentions = mentionIds;
