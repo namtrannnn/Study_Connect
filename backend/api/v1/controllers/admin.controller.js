@@ -580,8 +580,21 @@ module.exports.getComments = async (req, res) => {
           }
         : null;
 
+      const isToxicFallback = c.status === "hidden";
+      const moderationMeta = c.moderation && c.moderation.evaluatedAt
+        ? c.moderation
+        : {
+            isToxic: isToxicFallback,
+            toxicScore: isToxicFallback ? 85 : 0,
+            label: isToxicFallback ? "OFFENSIVE" : "CLEAN",
+            engine: "regex",
+            reason: isToxicFallback ? "Bình luận bị ẩn do vi phạm tiêu chuẩn" : "",
+            evaluatedAt: c.createdAt,
+          };
+
       return {
         ...c,
+        moderation: moderationMeta,
         user_id: c.user,
         post_id: postObj,
         replies: childRepliesMap[String(c._id)] || [],
