@@ -34,7 +34,7 @@ def remove_accents(text: str) -> str:
     text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
     return text.replace('đ', 'd').replace('Đ', 'D')
 
-# Các dấu hiệu công kích / miệt thị / hạ nhục nhân phẩm
+# Các dấu hiệu công kích / miệt thị / hạ nhục nhân phẩm / trù ẻo
 ATTACK_PATTERNS = [
     r'\b(mặt|mắt|mõm)\s+(xấu|ma|lợn|dày|đần|hãm|ghê|tởm)\b',
     r'\bvô\s*(văn\s*hóa|học|ý\s*thức|liêm\s*sỉ|giáo\s*dục)\b',
@@ -45,6 +45,7 @@ ATTACK_PATTERNS = [
     r'\b(chết\s*đi|cút|biến|tiễn|đáng\s*đời)\b',
     r'\b(nhìn\s*cái\s*mặt|cái\s*bản\s*mặt)\b',
     r'\b(tôn\s*trọng\s*được)\b',
+    r'\b(gặp\s*tai\s*nạn|bị\s*(xe\s*tông|xe\s*cán|xe\s*đâm)|sớm\s*(chết|đi\s*đời)|chết\s*bờ|chết\s*tiệt|chết\s*không\s*chỗ\s*chôn)\b',
 ]
 
 ATTACK_PATTERNS_NO_ACCENT = [
@@ -55,13 +56,14 @@ ATTACK_PATTERNS_NO_ACCENT = [
     r'\b(ao\s*tuong|xam\s*xi|bot\s*xam)\b',
     r'\b(chet\s*di|cut|bien|dang\s*doi)\b',
     r'\b(nhin\s*cai\s*mat|cai\s*ban\s*mat)\b',
+    r'\b(gap\s*tai\s*nan|bi\s*(xe\s*tong|xe\s*can|xe\s*dam)|som\s*(chet|di\s*doi)|chet\s*bo|chet\s*tiet)\b',
 ]
 
 INNOCENT_PERSONAL = [
-    r'\b(buồn|mệt|chán|thất vọng|áp lực|stress|khóc|tiếc|đau lòng|nản|cô đơn)\b'
+    r'\b(buồn|mệt|thất vọng|áp lực|stress|khóc|tiếc|đau lòng|chán\s*nản|nản\s*lòng|cô đơn)\b'
 ]
 INNOCENT_NO_ACCENT = [
-    r'\b(buon|met|chan|that vong|ap luc|stress|khoc|tiec|dau long|nan|co don)\b'
+    r'\b(buon|met|that vong|ap luc|stress|khoc|tiec|dau long|chan\s*nan|nan\s*long|co don)\b'
 ]
 
 @app.get("/health")
@@ -83,40 +85,40 @@ def predict_toxicity(payload: CommentInput):
         raw_label = res["label"]
         conf = float(res["score"])
 
-        if raw_label == "NEG":
-            lower = text.lower()
-            text_no_accent = remove_accents(lower)
+        lower = text.lower()
+        text_no_accent = remove_accents(lower)
 
-            is_attack = (
-                any(re.search(p, lower) for p in ATTACK_PATTERNS) or
-                any(re.search(p, text_no_accent) for p in ATTACK_PATTERNS_NO_ACCENT)
-            )
+        is_attack = (
+            any(re.search(p, lower) for p in ATTACK_PATTERNS) or
+            any(re.search(p, text_no_accent) for p in ATTACK_PATTERNS_NO_ACCENT)
+        )
 
-            is_innocent = (
-                any(re.search(p, lower) for p in INNOCENT_PERSONAL) or
-                any(re.search(p, text_no_accent) for p in INNOCENT_NO_ACCENT)
-            )
+        is_innocent = (
+            any(re.search(p, lower) for p in INNOCENT_PERSONAL) or
+            any(re.search(p, text_no_accent) for p in INNOCENT_NO_ACCENT)
+        )
 
-            # 1. Có dấu hiệu xúc phạm/công kích kèm cảm xúc tiêu cực từ PhoBERT
-            if is_attack and conf >= 0.85:
-                label = "HATE" if conf >= 0.95 else "OFFENSIVE"
-                return {
-                    "label": label,
-                    "score": conf,
-                    "isToxic": True,
-                    "raw_label": raw_label,
-                    "reason": "Phát hiện nội dung xúc phạm/thù ghét cá nhân qua ViSoBERT (Tầng 2)"
-                }
+        # 1. Có từ ngữ công kích/mỉa mai/hạ bệ/trù ẻo rõ ràng (kể cả khi câu văn ngụy trang khiến PhoBERT gán NEU)
+        if is_attack and not is_innocent:
+            label = "HATE" if (raw_label == "NEG" and conf >= 0.90) else "OFFENSIVE"
+            score = conf if raw_label == "NEG" else 0.88
+            return {
+                "label": label,
+                "score": score,
+                "isToxic": True,
+                "raw_label": raw_label,
+                "reason": "Phát hiện nội dung xúc phạm/thù ghét cá nhân qua ViSoBERT (Tầng 2)"
+            }
 
-            # 2. Tiêu cực cực đoan (>= 98%) nhưng không phải cảm xúc cá nhân đơn thuần
-            if conf >= 0.985 and not is_innocent:
-                return {
-                    "label": "OFFENSIVE",
-                    "score": conf,
-                    "isToxic": True,
-                    "raw_label": raw_label,
-                    "reason": "Phát hiện chỉ trích tiêu cực gay gắt qua ViSoBERT (Tầng 2)"
-                }
+        # 2. Câu mang sắc thái tiêu cực cực đoan (>= 98.5%) từ PhoBERT và không phải tâm sự cá nhân
+        if raw_label == "NEG" and conf >= 0.985 and not is_innocent:
+            return {
+                "label": "OFFENSIVE",
+                "score": conf,
+                "isToxic": True,
+                "raw_label": raw_label,
+                "reason": "Phát hiện chỉ trích tiêu cực gay gắt qua ViSoBERT (Tầng 2)"
+            }
 
         return {
             "label": "CLEAN",

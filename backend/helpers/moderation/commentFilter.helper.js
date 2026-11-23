@@ -114,6 +114,13 @@ const TOXIC_PATTERNS = [
     weight: 90,
     reason: "Quảng cáo cờ bạc, lừa đảo",
   },
+
+  // 6. Trù ẻo tai nạn / Bạo lực / Chết chóc
+  {
+    pattern: /(gap\s*tai\s*nan|bi\s*(xe\s*tong|xe\s*dam|xe\s*can)|som\s*(chet|di\s*doi)|chet\s*(bo|tiet|khong\s*cho\s*chon)|ra\s*duong\s*bi\s*(dam|tong))/i,
+    weight: 90,
+    reason: "Trù ẻo bạo lực, tai nạn, chết chóc",
+  },
 ];
 
 /**
