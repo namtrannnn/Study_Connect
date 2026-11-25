@@ -594,8 +594,8 @@ module.exports.getComments = async (req, res) => {
 
       if (!modMeta.details) {
         modMeta.details = {
-          rawLabel: modMeta.isToxic ? "NEG" : "CLEAN",
-          rawConfidence: modMeta.isToxic ? (modMeta.toxicScore ? modMeta.toxicScore / 100 : 0.85) : 0.95,
+          rawLabel: modMeta.isToxic ? "VIOLATION" : "CLEAN",
+          rawConfidence: 0,
           matchedKeywords: [],
           detectedBehavior: modMeta.isToxic ? "Nội dung vi phạm tiêu chuẩn" : "Nội dung hợp lệ",
           explanation: modMeta.isToxic

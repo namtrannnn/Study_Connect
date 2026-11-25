@@ -636,13 +636,13 @@ function CommentsAdmin() {
                                             </div>
                                             {selectedCommentDetail.moderation.details.rawLabel && (
                                                 <span className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold tracking-wide shadow-sm border ${
-                                                    selectedCommentDetail.moderation.details.rawLabel === 'NEG' || selectedCommentDetail.moderation.details.rawLabel === 'REGEX_VIOLATION'
+                                                    selectedCommentDetail.moderation.details.rawLabel === 'NEG' || selectedCommentDetail.moderation.details.rawLabel === 'REGEX_VIOLATION' || selectedCommentDetail.moderation.details.rawLabel === 'VIOLATION'
                                                         ? (isDark ? 'bg-rose-500/25 text-rose-300 border-rose-500/40' : 'bg-rose-100 text-rose-800 border-rose-300')
                                                         : selectedCommentDetail.moderation.details.rawLabel === 'POS' 
                                                         ? (isDark ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300')
                                                         : (isDark ? 'bg-sky-500/25 text-sky-300 border-sky-500/40' : 'bg-sky-100 text-sky-800 border-sky-300')
                                                 }`}>
-                                                    Sắc thái AI: {selectedCommentDetail.moderation.details.rawLabel} ({Math.round((selectedCommentDetail.moderation.details.rawConfidence || 0) * 100)}%)
+                                                    Sắc thái AI: {selectedCommentDetail.moderation.details.rawLabel} {selectedCommentDetail.moderation.details.rawConfidence > 0 ? `(${Math.round(selectedCommentDetail.moderation.details.rawConfidence * 100)}%)` : '(Dữ liệu cũ)'}
                                                 </span>
                                             )}
                                         </div>
