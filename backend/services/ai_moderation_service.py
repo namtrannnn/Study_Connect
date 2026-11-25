@@ -36,25 +36,28 @@ def remove_accents(text: str) -> str:
 
 # Các dấu hiệu công kích / miệt thị / hạ nhục nhân phẩm / trù ẻo
 ATTACK_PATTERNS = [
-    r'\b(mặt|mắt|mõm)\s+(xấu|ma|lợn|dày|đần|hãm|ghê|tởm)\b',
+    r'\b(mặt|mắt|mõm)\s+(xấu|ma|lợn|dày|đần|hãm|ghê|tởm|như)\b',
     r'\bvô\s*(văn\s*hóa|học|ý\s*thức|liêm\s*sỉ|giáo\s*dục)\b',
-    r'\b(gia\s*đình|bố\s*mẹ|nhà)\s*nó\b',
-    r'\b(đồ|con|thằng|bọn|lũ)\s*(ngu|chó|lợn|súc\s*sinh|rác|khùng|điên|bại\s*não)\b',
-    r'\b(hãm|tởm|kinh\s*tởm|rẻ\s*rách|rẻ\s*tiền|lố\s*bịch|mất\s*dạy|mất\s*nết)\b',
-    r'\b(ảo\s*tưởng|khoe\s*khoang|khoe\s*mẽ|xàm\s*xí|bớt\s*xàm)\b',
-    r'\b(chết\s*đi|cút|biến|tiễn|đáng\s*đời)\b',
+    r'\b(không\s*có|thiếu)\s*(giáo\s*dục|văn\s*hóa|ý\s*thức|liêm\s*sỉ)\b',
+    r'\b(gia\s*đình|bố\s*mẹ|nhà)\s*(nó|mày|vô\s*phúc)\b',
+    r'\b(đồ|con|thằng|bọn|lũ)\s*(ngu|chó|lợn|súc\s*sinh|rác|khùng|điên|bại\s*não|mất\s*dạy)\b',
+    r'\b(hãm|tởm|kinh\s*tởm|phát\s*gớm|phát\s*tởm|rẻ\s*rách|rẻ\s*tiền|lố\s*bịch|kệch\s*cỡm|mất\s*dạy|mất\s*nết)\b',
+    r'\b(ảo\s*tưởng|khoe\s*khoang|khoe\s*mẽ|xàm\s*xí|bớt\s*xàm|hai\s*mặt|giả\s*tạo|giả\s*trân|đạo\s*đức\s*giả)\b',
+    r'\b(chết\s*đi|cút|biến|tiễn|đáng\s*đời|thất\s*đức)\b',
     r'\b(nhìn\s*cái\s*mặt|cái\s*bản\s*mặt)\b',
     r'\b(tôn\s*trọng\s*được)\b',
     r'\b(gặp\s*tai\s*nạn|bị\s*(xe\s*tông|xe\s*cán|xe\s*đâm)|sớm\s*(chết|đi\s*đời)|chết\s*bờ|chết\s*tiệt|chết\s*không\s*chỗ\s*chôn)\b',
 ]
 
 ATTACK_PATTERNS_NO_ACCENT = [
-    r'\b(mat|mom)\s+(xau|ma|lon|dan|ham|ghe|tom)\b',
-    r'\bvo\s*(van\s*hoa|hoc|y\s*thuc|liem\s*si)\b',
-    r'\b(do|con|thang|bon|lu)\s*(ngu|cho|lon|suc\s*sinh|rac|khung|dien|bai\s*nao)\b',
-    r'\b(ham|tom|kinh\s*tom|re\s*rach|re\s*tien|lo\s*bich|mat\s*day|mat\s*net)\b',
-    r'\b(ao\s*tuong|xam\s*xi|bot\s*xam)\b',
-    r'\b(chet\s*di|cut|bien|dang\s*doi)\b',
+    r'\b(mat|mom)\s+(xau|ma|lon|dan|ham|ghe|tom|nhu)\b',
+    r'\bvo\s*(van\s*hoa|hoc|y\s*thuc|liem\s*si|giao\s*duc)\b',
+    r'\b(khong\s*co|thieu)\s*(giao\s*duc|van\s*hoa|y\s*thuc)\b',
+    r'\b(gia\s*dinh|bo\s*me|nha)\s*(no|may|vo\s*phuc)\b',
+    r'\b(do|con|thang|bon|lu)\s*(ngu|cho|lon|suc\s*sinh|rac|khung|dien|bai\s*nao|mat\s*day)\b',
+    r'\b(ham|tom|kinh\s*tom|phat\s*gom|phat\s*tom|re\s*rach|re\s*tien|lo\s*bich|kech\s*com|mat\s*day|mat\s*net)\b',
+    r'\b(ao\s*tuong|xam\s*xi|bot\s*xam|hai\s*mat|gia\s*tao|dao\s*duc\s*gia)\b',
+    r'\b(chet\s*di|cut|bien|dang\s*doi|that\s*duc)\b',
     r'\b(nhin\s*cai\s*mat|cai\s*ban\s*mat)\b',
     r'\b(gap\s*tai\s*nan|bi\s*(xe\s*tong|xe\s*can|xe\s*dam)|som\s*(chet|di\s*doi)|chet\s*bo|chet\s*tiet)\b',
 ]
