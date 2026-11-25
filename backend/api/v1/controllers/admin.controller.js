@@ -581,8 +581,8 @@ module.exports.getComments = async (req, res) => {
         : null;
 
       const isToxicFallback = c.status === "hidden";
-      const moderationMeta = c.moderation && c.moderation.evaluatedAt
-        ? c.moderation
+      const modMeta = c.moderation && c.moderation.evaluatedAt
+        ? { ...(c.moderation.toObject ? c.moderation.toObject() : c.moderation) }
         : {
             isToxic: isToxicFallback,
             toxicScore: isToxicFallback ? 85 : 0,
@@ -592,9 +592,21 @@ module.exports.getComments = async (req, res) => {
             evaluatedAt: c.createdAt,
           };
 
+      if (!modMeta.details) {
+        modMeta.details = {
+          rawLabel: modMeta.isToxic ? "VIOLATION" : "CLEAN",
+          rawConfidence: 0,
+          matchedKeywords: [],
+          detectedBehavior: modMeta.isToxic ? "Nội dung vi phạm tiêu chuẩn" : "Nội dung hợp lệ",
+          explanation: modMeta.isToxic
+            ? (modMeta.reason || "Hệ thống phát hiện nội dung có tính chất tiêu cực / vi phạm.")
+            : "Bình luận hợp lệ, an toàn và tuân thủ tiêu chuẩn cộng đồng.",
+        };
+      }
+
       return {
         ...c,
-        moderation: moderationMeta,
+        moderation: modMeta,
         user_id: c.user,
         post_id: postObj,
         replies: childRepliesMap[String(c._id)] || [],

@@ -618,14 +618,76 @@ function CommentsAdmin() {
                                     </div>
                                 </div>
 
-                                {selectedCommentDetail.moderation.reason && (
-                                    <div className="text-xs pt-1.5 border-t border-black/5 dark:border-white/5">
-                                        <span className="text-[10px] text-gray-400 block mb-0.5">Lý do phát hiện:</span>
-                                        <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                                {/* XAI: Bóc tách phân tích chi tiết của AI */}
+                                {selectedCommentDetail.moderation.details ? (
+                                    <div className={`rounded-2xl border p-4 space-y-3.5 shadow-xl ${
+                                        isDark ? 'border-white/10 bg-[#162032]' : 'border-slate-200 bg-slate-50'
+                                    }`}>
+                                        <div className={`flex items-center justify-between border-b pb-2.5 ${
+                                            isDark ? 'border-white/10' : 'border-slate-200'
+                                        }`}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+                                                <span className={`text-xs font-black uppercase tracking-wider ${
+                                                    isDark ? 'text-white' : 'text-slate-900'
+                                                }`}>
+                                                    Bóc tách quyết định kiểm duyệt
+                                                </span>
+                                            </div>
+                                            {selectedCommentDetail.moderation.details.rawLabel && (
+                                                <span className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold tracking-wide shadow-sm border ${
+                                                    selectedCommentDetail.moderation.details.rawLabel === 'NEG' || selectedCommentDetail.moderation.details.rawLabel === 'REGEX_VIOLATION' || selectedCommentDetail.moderation.details.rawLabel === 'VIOLATION'
+                                                        ? (isDark ? 'bg-rose-500/25 text-rose-300 border-rose-500/40' : 'bg-rose-100 text-rose-800 border-rose-300')
+                                                        : selectedCommentDetail.moderation.details.rawLabel === 'POS' 
+                                                        ? (isDark ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-300')
+                                                        : (isDark ? 'bg-sky-500/25 text-sky-300 border-sky-500/40' : 'bg-sky-100 text-sky-800 border-sky-300')
+                                                }`}>
+                                                    Sắc thái AI: {selectedCommentDetail.moderation.details.rawLabel} {selectedCommentDetail.moderation.details.rawConfidence > 0 ? `(${Math.round(selectedCommentDetail.moderation.details.rawConfidence * 100)}%)` : '(Dữ liệu cũ)'}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {selectedCommentDetail.moderation.details.detectedBehavior && (
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className={`font-semibold ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>Nhóm hành vi:</span>
+                                                <span className={`font-extrabold text-xs px-2.5 py-1 rounded-lg border ${
+                                                    isDark ? 'text-white bg-white/10 border-white/15' : 'text-slate-900 bg-slate-200/70 border-slate-300'
+                                                }`}>
+                                                    {selectedCommentDetail.moderation.details.detectedBehavior}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {selectedCommentDetail.moderation.details.matchedKeywords && selectedCommentDetail.moderation.details.matchedKeywords.length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                                <span className={`font-semibold ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>Cụm từ vi phạm:</span>
+                                                {selectedCommentDetail.moderation.details.matchedKeywords.map((kw, idx) => (
+                                                    <span key={idx} className={`rounded-lg px-2.5 py-1 font-black text-xs border shadow-sm ${
+                                                        isDark ? 'bg-rose-500/30 text-rose-200 border-rose-500/50' : 'bg-rose-100 text-rose-800 border-rose-300'
+                                                    }`}>
+                                                        "{kw}"
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {selectedCommentDetail.moderation.details.explanation && (
+                                            <div className={`rounded-xl border p-3.5 text-xs leading-relaxed font-semibold shadow-sm ${
+                                                isDark ? 'bg-indigo-950/60 border-indigo-500/40 text-indigo-100' : 'bg-indigo-50/90 border-indigo-200 text-indigo-950'
+                                            }`}>
+                                                <span className={`font-black mr-1.5 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>💡 Giải trình:</span>
+                                                {selectedCommentDetail.moderation.details.explanation}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : selectedCommentDetail.moderation.reason ? (
+                                    <div className={`text-xs pt-2 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                                        <span className={`text-[10px] block mb-0.5 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>Lý do phát hiện:</span>
+                                        <span className={`font-medium text-[11px] ${isDark ? 'text-gray-200' : 'text-slate-800'}`}>
                                             {selectedCommentDetail.moderation.reason}
                                         </span>
                                     </div>
-                                )}
+                                ) : null}
                             </div>
                         )}
 

@@ -200,6 +200,7 @@ module.exports.createComment = async (req, res) => {
           label: toxicCheck.label || (toxicCheck.isToxic ? "OFFENSIVE" : "CLEAN"),
           engine: toxicCheck.engine || "regex",
           reason: toxicCheck.reason || "",
+          details: toxicCheck.details || null,
           evaluatedAt: new Date(),
         };
         if (toxicCheck.isToxic) {
@@ -602,6 +603,7 @@ module.exports.editComment = async (req, res) => {
           label: toxicCheck.label || (toxicCheck.isToxic ? "OFFENSIVE" : "CLEAN"),
           engine: toxicCheck.engine || "regex",
           reason: toxicCheck.reason || "",
+          details: toxicCheck.details || null,
           evaluatedAt: new Date(),
         };
         if (post && post.filterToxicComments) {

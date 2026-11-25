@@ -138,6 +138,28 @@ const commentSchema = new mongoose.Schema(
         type: String,
         default: "",
       },
+      details: {
+        rawLabel: {
+          type: String,
+          default: "",
+        },
+        rawConfidence: {
+          type: Number,
+          default: 0,
+        },
+        matchedKeywords: {
+          type: [String],
+          default: [],
+        },
+        detectedBehavior: {
+          type: String,
+          default: "",
+        },
+        explanation: {
+          type: String,
+          default: "",
+        },
+      },
       evaluatedAt: {
         type: Date,
         default: null,
