@@ -626,6 +626,52 @@ function CommentsAdmin() {
                                         </span>
                                     </div>
                                 )}
+
+                                {/* XAI: Bóc tách phân tích chi tiết của AI */}
+                                {selectedCommentDetail.moderation.details && (
+                                    <div className="rounded-xl border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.02] p-3 space-y-2 text-xs">
+                                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-400">
+                                            <span>BÓC TÁCH QUYẾT ĐỊNH CỦA AI:</span>
+                                            {selectedCommentDetail.moderation.details.rawLabel && (
+                                                <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-extrabold ${
+                                                    selectedCommentDetail.moderation.details.rawLabel === 'NEG' || selectedCommentDetail.moderation.details.rawLabel === 'REGEX_VIOLATION'
+                                                        ? 'bg-rose-500/15 text-rose-400 border border-rose-500/20' 
+                                                        : selectedCommentDetail.moderation.details.rawLabel === 'POS' 
+                                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' 
+                                                        : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                                                }`}>
+                                                    Sắc thái gốc: {selectedCommentDetail.moderation.details.rawLabel} ({Math.round((selectedCommentDetail.moderation.details.rawConfidence || 0) * 100)}%)
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {selectedCommentDetail.moderation.details.detectedBehavior && (
+                                            <div className="flex items-center gap-1.5 text-[11px]">
+                                                <span className="text-gray-400">Nhóm hành vi:</span>
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                                    {selectedCommentDetail.moderation.details.detectedBehavior}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {selectedCommentDetail.moderation.details.matchedKeywords && selectedCommentDetail.moderation.details.matchedKeywords.length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                                <span className="text-gray-400">Cụm từ phát hiện:</span>
+                                                {selectedCommentDetail.moderation.details.matchedKeywords.map((kw, idx) => (
+                                                    <span key={idx} className="rounded px-1.5 py-0.5 bg-rose-500/20 text-rose-300 font-bold text-[10px] border border-rose-500/30">
+                                                        "{kw}"
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {selectedCommentDetail.moderation.details.explanation && (
+                                            <div className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 italic pt-1 border-t border-black/5 dark:border-white/5">
+                                                💡 {selectedCommentDetail.moderation.details.explanation}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 

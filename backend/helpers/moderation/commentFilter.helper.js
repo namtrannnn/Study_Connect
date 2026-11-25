@@ -161,12 +161,14 @@ function evaluateCommentToxicity(content = "", customKeywords = []) {
   }
 
   // 2. Quét qua tập Toxic Patterns chuẩn hóa (quét raw, normalized, và noAccent)
+  const matchedKeywords = [];
   for (const item of TOXIC_PATTERNS) {
-    if (
-      item.pattern.test(raw) ||
-      item.pattern.test(normalized) ||
-      item.pattern.test(noAccent)
-    ) {
+    const match = raw.match(item.pattern) || normalized.match(item.pattern) || noAccent.match(item.pattern);
+    if (match) {
+      const kw = match[0].trim();
+      if (kw && !matchedKeywords.includes(kw)) {
+        matchedKeywords.push(kw);
+      }
       if (item.weight > highestToxicScore) {
         highestToxicScore = item.weight;
         detectedReason = item.reason;
@@ -178,12 +180,23 @@ function evaluateCommentToxicity(content = "", customKeywords = []) {
   const isToxic = highestToxicScore >= 70;
   const label = isToxic ? (highestToxicScore >= 90 ? "HATE" : "OFFENSIVE") : "CLEAN";
 
+  const details = {
+    rawLabel: isToxic ? "REGEX_VIOLATION" : "REGEX_CLEAN",
+    rawConfidence: isToxic ? 1.0 : 0.0,
+    matchedKeywords,
+    detectedBehavior: detectedReason || (isToxic ? "Từ ngữ thô tục / vi phạm tiêu chuẩn" : "An toàn"),
+    explanation: isToxic
+      ? `Tầng 1 (Regex Engine - 0ms) phát hiện trực tiếp từ khóa vi phạm: ${matchedKeywords.map((k) => `"${k}"`).join(", ")}.`
+      : "Bình luận không chứa từ khóa vi phạm trực tiếp của Tầng 1.",
+  };
+
   return {
     isToxic,
     toxicScore: highestToxicScore,
     label,
     engine: "regex",
     reason: detectedReason || (isToxic ? "Bình luận chứa ngôn từ độc hại / tiêu cực" : ""),
+    details,
   };
 }
 
@@ -234,6 +247,13 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
           reason:
             response.data.reason ||
             "Phát hiện nội dung xúc phạm/thù ghét qua ViSoBERT (Tầng 2)",
+          details: response.data.details || {
+            rawLabel: response.data.raw_label || "NEG",
+            rawConfidence: response.data.score || 0.85,
+            matchedKeywords: [],
+            detectedBehavior: "Phát hiện nội dung vi phạm ngữ cảnh",
+            explanation: "ViSoBERT AI phát hiện câu nói mang sắc thái thù ghét/xúc phạm.",
+          },
         };
       } else if (response.data && !response.data.isToxic) {
         return {
@@ -244,6 +264,13 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
           label: "CLEAN",
           engine: "visobert",
           reason: "",
+          details: response.data.details || {
+            rawLabel: response.data.raw_label || "POS",
+            rawConfidence: response.data.score || 0.95,
+            matchedKeywords: [],
+            detectedBehavior: "Nội dung an toàn",
+            explanation: "ViSoBERT AI xác nhận nội dung hợp lệ và tuân thủ tiêu chuẩn cộng đồng.",
+          },
         };
       }
     } catch (_) {
