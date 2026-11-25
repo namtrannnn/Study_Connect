@@ -618,47 +618,45 @@ function CommentsAdmin() {
                                     </div>
                                 </div>
 
-                                {selectedCommentDetail.moderation.reason && (
-                                    <div className="text-xs pt-1.5 border-t border-black/5 dark:border-white/5">
-                                        <span className="text-[10px] text-gray-400 block mb-0.5">Lý do phát hiện:</span>
-                                        <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">
-                                            {selectedCommentDetail.moderation.reason}
-                                        </span>
-                                    </div>
-                                )}
-
                                 {/* XAI: Bóc tách phân tích chi tiết của AI */}
-                                {selectedCommentDetail.moderation.details && (
-                                    <div className="rounded-xl border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.02] p-3 space-y-2 text-xs">
-                                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-400">
-                                            <span>BÓC TÁCH QUYẾT ĐỊNH CỦA AI:</span>
+                                {selectedCommentDetail.moderation.details ? (
+                                    <div className={`rounded-2xl border p-4 space-y-3 shadow-lg ${
+                                        isDark ? 'border-white/10 bg-slate-900/90' : 'border-slate-200 bg-slate-50'
+                                    }`}>
+                                        <div className="flex items-center justify-between border-b pb-2.5 dark:border-white/10 border-slate-200">
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                                                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-white">
+                                                    Bóc tách quyết định kiểm duyệt
+                                                </span>
+                                            </div>
                                             {selectedCommentDetail.moderation.details.rawLabel && (
-                                                <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-extrabold ${
+                                                <span className={`px-2.5 py-1 rounded-xl text-[11px] font-bold tracking-wide shadow-sm ${
                                                     selectedCommentDetail.moderation.details.rawLabel === 'NEG' || selectedCommentDetail.moderation.details.rawLabel === 'REGEX_VIOLATION'
-                                                        ? 'bg-rose-500/15 text-rose-400 border border-rose-500/20' 
+                                                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' 
                                                         : selectedCommentDetail.moderation.details.rawLabel === 'POS' 
-                                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' 
-                                                        : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                                        : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                                                 }`}>
-                                                    Sắc thái gốc: {selectedCommentDetail.moderation.details.rawLabel} ({Math.round((selectedCommentDetail.moderation.details.rawConfidence || 0) * 100)}%)
+                                                    Sắc thái AI: {selectedCommentDetail.moderation.details.rawLabel} ({Math.round((selectedCommentDetail.moderation.details.rawConfidence || 0) * 100)}%)
                                                 </span>
                                             )}
                                         </div>
 
                                         {selectedCommentDetail.moderation.details.detectedBehavior && (
-                                            <div className="flex items-center gap-1.5 text-[11px]">
-                                                <span className="text-gray-400">Nhóm hành vi:</span>
-                                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-slate-400 font-medium">Nhóm hành vi:</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-100 px-2 py-0.5 rounded-lg bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10">
                                                     {selectedCommentDetail.moderation.details.detectedBehavior}
                                                 </span>
                                             </div>
                                         )}
 
                                         {selectedCommentDetail.moderation.details.matchedKeywords && selectedCommentDetail.moderation.details.matchedKeywords.length > 0 && (
-                                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                                                <span className="text-gray-400">Cụm từ phát hiện:</span>
+                                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                                <span className="text-slate-400 font-medium">Cụm từ vi phạm:</span>
                                                 {selectedCommentDetail.moderation.details.matchedKeywords.map((kw, idx) => (
-                                                    <span key={idx} className="rounded px-1.5 py-0.5 bg-rose-500/20 text-rose-300 font-bold text-[10px] border border-rose-500/30">
+                                                    <span key={idx} className="rounded-lg px-2 py-0.5 bg-rose-500/20 text-rose-300 font-bold text-xs border border-rose-500/40 shadow-sm">
                                                         "{kw}"
                                                     </span>
                                                 ))}
@@ -666,12 +664,20 @@ function CommentsAdmin() {
                                         )}
 
                                         {selectedCommentDetail.moderation.details.explanation && (
-                                            <div className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 italic pt-1 border-t border-black/5 dark:border-white/5">
-                                                💡 {selectedCommentDetail.moderation.details.explanation}
+                                            <div className="rounded-xl bg-indigo-500/10 dark:bg-indigo-950/40 border border-indigo-500/20 p-3 text-xs leading-relaxed text-indigo-950 dark:text-indigo-200 font-medium shadow-sm">
+                                                <span className="font-extrabold text-indigo-600 dark:text-indigo-400 mr-1.5">💡 Giải trình:</span>
+                                                {selectedCommentDetail.moderation.details.explanation}
                                             </div>
                                         )}
                                     </div>
-                                )}
+                                ) : selectedCommentDetail.moderation.reason ? (
+                                    <div className="text-xs pt-1.5 border-t border-black/5 dark:border-white/5">
+                                        <span className="text-[10px] text-gray-400 block mb-0.5">Lý do phát hiện:</span>
+                                        <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                                            {selectedCommentDetail.moderation.reason}
+                                        </span>
+                                    </div>
+                                ) : null}
                             </div>
                         )}
 
