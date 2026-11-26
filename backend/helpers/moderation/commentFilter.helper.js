@@ -258,15 +258,13 @@ async function checkCommentWithAI(content = "", customKeywords = []) {
       } else if (response.data && !response.data.isToxic) {
         return {
           isToxic: false,
-          toxicScore: response.data.score
-            ? Math.round((1 - response.data.score) * 100)
-            : 0,
+          toxicScore: 0,
           label: "CLEAN",
           engine: "visobert",
           reason: "",
           details: response.data.details || {
-            rawLabel: response.data.raw_label || "POS",
-            rawConfidence: response.data.score || 0.95,
+            rawLabel: response.data.raw_label || "NEU",
+            rawConfidence: response.data.score || 0,
             matchedKeywords: [],
             detectedBehavior: "Nội dung an toàn",
             explanation: "ViSoBERT AI xác nhận nội dung hợp lệ và tuân thủ tiêu chuẩn cộng đồng.",
