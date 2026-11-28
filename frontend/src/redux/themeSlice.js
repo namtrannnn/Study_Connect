@@ -1,9 +1,21 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+const getSavedTheme = () => {
+  try {
+    const saved = localStorage.getItem("dark");
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (parsed === "dark" || parsed === true) return "dark";
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const themeSlice = createSlice({
   name: "theme",
   initialState: {
-    theme: JSON.parse(localStorage.getItem("dark")) || null,
+    theme: getSavedTheme(),
   },
   reducers: {
     TOGGLE_THEME: (state, action) => {

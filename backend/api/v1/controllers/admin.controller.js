@@ -1073,19 +1073,296 @@ module.exports.deleteBlacklistHashtag = async (req, res) => {
 // 8. [GET] /api/v1/admin/analytics/interactions
 module.exports.getInteractionAnalytics = async (req, res) => {
   try {
-    const topLikedPosts = await Post.find({ deleted: false })
+    const { range = "7d", startDate: customStart, endDate: customEnd } = req.query;
+
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+    let prevStart = new Date();
+    let prevEnd = new Date();
+
+    if (range === "today") {
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      prevStart.setDate(prevStart.getDate() - 1);
+      prevStart.setHours(0, 0, 0, 0);
+      prevEnd.setDate(prevEnd.getDate() - 1);
+      prevEnd.setHours(23, 59, 59, 999);
+    } else if (range === "30d") {
+      start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
+
+      prevEnd = new Date(start);
+      prevEnd.setMilliseconds(prevEnd.getMilliseconds() - 1);
+      prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - 30);
+    } else if (range === "90d") {
+      start.setDate(start.getDate() - 89);
+      start.setHours(0, 0, 0, 0);
+
+      prevEnd = new Date(start);
+      prevEnd.setMilliseconds(prevEnd.getMilliseconds() - 1);
+      prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - 90);
+    } else if (range === "custom" && customStart && customEnd) {
+      start = new Date(customStart);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(customEnd);
+      end.setHours(23, 59, 59, 999);
+
+      const diffMs = Math.max(86400000, end.getTime() - start.getTime());
+      prevEnd = new Date(start.getTime() - 1);
+      prevStart = new Date(prevEnd.getTime() - diffMs);
+    } else {
+      // Default: 7d
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+
+      prevEnd = new Date(start);
+      prevEnd.setMilliseconds(prevEnd.getMilliseconds() - 1);
+      prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - 7);
+    }
+
+    // 1. Current & Previous Period Metrics
+    const [
+      totalLikes,
+      totalComments,
+      totalPosts,
+      totalNewUsers,
+      prevLikes,
+      prevComments,
+      prevPosts,
+      prevNewUsers,
+    ] = await Promise.all([
+      PostLike.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+      PostComment.countDocuments({ deleted: false, createdAt: { $gte: start, $lte: end } }),
+      Post.countDocuments({ status: { $ne: "deleted" }, createdAt: { $gte: start, $lte: end } }),
+      User.countDocuments({ deleted: false, createdAt: { $gte: start, $lte: end } }),
+      PostLike.countDocuments({ createdAt: { $gte: prevStart, $lte: prevEnd } }),
+      PostComment.countDocuments({ deleted: false, createdAt: { $gte: prevStart, $lte: prevEnd } }),
+      Post.countDocuments({ status: { $ne: "deleted" }, createdAt: { $gte: prevStart, $lte: prevEnd } }),
+      User.countDocuments({ deleted: false, createdAt: { $gte: prevStart, $lte: prevEnd } }),
+    ]);
+
+    const totalInteractions = totalLikes + totalComments;
+    const prevInteractions = prevLikes + prevComments;
+
+    const calcGrowth = (curr, prev) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return Math.round(((curr - prev) / prev) * 100);
+    };
+
+    const overview = {
+      totalInteractions,
+      interactionsGrowth: calcGrowth(totalInteractions, prevInteractions),
+      totalLikes,
+      likesGrowth: calcGrowth(totalLikes, prevLikes),
+      totalComments,
+      commentsGrowth: calcGrowth(totalComments, prevComments),
+      totalPosts,
+      postsGrowth: calcGrowth(totalPosts, prevPosts),
+      totalNewUsers,
+      usersGrowth: calcGrowth(totalNewUsers, prevNewUsers),
+      avgInteractionsPerPost: totalPosts > 0 ? +(totalInteractions / totalPosts).toFixed(1) : 0,
+      avgCommentsPerPost: totalPosts > 0 ? +(totalComments / totalPosts).toFixed(1) : 0,
+    };
+
+    // 2. Timeline Breakdown (Trend Graph)
+    const timeline = [];
+    if (range === "today") {
+      for (let h = 0; h < 24; h += 2) {
+        const hStart = new Date(start);
+        hStart.setHours(h, 0, 0, 0);
+        const hEnd = new Date(start);
+        hEnd.setHours(h + 1, 59, 59, 999);
+
+        const [likes, comments, posts] = await Promise.all([
+          PostLike.countDocuments({ createdAt: { $gte: hStart, $lte: hEnd } }),
+          PostComment.countDocuments({ deleted: false, createdAt: { $gte: hStart, $lte: hEnd } }),
+          Post.countDocuments({ status: { $ne: "deleted" }, createdAt: { $gte: hStart, $lte: hEnd } }),
+        ]);
+
+        timeline.push({
+          label: `${h}h-${h + 2}h`,
+          likes,
+          comments,
+          posts,
+          interactions: likes + comments,
+        });
+      }
+    } else {
+      const dayDiff = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
+      const step = dayDiff > 35 ? Math.ceil(dayDiff / 14) : 1;
+
+      for (let i = 0; i < dayDiff; i += step) {
+        const dStart = new Date(start);
+        dStart.setDate(dStart.getDate() + i);
+        dStart.setHours(0, 0, 0, 0);
+
+        const dEnd = new Date(dStart);
+        dEnd.setDate(dEnd.getDate() + step);
+        dEnd.setMilliseconds(-1);
+        if (dEnd > end) dEnd.setTime(end.getTime());
+
+        const [likes, comments, posts, users] = await Promise.all([
+          PostLike.countDocuments({ createdAt: { $gte: dStart, $lte: dEnd } }),
+          PostComment.countDocuments({ deleted: false, createdAt: { $gte: dStart, $lte: dEnd } }),
+          Post.countDocuments({ status: { $ne: "deleted" }, createdAt: { $gte: dStart, $lte: dEnd } }),
+          User.countDocuments({ deleted: false, createdAt: { $gte: dStart, $lte: dEnd } }),
+        ]);
+
+        const label = dStart.toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+        });
+
+        timeline.push({
+          label,
+          likes,
+          comments,
+          posts,
+          users,
+          interactions: likes + comments,
+        });
+      }
+    }
+
+    // 3. Hourly Activity Heatmap / Peak hours (0 - 23h)
+    const hourlyDistribution = Array.from({ length: 24 }, (_, i) => ({
+      hour: `${i}h`,
+      rawHour: i,
+      count: 0,
+    }));
+
+    try {
+      const [likeHours, commentHours] = await Promise.all([
+        PostLike.aggregate([
+          { $match: { createdAt: { $gte: start, $lte: end } } },
+          { $project: { hour: { $hour: { date: "$createdAt", timezone: "+07:00" } } } },
+          { $group: { _id: "$hour", count: { $sum: 1 } } },
+        ]),
+        PostComment.aggregate([
+          { $match: { deleted: false, createdAt: { $gte: start, $lte: end } } },
+          { $project: { hour: { $hour: { date: "$createdAt", timezone: "+07:00" } } } },
+          { $group: { _id: "$hour", count: { $sum: 1 } } },
+        ]),
+      ]);
+
+      [...likeHours, ...commentHours].forEach((item) => {
+        if (item._id >= 0 && item._id < 24) {
+          hourlyDistribution[item._id].count += item.count;
+        }
+      });
+    } catch (aggErr) {
+      console.warn("Hourly aggregation warning:", aggErr.message);
+    }
+
+    // 4. Content breakdown
+    const [postsWithImage, postsTextOnly, activePostsCount, hiddenPostsCount] = await Promise.all([
+      Post.countDocuments({
+        status: { $ne: "deleted" },
+        createdAt: { $gte: start, $lte: end },
+        "images.0": { $exists: true },
+      }),
+      Post.countDocuments({
+        status: { $ne: "deleted" },
+        createdAt: { $gte: start, $lte: end },
+        $or: [{ images: { $size: 0 } }, { images: { $exists: false } }],
+      }),
+      Post.countDocuments({
+        status: "active",
+        createdAt: { $gte: start, $lte: end },
+      }),
+      Post.countDocuments({
+        status: { $in: ["hidden", "pending_admin"] },
+        createdAt: { $gte: start, $lte: end },
+      }),
+    ]);
+
+    const contentStats = {
+      postsWithImage,
+      postsTextOnly,
+      activePostsCount,
+      hiddenPostsCount,
+    };
+
+    // 5. Top Liked Posts
+    let topLikedPosts = await Post.find({
+      status: { $ne: "deleted" },
+      createdAt: { $gte: start, $lte: end },
+    })
       .populate("user_id", "_id fullName username avatar")
-      .sort({ likesCount: -1 })
-      .limit(5)
+      .sort({ likesCount: -1, commentsCount: -1 })
+      .limit(6)
       .lean();
 
+    if (topLikedPosts.length === 0) {
+      topLikedPosts = await Post.find({ status: { $ne: "deleted" } })
+        .populate("user_id", "_id fullName username avatar")
+        .sort({ likesCount: -1 })
+        .limit(6)
+        .lean();
+    }
+
+    // 6. Top Active Users
     const topActiveUsers = await User.find({ deleted: false })
-      .select("_id fullName username avatar following followers status")
+      .select("_id fullName username avatar following followers status role createdAt")
       .sort({ followers: -1 })
-      .limit(5)
+      .limit(6)
       .lean();
 
-    return res.status(200).json({ code: 200, data: { topLikedPosts, topActiveUsers } });
+    await Promise.all(
+      topActiveUsers.map(async (u) => {
+        u.postsCount = await Post.countDocuments({ user_id: u._id, status: { $ne: "deleted" } });
+      })
+    );
+
+    // 7. Top Hashtags
+    const periodPosts = await Post.find({
+      status: { $ne: "deleted" },
+      createdAt: { $gte: start, $lte: end },
+    })
+      .select("hashtags likesCount commentsCount")
+      .lean();
+
+    const hashtagMap = {};
+    const postsForTags = periodPosts.length > 0 ? periodPosts : await Post.find({ status: { $ne: "deleted" } }).limit(100).select("hashtags likesCount commentsCount").lean();
+    postsForTags.forEach((p) => {
+      if (Array.isArray(p.hashtags)) {
+        p.hashtags.forEach((tag) => {
+          const clean = String(tag).replace("#", "").trim().toLowerCase();
+          if (clean) {
+            if (!hashtagMap[clean]) {
+              hashtagMap[clean] = { tag: clean, count: 0, interactions: 0 };
+            }
+            hashtagMap[clean].count += 1;
+            hashtagMap[clean].interactions += (p.likesCount || 0) + (p.commentsCount || 0);
+          }
+        });
+      }
+    });
+
+    const topHashtags = Object.values(hashtagMap)
+      .sort((a, b) => b.interactions - a.interactions || b.count - a.count)
+      .slice(0, 6);
+
+    return res.status(200).json({
+      code: 200,
+      data: {
+        range,
+        startDate: start,
+        endDate: end,
+        overview,
+        timeline,
+        hourlyDistribution,
+        contentStats,
+        topLikedPosts,
+        topActiveUsers,
+        topHashtags,
+      },
+    });
   } catch (error) {
     console.error("getInteractionAnalytics error:", error);
     return res.status(500).json({ message: "Không thể lấy phân tích tương tác" });

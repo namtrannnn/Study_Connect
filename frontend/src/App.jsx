@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import React, { Fragment, useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -29,7 +29,7 @@ function App() {
     const dispatch = useDispatch();
 
     useEffect(() => {
-        if (dark === 'dark') {
+        if (dark === 'dark' || dark === true) {
             document.documentElement.classList.add('dark');
         } else {
             document.documentElement.classList.remove('dark');
@@ -204,30 +204,26 @@ function App() {
                         );
                     })}
 
-                    {privateRoute.map((route, index) => {
-                        let Layout = DefaultLayoutAdmin;
-                        const Page = route.component;
-
-                        if (route.layout) {
-                            Layout = route.layout;
-                        } else if (route.layout === null) {
-                            Layout = Fragment;
+                    <Route
+                        element={
+                            <AdminProtectedRoute>
+                                <DefaultLayoutAdmin>
+                                    <Outlet />
+                                </DefaultLayoutAdmin>
+                            </AdminProtectedRoute>
                         }
-
-                        return (
-                            <Route
-                                key={index}
-                                path={route.path}
-                                element={
-                                    <AdminProtectedRoute>
-                                        <Layout>
-                                            <Page />
-                                        </Layout>
-                                    </AdminProtectedRoute>
-                                }
-                            />
-                        );
-                    })}
+                    >
+                        {privateRoute.map((route, index) => {
+                            const Page = route.component;
+                            return (
+                                <Route
+                                    key={index}
+                                    path={route.path}
+                                    element={<Page />}
+                                />
+                            );
+                        })}
+                    </Route>
                 </Routes>
             </div>
         </Router>

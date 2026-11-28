@@ -110,8 +110,8 @@ export const deleteBlacklistHashtag = async (id) => {
 
 
 // 8. Interaction Analytics
-export const getAdminInteractionAnalytics = async () => {
-    const res = await httpRequest.get('/admin/analytics/interactions');
+export const getAdminInteractionAnalytics = async (params = {}) => {
+    const res = await httpRequest.get('/admin/analytics/interactions', { params });
     return res.data;
 };
 
